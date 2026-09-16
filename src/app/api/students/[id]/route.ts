@@ -11,7 +11,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { role: string } | null;
-    
+
     // Allow TELECALLER, ADMIN, or the EMPLOYEE who owns it (for simplicity, we'll just check if logged in for now, ideally restrict based on role)
     if (!payload) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
