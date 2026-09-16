@@ -94,6 +94,7 @@ export default function AddStudentPage() {
             village: '',
             studyInterestedAt: '',
             ableToBearFee: '',
+            doorstepCompleted: false,
           });
           window.scrollTo(0, 0);
           setSuccessMsg('Student added successfully! You can add another.');
@@ -149,7 +150,7 @@ export default function AddStudentPage() {
               className="btn btn-primary" 
               onClick={() => {
                 setFormData({
-                  studentName: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', schoolName: '', schoolArea: '', schoolDistrict: '', schoolMandal: '', schoolVillage: '', remarks: '', district: '', mandal: '', village: '', studyInterestedAt: '', ableToBearFee: ''
+                  studentName: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', schoolName: '', schoolArea: '', schoolDistrict: '', schoolMandal: '', schoolVillage: '', remarks: '', district: '', mandal: '', village: '', studyInterestedAt: '', ableToBearFee: '', doorstepCompleted: false
                 });
                 setIsSuccessScreen(false);
                 setSuccessMsg('');
