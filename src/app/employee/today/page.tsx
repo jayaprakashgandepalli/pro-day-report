@@ -109,9 +109,9 @@ export default function TodayReport() {
                 </div>
                 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button className="btn-icon" onClick={() => alert('Edit not implemented in MVP demo')} style={{ color: 'var(--primary-color)' }}>
+                  <Link href={`/students/edit/${s.id}`} className="btn-icon" style={{ color: 'var(--primary-color)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Edit size={18} />
-                  </button>
+                  </Link>
                   <button className="btn-icon" onClick={() => handleDelete(s.id)} style={{ color: 'var(--danger)' }}>
                     <Trash2 size={18} />
                   </button>

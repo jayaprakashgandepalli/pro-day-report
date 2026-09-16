@@ -3,37 +3,61 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id         String   @id @default(cuid())
-  employeeId String   @unique
+  id         String    @id @default(cuid())
+  employeeId String    @unique
   name       String
   password   String
-  role       String   @default("EMPLOYEE") // EMPLOYEE, TEAM_LEADER, ADMIN
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  role       String    @default("EMPLOYEE") // EMPLOYEE, TEAM_LEADER, ADMIN, TELECALLER
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   students   Student[]
 }
 
+model ConfigValue {
+  id        String        @id @default(cuid())
+  type      String        // 'DISTRICT', 'MANDAL', 'VILLAGE', 'GROUP', 'STATUS', 'SCHOOL', 'OCCUPATION', 'STUDY_INTEREST', 'FEE_BEARABLE'
+  value     String
+  parentId  String?       // Used for hierarchy (e.g. Village -> Mandal -> District)
+  parent    ConfigValue?  @relation("ConfigHierarchy", fields: [parentId], references: [id])
+  children  ConfigValue[] @relation("ConfigHierarchy")
+  createdAt DateTime      @default(now())
+}
+
 model Student {
-  id           String   @id @default(cuid())
-  employeeId   String
-  employee     User     @relation(fields: [employeeId], references: [employeeId])
-  studentName  String
-  fatherName   String?
-  occupation   String?
-  address      String?
-  phone        String
-  whatsapp     String?
-  group        String
-  visitNumber  String?
-  schoolName   String?
-  schoolArea   String?
-  remarks      String?
-  leadStatus   String?  @default("New")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  employeeId        String
+  employee          User     @relation(fields: [employeeId], references: [employeeId])
+  studentName       String
+  fatherName        String?
+  occupation        String?
+  address           String?
+  phone             String
+  whatsapp          String?
+  group             String
+  visitNumber       String?
+  
+  // New Hierarchical Location Fields (Can store the ConfigValue names directly for easy querying/PDF)
+  district          String?
+  mandal            String?
+  village           String?
+  
+  schoolName        String?
+  schoolArea        String?
+  remarks           String?
+  leadStatus        String?  @default("New")
+  
+  // New Fields
+  studyInterestedAt String?
+  ableToBearFee     String?
+  nextFollowUpDate  DateTime?
+  doorstepCompleted Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

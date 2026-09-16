@@ -64,6 +64,15 @@ export default function MorePage() {
             <Shield size={20} className="text-muted" /> Admin Dashboard
           </button>
         )}
+        {user?.role === 'TELECALLER' && (
+          <button 
+            className="btn btn-outline" 
+            style={{ border: 'none', borderBottom: '1px solid var(--border-color)', borderRadius: 0, justifyContent: 'flex-start', color: 'var(--text-color)' }}
+            onClick={() => router.push('/telecaller')}
+          >
+            <Shield size={20} className="text-muted" /> Telecaller Dashboard
+          </button>
+        )}
         <button 
           className="btn btn-outline" 
           style={{ border: 'none', borderBottom: '1px solid var(--border-color)', borderRadius: 0, justifyContent: 'flex-start', color: 'var(--text-color)' }}

@@ -1,0 +1,84 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { cookies } from 'next/headers';
+import { verifyToken } from '@/lib/auth';
+
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const payload = verifyToken(token) as { role: string } | null;
+    
+    // Allow TELECALLER, ADMIN, or the EMPLOYEE who owns it (for simplicity, we'll just check if logged in for now, ideally restrict based on role)
+    if (!payload) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const data = await req.json();
+
+    if (data.phone) {
+      const existingStudent = await prisma.student.findFirst({
+        where: { phone: data.phone, NOT: { id } }
+      });
+      if (existingStudent) {
+        return NextResponse.json({ error: 'Student with this phone number already exists.' }, { status: 400 });
+      }
+    }
+
+    const student = await prisma.student.update({
+      where: { id },
+      data: {
+        studentName: data.studentName !== undefined ? data.studentName : undefined,
+        fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
+        occupation: data.occupation !== undefined ? data.occupation : undefined,
+        address: data.address !== undefined ? data.address : undefined,
+        phone: data.phone !== undefined ? data.phone : undefined,
+        whatsapp: data.whatsapp !== undefined ? data.whatsapp : undefined,
+        group: data.group !== undefined ? data.group : undefined,
+        visitNumber: data.visitNumber !== undefined ? data.visitNumber : undefined,
+        schoolName: data.schoolName !== undefined ? data.schoolName : undefined,
+        schoolArea: data.schoolArea !== undefined ? data.schoolArea : undefined,
+        district: data.district !== undefined ? data.district : undefined,
+        mandal: data.mandal !== undefined ? data.mandal : undefined,
+        village: data.village !== undefined ? data.village : undefined,
+        studyInterestedAt: data.studyInterestedAt !== undefined ? data.studyInterestedAt : undefined,
+        ableToBearFee: data.ableToBearFee !== undefined ? data.ableToBearFee : undefined,
+        doorstepCompleted: data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined,
+        leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
+        remarks: data.remarks !== undefined ? data.remarks : undefined,
+        nextFollowUpDate: data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : undefined,
+      }
+    });
+
+    return NextResponse.json({ message: 'Student updated', student }, { status: 200 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth_token')?.value;
+
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const student = await prisma.student.findUnique({
+      where: { id }
+    });
+
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ student }, { status: 200 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

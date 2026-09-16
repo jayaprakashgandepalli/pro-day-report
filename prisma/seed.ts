@@ -4,12 +4,13 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  const employeePassword = await bcrypt.hash('emp123', 10);
+  const adminPassword = await bcrypt.hash('Psd@1986', 10);
+  const employeePassword = await bcrypt.hash('Psd@1986', 10);
+  const telecallerPassword = await bcrypt.hash('Psd@1986', 10);
 
   const admin = await prisma.user.upsert({
     where: { employeeId: 'admin' },
-    update: {},
+    update: { password: adminPassword },
     create: {
       employeeId: 'admin',
       name: 'System Admin',
@@ -19,17 +20,28 @@ async function main() {
   });
 
   const emp1 = await prisma.user.upsert({
-    where: { employeeId: 'EMP001' },
-    update: {},
+    where: { employeeId: 'prasad' },
+    update: { password: employeePassword },
     create: {
-      employeeId: 'EMP001',
+      employeeId: 'prasad',
       name: 'Ravi Kumar',
       password: employeePassword,
       role: 'EMPLOYEE',
     },
   });
 
-  console.log('Seeded database:', { admin, emp1 });
+  const telecaller1 = await prisma.user.upsert({
+    where: { employeeId: 'telecaller' },
+    update: { password: telecallerPassword },
+    create: {
+      employeeId: 'telecaller',
+      name: 'Telecaller',
+      password: telecallerPassword,
+      role: 'TELECALLER',
+    },
+  });
+
+  console.log('Seeded database:', { admin, emp1, telecaller1 });
 }
 
 main()

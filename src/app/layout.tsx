@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import BottomNav from '@/components/BottomNav';
 
 export const metadata: Metadata = {
   title: 'Student Day Report',
@@ -15,10 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <main style={{ paddingBottom: '70px' }}>
+        <main>
           {children}
         </main>
-        <BottomNav />
       </body>
     </html>
   );
