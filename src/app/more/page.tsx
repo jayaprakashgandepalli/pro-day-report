@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, Shield, Info } from 'lucide-react';
+import { LogOut, User, Shield, Info, ArrowLeft } from 'lucide-react';
 
 export default function MorePage() {
   const router = useRouter();
@@ -37,7 +37,10 @@ export default function MorePage() {
 
   return (
     <div className="container" style={{ paddingBottom: '100px' }}>
-      <header className="app-header" style={{ margin: '-1rem -1rem 1rem -1rem' }}>
+      <header className="app-header" style={{ margin: '-1rem -1rem 1rem -1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <button onClick={() => router.back()} className="btn-icon" style={{ position: 'absolute', left: '1rem', border: 'none', background: 'none', padding: 0, display: 'flex', alignItems: 'center' }}>
+          <ArrowLeft />
+        </button>
         <h1 style={{ margin: 0, fontSize: '1.25rem', textAlign: 'center' }}>Menu</h1>
       </header>
 

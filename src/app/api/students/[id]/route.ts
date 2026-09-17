@@ -19,9 +19,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const data = await req.json();
 
-    if (data.phone) {
+    const currentStudent = await prisma.student.findUnique({ where: { id } });
+
+    if (data.phone && currentStudent && data.phone !== currentStudent.phone) {
       const existingStudent = await prisma.student.findFirst({
-        where: { phone: data.phone, NOT: { id } }
+        where: { phone: data.phone }
       });
       if (existingStudent) {
         return NextResponse.json({ error: 'Student with this phone number already exists.' }, { status: 400 });
@@ -45,11 +47,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         mandal: data.mandal !== undefined ? data.mandal : undefined,
         village: data.village !== undefined ? data.village : undefined,
         studyInterestedAt: data.studyInterestedAt !== undefined ? data.studyInterestedAt : undefined,
+        educationStage: data.educationStage !== undefined ? data.educationStage : undefined,
         ableToBearFee: data.ableToBearFee !== undefined ? data.ableToBearFee : undefined,
         doorstepCompleted: data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined,
         leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
         remarks: data.remarks !== undefined ? data.remarks : undefined,
-        nextFollowUpDate: data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : undefined,
+        nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : undefined,
+        nextFollowUpDate: data.nextFollowUpType === 'Date' && data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : (data.nextFollowUpType && data.nextFollowUpType !== 'Date' ? null : undefined),
       }
     });
 

@@ -158,7 +158,7 @@ export default function ConfigPage() {
     if (routeType === 'occupations') return ['OCCUPATION'];
     if (routeType === 'schools') return ['SCHOOL'];
     if (routeType === 'statuses') return ['STATUS'];
-    if (routeType === 'survey') return ['STUDY_INTEREST', 'FEE_BEARABLE'];
+    if (routeType === 'survey') return ['STUDY_INTEREST', 'FEE_BEARABLE', 'EDUCATION_STAGE'];
     return [];
   };
 

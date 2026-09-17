@@ -78,10 +78,83 @@ h2 { font-size: 1.25rem; font-weight: 600; }
 /* Components */
 .card {
   background-color: var(--white);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  border: 1px solid rgba(0,0,0,0.05);
   padding: 1.25rem;
   margin-bottom: 1rem;
+}
+
+.btn-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+.btn-action-icon:hover { transform: translateY(-2px); }
+.btn-action-icon.edit { color: #3b82f6; background: #eff6ff; }
+.btn-action-icon.add-visit { color: #0ea5e9; background: #f0f9ff; }
+.btn-action-icon.delete { color: #ef4444; background: #fef2f2; }
+
+.card-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+.btn-call {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.25);
+  font-size: 0.9rem;
+}
+.btn-call:hover { box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transform: translateY(-1px); }
+
+.btn-whatsapp {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+  font-size: 0.9rem;
+}
+.btn-whatsapp:hover { box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); transform: translateY(-1px); }
+
+.student-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+.student-subtitle {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
 }
 
 .btn {

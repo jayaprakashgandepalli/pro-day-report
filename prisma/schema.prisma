@@ -39,6 +39,7 @@ model Student {
   address           String?
   phone             String
   whatsapp          String?
+  gender            String?
   group             String
   visitNumber       String?
   
@@ -54,10 +55,24 @@ model Student {
   
   // New Fields
   studyInterestedAt String?
+  educationStage    String?
   ableToBearFee     String?
   nextFollowUpDate  DateTime?
+  nextFollowUpType  String?
   doorstepCompleted Boolean  @default(false)
+  visits            Visit[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model Visit {
+  id               String    @id @default(cuid())
+  studentId        String
+  student          Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  visitDate        DateTime  @default(now())
+  remarks          String
+  nextFollowUpDate DateTime?
+  nextFollowUpType String?
+  createdAt        DateTime  @default(now())
 }

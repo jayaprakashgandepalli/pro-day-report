@@ -20,7 +20,7 @@ export default function BottomNav() {
         <UserPlus size={24} />
         <span>Add Student</span>
       </Link>
-      <Link href="/employee/today" prefetch={false} className={`nav-item ${pathname === '/employee/today' ? 'active' : ''}`}>
+      <Link href="/reports/generate" prefetch={false} className={`nav-item ${pathname === '/reports/generate' ? 'active' : ''}`}>
         <FileText size={24} />
         <span>Day Report</span>
       </Link>

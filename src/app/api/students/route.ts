@@ -42,6 +42,7 @@ export async function POST(req: Request) {
         address: data.address || null,
         phone: data.phone,
         whatsapp: data.whatsapp || null,
+        gender: data.gender || null,
         group: data.group,
         visitNumber: data.visitNumber || null,
         schoolName: data.schoolName || null,
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
         mandal: data.mandal || null,
         village: data.village || null,
         studyInterestedAt: data.studyInterestedAt || null,
+        educationStage: data.educationStage || null,
         ableToBearFee: data.ableToBearFee || null,
         doorstepCompleted: data.doorstepCompleted ? true : false,
       },
@@ -85,11 +87,10 @@ export async function GET(req: Request) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    let whereClause: any = {};
+    let whereClause: any = { AND: [] };
 
-    // If EMPLOYEE, only show their own students
     if (payload.role === 'EMPLOYEE') {
-      whereClause.employeeId = payload.employeeId;
+      whereClause.AND.push({ employeeId: payload.employeeId });
     }
 
     const startDate = searchParams.get('startDate');
@@ -100,38 +101,76 @@ export async function GET(req: Request) {
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(endDate);
       endOfDay.setHours(23, 59, 59, 999);
-      whereClause.createdAt = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+      whereClause.AND.push({
+        OR: [
+          { createdAt: { gte: startOfDay, lte: endOfDay } },
+          { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
+        ]
+      });
     } else if (date) {
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-      whereClause.createdAt = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+      whereClause.AND.push({
+        OR: [
+          { createdAt: { gte: startOfDay, lte: endOfDay } },
+          { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
+        ]
+      });
     }
 
     if (search) {
-      whereClause.OR = [
-        { studentName: { contains: search } },
-        { phone: { contains: search } }
-      ];
+      whereClause.AND.push({
+        OR: [
+          { studentName: { contains: search } },
+          { phone: { contains: search } }
+        ]
+      });
     }
 
-    if (interest) whereClause.studyInterestedAt = interest;
-    if (fee) whereClause.ableToBearFee = fee;
+    if (interest) whereClause.AND.push({ studyInterestedAt: interest });
+    if (fee) whereClause.AND.push({ ableToBearFee: fee });
 
     if (location) {
-      whereClause.OR = [
-        ...(whereClause.OR || []),
-        { district: location },
-        { mandal: location },
-        { village: location }
-      ];
+      whereClause.AND.push({
+        OR: [
+          { district: location },
+          { mandal: location },
+          { village: location }
+        ]
+      });
+    }
+
+    const followup = searchParams.get('followup');
+    if (followup) {
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      if (followup === 'today') {
+        whereClause.AND.push({
+          OR: [
+            { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
+            { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
+          ]
+        });
+      } else if (followup === 'upcoming') {
+        whereClause.AND.push({
+          OR: [
+            { nextFollowUpType: 'Date', nextFollowUpDate: { gt: endOfToday } },
+            { nextFollowUpType: null, nextFollowUpDate: { gt: endOfToday } }
+          ]
+        });
+      } else if (followup === 'action') {
+        whereClause.AND.push({
+          nextFollowUpType: { in: ['After Exams', 'After Results'] }
+        });
+      }
+    }
+
+    // If no AND conditions were added, remove the empty array
+    if (whereClause.AND.length === 0) {
+      delete whereClause.AND;
     }
 
     const total = await prisma.student.count({ where: whereClause });

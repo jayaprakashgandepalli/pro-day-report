@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function EditStudent() {
@@ -25,6 +25,7 @@ export default function EditStudent() {
     mandal: '',
     village: '',
     studyInterestedAt: '',
+    educationStage: '',
     ableToBearFee: '',
     schoolDistrict: '',
     schoolMandal: '',
@@ -36,11 +37,25 @@ export default function EditStudent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sameAsPhone, setSameAsPhone] = useState(false);
+  const [visits, setVisits] = useState<any[]>([]);
 
   useEffect(() => {
     fetchConfigs();
     fetchStudent();
+    fetchVisits();
   }, [studentId]);
+
+  const fetchVisits = async () => {
+    try {
+      const res = await fetch(`/api/students/${studentId}/visits`);
+      if (res.ok) {
+        const data = await res.json();
+        setVisits(data.visits || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchConfigs = async () => {
     try {
@@ -75,6 +90,7 @@ export default function EditStudent() {
           mandal: s.mandal || '',
           village: s.village || '',
           studyInterestedAt: s.studyInterestedAt || '',
+          educationStage: s.educationStage || '',
           ableToBearFee: s.ableToBearFee || '',
           schoolDistrict: '',
           schoolMandal: '',
@@ -146,6 +162,7 @@ export default function EditStudent() {
       
       if (res.ok) {
         alert('Student updated successfully!');
+        router.refresh();
         router.back();
       } else {
         alert(data.error || 'Failed to update student');
@@ -309,6 +326,14 @@ export default function EditStudent() {
           </div>
 
           <div className="form-group">
+            <label className="form-label" htmlFor="educationStage">Current Education Stage</label>
+            <select id="educationStage" name="educationStage" className="form-control" value={formData.educationStage} onChange={handleChange}>
+              <option value="">Select option</option>
+              {getByType('EDUCATION_STAGE').map(c => <option key={c.id} value={c.value}>{c.value}</option>)}
+            </select>
+          </div>
+
+          <div className="form-group">
             <label className="form-label" htmlFor="ableToBearFee">Able to Bear Fee?</label>
             <select id="ableToBearFee" name="ableToBearFee" className="form-control" value={formData.ableToBearFee} onChange={handleChange}>
               <option value="">Select option</option>
@@ -345,6 +370,40 @@ export default function EditStudent() {
             </button>
           </div>
         </form>
+      )}
+
+      {!loading && visits.length > 0 && (
+        <div className="card" style={{ marginTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Clock size={20} className="text-muted" /> Visit History
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {visits.map((v, i) => (
+              <div key={v.id} style={{ padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                  <span style={{ fontWeight: 600 }}>Visit {visits.length - i}</span>
+                  <span className="text-muted">{new Date(v.visitDate).toLocaleDateString('en-GB')}</span>
+                </div>
+                <p style={{ margin: '0 0 0.5rem 0' }}>{v.remarks}</p>
+                {v.nextFollowUpType && v.nextFollowUpType !== 'Date' && (
+                  <div style={{ fontSize: '0.875rem', color: '#0ea5e9', fontWeight: 500 }}>
+                    Next follow-up: {v.nextFollowUpType}
+                  </div>
+                )}
+                {v.nextFollowUpType === 'Date' && v.nextFollowUpDate && (
+                  <div style={{ fontSize: '0.875rem', color: '#0ea5e9', fontWeight: 500 }}>
+                    Next follow-up: {new Date(v.nextFollowUpDate).toLocaleDateString('en-GB')}
+                  </div>
+                )}
+                {!v.nextFollowUpType && v.nextFollowUpDate && (
+                  <div style={{ fontSize: '0.875rem', color: '#0ea5e9', fontWeight: 500 }}>
+                    Next follow-up: {new Date(v.nextFollowUpDate).toLocaleDateString('en-GB')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
