@@ -22,6 +22,7 @@ export default function AddStudentPage() {
     remarks: '',
     district: '',
     mandal: '',
+    village: '',
     studyInterestedAt: '',
     educationStage: '',
     ableToBearFee: '',
