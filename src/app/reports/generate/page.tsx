@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ArrowLeft, Download, FileText, Calendar } from 'lucide-react';
+import { ArrowLeft, Download, FileText, Calendar, Share2, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GeneratePDFPage() {
   const today = new Date().toISOString().split('T')[0];
-  const [loading, setLoading] = useState(false); // don't load initially until they click or we auto-load today
-  const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState<'download' | 'share' | null>(null);
   const [data, setData] = useState<any>(null);
   const [configs, setConfigs] = useState<any[]>([]);
   const [startDate, setStartDate] = useState(today);
@@ -62,13 +62,13 @@ export default function GeneratePDFPage() {
     fetchReportData(startDate, endDate);
   };
 
-  const generatePDF = async () => {
+  const generatePDF = async (action: 'download' | 'share' = 'download') => {
     if (!data || !data.students.length) {
       alert("No students found in the selected date range.");
       return;
     }
 
-    setGenerating(true);
+    setGenerating(action);
 
     try {
       const imgData = await new Promise<string>((resolve, reject) => {
@@ -187,15 +187,33 @@ export default function GeneratePDFPage() {
 
       doc.text('Employee Signature: _________________', doc.internal.pageSize.getWidth() - 80, finalY + 20);
 
-      // Save
+      // Save or Share
       const filename = `Report_${data.employeeName.replace(' ', '_')}_${data.date.replace(/[/ ]/g, '-')}.pdf`;
-      doc.save(filename);
+      
+      if (action === 'share') {
+        const pdfBlob = doc.output('blob');
+        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+        
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: 'Day Report',
+            text: 'Here is the Student Day Report.',
+            files: [file]
+          });
+        } else {
+          alert('Sharing files is not supported on this device/browser. Downloading instead.');
+          doc.save(filename);
+        }
+      } else {
+        doc.save(filename);
+        alert('✅ PDF Downloaded successfully! Check your Downloads folder.');
+      }
       
     } catch (e) {
       console.error(e);
       alert('Error generating PDF');
     } finally {
-      setGenerating(false);
+      setGenerating(null);
     }
   };
 
@@ -247,19 +265,27 @@ export default function GeneratePDFPage() {
         <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
           <FileText size={48} style={{ color: 'var(--primary-color)', margin: '0 auto 1rem auto' }} />
           <h2 style={{ marginBottom: '0.5rem' }}>Report is Ready</h2>
-          <p className="text-muted" style={{ marginBottom: '2rem' }}>
-            {data.students.length} students found in this date range.
-          </p>
-
-          <button 
-            className="btn btn-primary" 
-            onClick={generatePDF} 
-            disabled={generating || data.students.length === 0}
-            style={{ display: 'inline-flex', width: 'auto' }}
-          >
-            <Download size={20} />
-            {generating ? 'Generating PDF...' : 'Download PDF Report'}
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            <button 
+              className="btn btn-primary" 
+              onClick={() => generatePDF('download')} 
+              disabled={generating !== null || data.students.length === 0}
+              style={{ display: 'inline-flex', width: '100%', maxWidth: '300px', justifyContent: 'center' }}
+            >
+              <Download size={20} />
+              {generating === 'download' ? 'Downloading...' : 'Download PDF'}
+            </button>
+            
+            <button 
+              className="btn btn-outline" 
+              onClick={() => generatePDF('share')} 
+              disabled={generating !== null || data.students.length === 0}
+              style={{ display: 'inline-flex', width: '100%', maxWidth: '300px', justifyContent: 'center', borderColor: '#25D366', color: '#25D366' }}
+            >
+              <Share2 size={20} />
+              {generating === 'share' ? 'Preparing...' : 'Share to WhatsApp'}
+            </button>
+          </div>
         </div>
       )}
     </div>
