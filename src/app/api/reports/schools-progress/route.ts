@@ -70,7 +70,9 @@ export async function GET(req: Request) {
 
     // Map counts to school names
     const countsMap = studentCounts.reduce((acc, curr) => {
-      acc[curr.schoolName] = curr._count.id;
+      if (curr.schoolName) {
+        acc[curr.schoolName] = curr._count.id;
+      }
       return acc;
     }, {} as Record<string, number>);
 
