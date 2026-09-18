@@ -38,6 +38,21 @@ export default function EditStudent() {
   const [saving, setSaving] = useState(false);
   const [sameAsPhone, setSameAsPhone] = useState(false);
   const [visits, setVisits] = useState<any[]>([]);
+  const [schoolStats, setSchoolStats] = useState<{ collected: number } | null>(null);
+
+  useEffect(() => {
+    if (formData.schoolName) {
+      fetch(`/api/schools/stats?schoolName=${encodeURIComponent(formData.schoolName)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.collected !== undefined) {
+            setSchoolStats(data);
+          }
+        });
+    } else {
+      setSchoolStats(null);
+    }
+  }, [formData.schoolName]);
 
   useEffect(() => {
     fetchConfigs();
@@ -205,10 +220,7 @@ export default function EditStudent() {
             </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="address">Address</label>
-            <textarea id="address" name="address" className="form-control" rows={2} value={formData.address} onChange={handleChange}></textarea>
-          </div>
+
 
           <div className="form-group">
             <label className="form-label" htmlFor="phone">Phone Number *</label>
@@ -273,6 +285,13 @@ export default function EditStudent() {
             </div>
           )}
 
+          {formData.village && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="address">Landmark</label>
+              <input type="text" id="address" name="address" className="form-control" value={formData.address} onChange={handleChange} placeholder="Enter landmark details" />
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" htmlFor="visitNumber">Visit No.</label>
             <input type="text" id="visitNumber" name="visitNumber" className="form-control" value={formData.visitNumber} onChange={handleChange} />
@@ -314,6 +333,49 @@ export default function EditStudent() {
                 {getByParent('SCHOOL', formData.schoolVillage).map(c => <option key={c.id} value={c.value}>{c.value}</option>)}
                 {!formData.schoolVillage && formData.schoolName && <option value={formData.schoolName}>{formData.schoolName}</option>}
               </select>
+            </div>
+          )}
+
+          {formData.schoolName && schoolStats && (
+            <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              {(() => {
+                const schoolConfig = configs.find(c => c.value === formData.schoolName && c.type === 'SCHOOL');
+                const strength = schoolConfig?.strength || 0;
+                
+                const gradeMap: Record<string, string> = {
+                  'A+': 'A+ (Vizag Hostel Schools)',
+                  'A': 'A (Local Corporate Schools)',
+                  'B': 'B (Local Private Schools)',
+                  'C': 'C (ZPH Schools)'
+                };
+                
+                const grade = schoolConfig?.grade ? gradeMap[schoolConfig.grade] || schoolConfig.grade : 'N/A';
+                
+                const collected = schoolStats.collected;
+                const remaining = Math.max(0, strength - collected);
+                const percentage = strength > 0 ? Math.min(100, Math.round((collected / strength) * 100)) : 0;
+                
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                      <span style={{ fontWeight: 600 }}>School Stats</span>
+                      <span style={{ background: '#dbeafe', color: '#1e40af', padding: '0.1rem 0.5rem', borderRadius: '4px', fontWeight: 500 }}>Grade: {grade}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
+                      <span>Total Strength: {strength}</span>
+                      <span>Collected: {collected}</span>
+                      <span>Remaining: {remaining}</span>
+                    </div>
+                    {strength > 0 ? (
+                      <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${percentage}%`, background: percentage >= 100 ? '#10b981' : '#3b82f6', transition: 'width 0.3s ease' }}></div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.5rem' }}>Total strength is not configured for this school.</div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
 

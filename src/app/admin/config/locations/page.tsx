@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trash2, Plus, ChevronLeft, ChevronRight, Edit2, Check, X } from 'lucide-react';
 
-function LocationSection({ type, items, configs, handleDelete, handleAdd, addValues, setAddValues, getByType }: any) {
+function LocationSection({ type, items, configs, handleDelete, handleAdd, handleEdit, addValues, setAddValues, getByType }: any) {
+  // Editing state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   // Filter items based on parent selection
   let filteredItems = items;
   const parentValue = addValues[`${type}_parent`];
@@ -25,6 +28,21 @@ function LocationSection({ type, items, configs, handleDelete, handleAdd, addVal
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+
+  const startEdit = (item: any) => {
+    setEditingId(item.id);
+    setEditValue(item.value);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const saveEdit = () => {
+    if (!editValue) return;
+    handleEdit(editingId, editValue);
+    setEditingId(null);
+  };
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', minHeight: '600px', marginBottom: 0 }}>
@@ -63,15 +81,33 @@ function LocationSection({ type, items, configs, handleDelete, handleAdd, addVal
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         {currentItems.map((item: any) => {
           const parent = configs.find((c: any) => c.id === item.parentId);
+          
+          if (editingId === item.id) {
+            return (
+              <div key={item.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '4px', border: '1px solid #3b82f6' }}>
+                <input type="text" className="form-control" value={editValue} onChange={e => setEditValue(e.target.value)} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                  <button onClick={saveEdit} className="btn btn-primary" style={{ padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><Check size={16} /> Save</button>
+                  <button onClick={cancelEdit} className="btn btn-outline" style={{ padding: '0.25rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}><X size={16} /> Cancel</button>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{item.value}</span>
                 {parent && <span className="text-muted" style={{ fontSize: '0.75rem' }}>in {parent.value}</span>}
               </div>
-              <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.25rem' }}>
-                <Trash2 size={16} />
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => startEdit(item)} style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}>
+                  <Edit2 size={16} />
+                </button>
+                <button onClick={() => handleDelete(item.id)} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.25rem' }}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           );
         })}
@@ -156,6 +192,21 @@ export default function LocationsConfigPage() {
     }
   };
 
+  const handleEdit = async (id: string, value: string) => {
+    try {
+      const res = await fetch(`/api/config/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value })
+      });
+      if (res.ok) {
+        fetchConfigs();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '2rem' }}>Manage Locations</h1>
@@ -176,6 +227,7 @@ export default function LocationsConfigPage() {
                 items={items}
                 configs={configs}
                 handleAdd={handleAdd}
+                handleEdit={handleEdit}
                 handleDelete={handleDelete}
                 addValues={addValues}
                 setAddValues={setAddValues}

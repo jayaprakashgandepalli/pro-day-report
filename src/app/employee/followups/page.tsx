@@ -287,6 +287,9 @@ export default function FollowUpsPage() {
               <div><strong style={{ color: '#475569' }}>School:</strong> {resolveName(viewStudent.schoolName) || 'N/A'} {viewStudent.schoolArea ? `(${resolveName(viewStudent.schoolArea)})` : ''}</div>
               
               <div><strong style={{ color: '#475569' }}>Location:</strong> {[resolveName(viewStudent.village), resolveName(viewStudent.mandal), resolveName(viewStudent.district)].filter(Boolean).join(', ') || 'N/A'}</div>
+              {viewStudent.address && (
+                <div><strong style={{ color: '#475569' }}>Landmark:</strong> {viewStudent.address}</div>
+              )}
               
               <div style={{ height: '1px', background: '#e2e8f0', margin: '0.5rem 0' }}></div>
               

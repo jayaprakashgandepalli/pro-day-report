@@ -26,7 +26,12 @@ model ConfigValue {
   parentId  String?       // Used for hierarchy (e.g. Village -> Mandal -> District)
   parent    ConfigValue?  @relation("ConfigHierarchy", fields: [parentId], references: [id])
   children  ConfigValue[] @relation("ConfigHierarchy")
+  strength  Int?          @default(0) // Used for school strength
+  grade     String?       // Used for school grade (e.g., A+, A, B)
   createdAt DateTime      @default(now())
+
+  @@index([type])
+  @@index([parentId])
 }
 
 model Student {
@@ -64,6 +69,10 @@ model Student {
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@index([schoolName])
+  @@index([mandal])
+  @@index([employeeId])
 }
 
 model Visit {

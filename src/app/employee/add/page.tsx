@@ -30,6 +30,7 @@ export default function AddStudentPage() {
     schoolMandal: '',
     schoolVillage: '',
     doorstepCompleted: false,
+    address: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +38,54 @@ export default function AddStudentPage() {
   const [isSuccessScreen, setIsSuccessScreen] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [sameAsPhone, setSameAsPhone] = useState(true);
+  const [schoolStats, setSchoolStats] = useState<{ collected: number } | null>(null);
+  const [phoneExistsError, setPhoneExistsError] = useState('');
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+
+  // Check if phone number already exists
+  useEffect(() => {
+    const checkPhone = async () => {
+      if (formData.phone && formData.phone.length >= 10) {
+        setIsCheckingPhone(true);
+        try {
+          const res = await fetch(`/api/students/check-phone?phone=${encodeURIComponent(formData.phone)}`);
+          const data = await res.json();
+          if (data.exists) {
+            setPhoneExistsError('This number is already registered.');
+          } else {
+            setPhoneExistsError('');
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setIsCheckingPhone(false);
+        }
+      } else {
+        setPhoneExistsError('');
+      }
+    };
+    
+    // Add a small debounce
+    const timeoutId = setTimeout(() => {
+      checkPhone();
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [formData.phone]);
+
+  useEffect(() => {
+    if (formData.schoolName) {
+      fetch(`/api/schools/stats?schoolName=${encodeURIComponent(formData.schoolName)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.collected !== undefined) {
+            setSchoolStats(data);
+          }
+        });
+    } else {
+      setSchoolStats(null);
+    }
+  }, [formData.schoolName]);
 
   useEffect(() => {
     fetch('/api/config')
@@ -55,6 +104,11 @@ export default function AddStudentPage() {
 
   const handleSave = async (e: React.FormEvent, addAnother = false) => {
     e.preventDefault();
+    if (phoneExistsError) {
+      setError('Cannot save. ' + phoneExistsError);
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     setSuccessMsg('');
@@ -62,7 +116,6 @@ export default function AddStudentPage() {
     try {
       const payload = {
         ...formData,
-        address: '', // Blank since we removed the field but schema still allows it
         // Save the village as the schoolArea string since it's a string in the DB
         schoolArea: formData.schoolVillage || '',
         whatsapp: sameAsPhone ? formData.phone : formData.whatsapp,
@@ -99,6 +152,7 @@ export default function AddStudentPage() {
             educationStage: '',
             ableToBearFee: '',
             doorstepCompleted: false,
+            address: '',
           });
           window.scrollTo(0, 0);
           setSuccessMsg('Student added successfully! You can add another.');
@@ -214,9 +268,11 @@ export default function AddStudentPage() {
               <Phone size={18} color="#10b981" /> Contact Information
             </h3>
 
-            <div className="form-group">
+            <div className="form-group" style={{ position: 'relative' }}>
               <label className="form-label" htmlFor="phone">Phone Number *</label>
-              <input required type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} />
+              <input required type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} style={{ borderColor: phoneExistsError ? 'var(--danger)' : '' }} />
+              {isCheckingPhone && <span style={{ position: 'absolute', right: '10px', top: '38px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Checking...</span>}
+              {phoneExistsError && <span className="form-error">{phoneExistsError}</span>}
             </div>
 
             <div className="form-group">
@@ -293,6 +349,49 @@ export default function AddStudentPage() {
                 </select>
               </div>
             )}
+
+            {formData.schoolName && schoolStats && (
+              <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                {(() => {
+                  const schoolConfig = configs.find(c => c.value === formData.schoolName && c.type === 'SCHOOL');
+                  const strength = schoolConfig?.strength || 0;
+                  
+                  const gradeMap: Record<string, string> = {
+                    'A+': 'A+ (Vizag Hostel Schools)',
+                    'A': 'A (Local Corporate Schools)',
+                    'B': 'B (Local Private Schools)',
+                    'C': 'C (ZPH Schools)'
+                  };
+                  
+                  const grade = schoolConfig?.grade ? gradeMap[schoolConfig.grade] || schoolConfig.grade : 'N/A';
+                  
+                  const collected = schoolStats.collected;
+                  const remaining = Math.max(0, strength - collected);
+                  const percentage = strength > 0 ? Math.min(100, Math.round((collected / strength) * 100)) : 0;
+                  
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        <span style={{ fontWeight: 600 }}>School Stats</span>
+                        <span style={{ background: '#dbeafe', color: '#1e40af', padding: '0.1rem 0.5rem', borderRadius: '4px', fontWeight: 500 }}>Grade: {grade}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b', marginBottom: '0.25rem' }}>
+                        <span>Total Strength: {strength}</span>
+                        <span>Collected: {collected}</span>
+                        <span>Remaining: {remaining}</span>
+                      </div>
+                      {strength > 0 ? (
+                        <div style={{ height: '8px', width: '100%', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${percentage}%`, background: percentage >= 100 ? '#10b981' : '#3b82f6', transition: 'width 0.3s ease' }}></div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.5rem' }}>Total strength is not configured for this school.</div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Section 4: Location & Status */}
@@ -326,6 +425,13 @@ export default function AddStudentPage() {
                   <option value="">Select Village</option>
                   {getByParent('VILLAGE', formData.mandal).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>
+              </div>
+            )}
+
+            {formData.village && (
+              <div className="form-group">
+                <label className="form-label" htmlFor="address">Landmark</label>
+                <input type="text" id="address" name="address" className="form-control" value={formData.address} onChange={handleChange} placeholder="Enter landmark details" />
               </div>
             )}
 

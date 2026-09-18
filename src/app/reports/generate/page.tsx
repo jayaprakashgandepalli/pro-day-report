@@ -117,7 +117,11 @@ export default function GeneratePDFPage() {
       // Table
       const tableData = data.students.map((s: any, index: number) => {
         const addressParts = [getConfigName(s.village), getConfigName(s.mandal), getConfigName(s.district)].filter(Boolean).join(', ');
-        const finalAddress = addressParts || s.address || '-';
+        let finalAddress = addressParts;
+        if (s.address) {
+          finalAddress = finalAddress ? `${finalAddress}\nLandmark: ${s.address}` : s.address;
+        }
+        if (!finalAddress) finalAddress = '-';
         
         let extraRemarks = s.remarks || '';
         if (s.studyInterestedAt) extraRemarks += ` | Int: ${getConfigName(s.studyInterestedAt)}`;

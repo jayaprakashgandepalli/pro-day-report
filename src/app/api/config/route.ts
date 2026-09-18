@@ -8,11 +8,7 @@ export const dynamic = 'force-dynamic';
 // GET all config values, grouped by type
 export async function GET() {
   try {
-    const configs = await prisma.configValue.findMany({
-      include: {
-        children: true, // useful for districts -> mandals etc.
-      }
-    });
+    const configs = await prisma.configValue.findMany();
     
     return NextResponse.json({ configs }, { status: 200 });
   } catch (error) {
@@ -34,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json();
-    const { type, value, parentId } = data;
+    const { type, value, parentId, strength, grade } = data;
 
     if (!type || !value) {
       return NextResponse.json({ error: 'Type and Value are required' }, { status: 400 });
@@ -44,7 +40,9 @@ export async function POST(req: Request) {
       data: {
         type,
         value,
-        parentId: parentId || null
+        parentId: parentId || null,
+        strength: strength ? parseInt(strength, 10) : 0,
+        grade: grade || null,
       }
     });
 

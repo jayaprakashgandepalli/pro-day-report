@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, Shield, Info, ArrowLeft } from 'lucide-react';
+import { LogOut, User, Shield, Info, ArrowLeft, BarChart2 } from 'lucide-react';
 
 export default function MorePage() {
   const router = useRouter();
@@ -82,6 +82,13 @@ export default function MorePage() {
           onClick={() => alert('App version 1.0.0')}
         >
           <Info size={20} className="text-muted" /> About App
+        </button>
+        <button 
+          className="btn btn-outline" 
+          style={{ border: 'none', borderBottom: '1px solid var(--border-color)', borderRadius: 0, justifyContent: 'flex-start', color: 'var(--text-color)' }}
+          onClick={() => router.push('/analytics')}
+        >
+          <BarChart2 size={20} className="text-primary" style={{ color: 'var(--primary-color)' }} /> Analytics
         </button>
         <button 
           className="btn btn-outline" 
