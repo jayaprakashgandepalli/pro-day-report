@@ -6,6 +6,9 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { ArrowLeft, Download, FileText, Calendar, Share2, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 export default function GeneratePDFPage() {
   const today = new Date().toISOString().split('T')[0];
@@ -192,17 +195,48 @@ export default function GeneratePDFPage() {
       
       if (action === 'share') {
         const pdfBlob = doc.output('blob');
-        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
         
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: 'Day Report',
-            text: 'Here is the Student Day Report.',
-            files: [file]
-          });
+        if (Capacitor.isNativePlatform()) {
+          // Native Android/iOS sharing
+          try {
+            const reader = new FileReader();
+            reader.readAsDataURL(pdfBlob);
+            reader.onloadend = async () => {
+              const base64data = (reader.result as string).split(',')[1];
+              
+              const fileResult = await Filesystem.writeFile({
+                path: filename,
+                data: base64data,
+                directory: Directory.Cache
+              });
+              
+              await Share.share({
+                title: 'Day Report',
+                text: 'Here is the Student Day Report.',
+                url: fileResult.uri,
+                dialogTitle: 'Share Report to WhatsApp'
+              });
+              setGenerating(null);
+            };
+            return; // Wait for reader to finish
+          } catch (err) {
+            console.error('Capacitor Share Error:', err);
+            alert('Sharing failed. Downloading instead.');
+            doc.save(filename);
+          }
         } else {
-          alert('Sharing files is not supported on this device/browser. Downloading instead.');
-          doc.save(filename);
+          // Web sharing
+          const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'Day Report',
+              text: 'Here is the Student Day Report.',
+              files: [file]
+            });
+          } else {
+            alert('Sharing files is not supported on this browser. Downloading instead.');
+            doc.save(filename);
+          }
         }
       } else {
         doc.save(filename);
