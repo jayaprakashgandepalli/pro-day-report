@@ -177,7 +177,13 @@ export async function GET(req: Request) {
 
     const students = await prisma.student.findMany({
       where: whereClause,
-      include: { employee: true },
+      include: { 
+        employee: true,
+        visits: {
+          orderBy: { visitDate: 'desc' },
+          take: 1
+        }
+      },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,

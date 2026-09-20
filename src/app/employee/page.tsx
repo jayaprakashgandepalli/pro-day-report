@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
-import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users } from 'lucide-react';
+import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -25,7 +25,7 @@ export default async function Home() {
 
   // Fetch all configs to resolve names
   const allConfigs = await prisma.configValue.findMany();
-  const configMap = allConfigs.reduce((acc, c) => ({...acc, [c.id]: c.value}), {} as Record<string, string>);
+  const configMap = allConfigs.reduce((acc, c) => ({ ...acc, [c.id]: c.value }), {} as Record<string, string>);
   const resolveName = (id: string | null) => id ? (configMap[id] || id) : '';
 
   // Prime Students Calculation
@@ -33,11 +33,11 @@ export default async function Home() {
     const interest = resolveName(s.studyInterestedAt).toLowerCase();
     const fee = resolveName(s.ableToBearFee).toLowerCase();
     const g = resolveName(s.group).toUpperCase();
-    
+
     const isVizag = interest.includes('vizag') || interest.includes('visakhapatnam');
     const isBearable = fee.includes('yes') || fee.includes('bearable');
     const isTargetGroup = g.includes('MPC') || g.includes('BIPC');
-    
+
     return isVizag && isBearable && isTargetGroup;
   }).length;
 
@@ -48,7 +48,7 @@ export default async function Home() {
   });
 
   // Groups to hide from individual rows and merge into "Other"
-  const hiddenGroups = ['CEC', 'HEC'];
+  const hiddenGroups = ['CEC', 'HEC', 'DEFENCE ACADEMY', 'ITI ACADEMY', 'POLYTECHNIC'];
 
   // Group stats calculation (only for visible groups)
   const visibleGroupConfigs = groupConfigs.filter(
@@ -98,12 +98,17 @@ export default async function Home() {
       <header className="app-header" style={{ margin: '-1rem -1rem 2rem -1rem', borderRadius: '0 0 32px 32px', background: 'linear-gradient(135deg, #0f172a 0%, #312e81 100%)', padding: '2.5rem 1.5rem', position: 'relative', overflow: 'hidden', boxShadow: '0 10px 25px -5px rgba(15,23,42,0.3)' }}>
         <div style={{ position: 'absolute', top: '-50px', right: '-20px', width: '200px', height: '200px', background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, rgba(0,0,0,0) 70%)', borderRadius: '50%' }}></div>
         <div style={{ position: 'absolute', bottom: '-30px', left: '-20px', width: '150px', height: '150px', background: 'radial-gradient(circle, rgba(56,189,248,0.15) 0%, rgba(0,0,0,0) 70%)', borderRadius: '50%' }}></div>
-        
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
-          <div>
-            <h1 style={{ margin: '0 0 0.5rem 0', color: '#38bdf8', fontSize: '1.5rem', fontWeight: 700 }}>Welcome back,</h1>
-            <div style={{ color: '#fff', fontWeight: 600, fontSize: '1.25rem' }}>{session.name}</div>
-            <div style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.25rem' }}>Employee ID: {session.employeeId}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <Link href="/more" style={{ color: '#fff', background: 'rgba(255,255,255,0.15)', padding: '0.4rem', borderRadius: '50%', display: 'inline-flex', width: 'fit-content', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <Menu size={24} />
+            </Link>
+            <div>
+              <h1 style={{ margin: '0 0 0.5rem 0', color: '#38bdf8', fontSize: '1.5rem', fontWeight: 700 }}>Welcome back,</h1>
+              <div style={{ color: '#fff', fontWeight: 600, fontSize: '1.25rem' }}>{session.name}</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.875rem', marginTop: '0.25rem' }}>Employee ID: {session.employeeId}</div>
+            </div>
           </div>
           <div style={{ textAlign: 'right', background: 'rgba(255,255,255,0.08)', padding: '0.5rem 1rem', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)' }}>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem' }}>{today.toLocaleDateString('en-GB')}</div>
@@ -113,34 +118,56 @@ export default async function Home() {
       </header>
 
       {/* Main Actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '2.5rem' }}>
-        <Link href="/employee/add" prefetch={false} className="btn" style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '1rem', height: '90px', borderRadius: '24px', background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', color: '#fff', border: 'none', boxShadow: '0 10px 25px -5px rgba(37,99,235,0.4)', transition: 'transform 0.2s' }}>
-          <UserPlus size={28} />
-          <span style={{ fontWeight: 700, fontSize: '1.2rem', letterSpacing: '0.02em' }}>Add New Student</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '2.5rem' }}>
+
+        <Link href="/employee/add" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(37,99,235,0.3)' }}>
+            <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/student-female--v5.png" alt="Add Student" style={{ objectFit: 'contain' }} />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Add Student</span>
         </Link>
-        <Link href="/employee/students" prefetch={false} className="btn flex-col gap-2" style={{ height: '120px', borderRadius: '24px', background: '#ffffff', color: '#334155', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.03)', transition: 'transform 0.2s' }}>
-          <div style={{ background: '#f1f5f9', padding: '10px', borderRadius: '16px', color: '#64748b' }}><Users size={28} /></div>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>All Students</span>
+
+        <Link href="/employee/students" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: '#ffffff', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(0,0,0,0.08)' }}>
+            <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/group--v1.png" alt="All Students" style={{ objectFit: 'contain' }} />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>All Students</span>
         </Link>
-        <Link href="/employee/followups" prefetch={false} className="btn flex-col gap-2" style={{ height: '120px', borderRadius: '24px', background: '#ffffff', color: '#334155', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.03)', position: 'relative', transition: 'transform 0.2s' }}>
-          <div style={{ background: '#fef2f2', padding: '10px', borderRadius: '16px', color: '#ef4444' }}><CalendarDays size={28} /></div>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Follow-ups</span>
-          {pendingFollowupsCount > 0 && (
-            <span style={{ position: 'absolute', top: '12px', right: '12px', background: '#ef4444', color: '#fff', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem', boxShadow: '0 2px 8px rgba(239,68,68,0.5)' }}>
-              {pendingFollowupsCount}
+
+        <Link href="/employee/followups" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: '#ffffff', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(0,0,0,0.08)', position: 'relative' }}>
+            <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/timetable.png" alt="Follow-ups" style={{ objectFit: 'contain' }} />
+            {pendingFollowupsCount > 0 && (
+              <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem', boxShadow: '0 2px 5px rgba(239,68,68,0.4)', zIndex: 2 }}>
+                {pendingFollowupsCount}
+              </span>
+            )}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Follow-ups</span>
+        </Link>
+
+        <Link href="/employee/village-visits" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: '#ffffff', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(0,0,0,0.08)' }}>
+            <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/order-delivered.png" alt="Village Visits" style={{ objectFit: 'contain' }} />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Village Visits</span>
+        </Link>
+
+        <Link href="/employee/students?preset=prime" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(217,119,6,0.3)', position: 'relative' }}>
+            <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/popular-woman.png" alt="Suitable Leads" style={{ objectFit: 'contain' }} />
+            <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#fff', color: '#d97706', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', zIndex: 2 }}>
+              {primeStudentsCount}
             </span>
-          )}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Star Leads</span>
         </Link>
-        <Link href="/employee/students?preset=prime" prefetch={false} className="btn flex-col gap-2" style={{ height: '120px', borderRadius: '24px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff', border: 'none', boxShadow: '0 10px 25px -5px rgba(217,119,6,0.4)', position: 'relative', transition: 'transform 0.2s' }}>
-          <div style={{ background: 'rgba(255,255,255,0.2)', padding: '10px', borderRadius: '16px', color: '#fff', fontSize: '1.5rem', lineHeight: 1 }}>🔥</div>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Hot Prospects</span>
-          <span style={{ position: 'absolute', top: '12px', right: '12px', background: '#fff', color: '#d97706', width: '26px', height: '26px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-            {primeStudentsCount}
-          </span>
-        </Link>
-        <Link href="/reports/generate" prefetch={false} className="btn flex-col gap-2" style={{ height: '120px', borderRadius: '24px', background: '#ffffff', color: '#334155', border: '1px solid rgba(0,0,0,0.04)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.03)', transition: 'transform 0.2s' }}>
-          <div style={{ background: '#ecfdf5', padding: '10px', borderRadius: '16px', color: '#10b981' }}><FileText size={28} /></div>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Generate PDF</span>
+
+        <Link href="/reports/generate" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: '#ffffff', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(0,0,0,0.08)' }}>
+            <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/documents.png" alt="Gen PDF" style={{ objectFit: 'contain' }} />
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Gen PDF</span>
         </Link>
       </div>
 
@@ -160,7 +187,7 @@ export default async function Home() {
             {allStudents.length} Total
           </div>
         </div>
-        
+
         <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #f1f5f9', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
           {/* Helper function to get styling based on group name */}
           {(() => {
@@ -185,17 +212,17 @@ export default async function Home() {
             return allRows.map((stat, idx) => {
               const style = getStyle(stat.name);
               return (
-                <div key={stat.name} style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                <div key={stat.name} style={{
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '1rem 1.25rem',
                   borderBottom: idx < allRows.length - 1 ? '1px solid #f1f5f9' : 'none'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ 
-                      width: '42px', height: '42px', borderRadius: '50%', 
-                      background: style.bg, color: style.color, 
+                    <div style={{
+                      width: '42px', height: '42px', borderRadius: '50%',
+                      background: style.bg, color: style.color,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontWeight: 700, fontSize: '0.9rem', border: `1px solid ${style.bg.replace('f', 'e')}`
                     }}>
@@ -206,7 +233,7 @@ export default async function Home() {
                       <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.1rem' }}>{style.sub}</div>
                     </div>
                   </div>
-                  <div style={{ 
+                  <div style={{
                     background: style.bg, color: style.color,
                     padding: '0.3rem 0.8rem', borderRadius: '12px',
                     fontWeight: 700, fontSize: '1rem'

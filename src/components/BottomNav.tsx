@@ -24,10 +24,6 @@ export default function BottomNav() {
         <FileText size={24} />
         <span>Day Report</span>
       </Link>
-      <Link href="/more" prefetch={false} className={`nav-item ${pathname === '/more' ? 'active' : ''}`}>
-        <Menu size={24} />
-        <span>More</span>
-      </Link>
     </nav>
   );
 }
