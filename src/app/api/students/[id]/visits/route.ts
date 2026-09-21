@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const token = cookieStore.get('auth_token')?.value;
 
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const payload = verifyToken(token) as { role: string } | null;
+    const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
     if (!payload) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
