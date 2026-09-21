@@ -32,7 +32,12 @@ export default function AllStudents() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [preset, setPreset] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 20;
 
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
@@ -54,9 +59,22 @@ export default function AllStudents() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setPreset(params.get('preset'));
-    fetchStudents();
     fetchConfigs();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (debouncedSearch !== search) {
+        setDebouncedSearch(search);
+        setPage(1);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, debouncedSearch]);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [page, preset, debouncedSearch]);
 
   const fetchConfigs = async () => {
     try {
@@ -79,10 +97,20 @@ export default function AllStudents() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch(`/api/students`);
+      setLoading(true);
+      const query = new URLSearchParams({
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+      });
+      if (preset) query.set('preset', preset);
+      if (debouncedSearch) query.set('search', debouncedSearch);
+
+      const res = await fetch(`/api/students?${query.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students);
+        setTotalStudents(data.total);
+        setTotalPages(Math.ceil(data.total / itemsPerPage));
       }
     } catch (err) {
       console.error(err);
@@ -99,24 +127,6 @@ export default function AllStudents() {
     // const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
     setStudents(students.filter(s => s.id !== id));
   };
-
-  const filteredStudents = students.filter(s => {
-    const matchesSearch = s.studentName.toLowerCase().includes(search.toLowerCase()) || s.phone.includes(search);
-    
-    if (preset === 'prime') {
-      const interest = resolveName(s.studyInterestedAt)?.toLowerCase() || '';
-      const fee = resolveName(s.ableToBearFee)?.toLowerCase() || '';
-      const g = resolveName(s.group)?.toUpperCase() || '';
-      
-      const isVizag = interest.includes('vizag') || interest.includes('visakhapatnam');
-      const isBearable = fee.includes('yes') || fee.includes('bearable');
-      const isTargetGroup = g.includes('MPC') || g.includes('BIPC');
-      
-      return matchesSearch && isVizag && isBearable && isTargetGroup;
-    }
-    
-    return matchesSearch;
-  });
 
   const handleAddVisit = async () => {
     if (!visitRemarks) return alert("Remarks are required");
@@ -198,21 +208,22 @@ export default function AllStudents() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.125rem', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <h2 style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', margin: 0 }}>Students Enrolled</h2>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#E1EBF5', color: '#0F2B47' }}>{filteredStudents.length}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#E1EBF5', color: '#0F2B47' }}>{totalStudents}</span>
           </div>
         </div>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', fontSize: '0.875rem' }}>Loading students...</div>
-        ) : filteredStudents.length === 0 ? (
+        ) : students.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', fontSize: '0.875rem' }}>
             No students found. <br/><br/>
             <Link href="/employee/add" className="ios-btn-primary" style={{ display: 'inline-flex', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Add Student</Link>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {filteredStudents.map((s, index) => {
+            {students.map((s, index) => {
               const isExpanded = expandedStudentId === s.id;
+              const displayIndex = (page - 1) * itemsPerPage + index + 1;
               
               return (
                 <article key={s.id} className="student-card-ios" onClick={(e) => toggleExpand(s.id, e)}>
@@ -220,7 +231,7 @@ export default function AllStudents() {
                   <div className="student-card-ios-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
                       <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {index + 1}. {s.studentName}
+                        {displayIndex}. {s.studentName}
                       </h3>
                       <span className="ios-badge ios-badge-neutral" style={{ flexShrink: 0 }}>
                         {resolveName(s.group)}
@@ -291,6 +302,28 @@ export default function AllStudents() {
                 </article>
               );
             })}
+            
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0', marginTop: '0.5rem' }}>
+                <button 
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: page === 1 ? '#f8fafc' : '#ffffff', color: page === 1 ? '#94a3b8' : '#334155', fontSize: '0.875rem', fontWeight: 500 }}
+                >
+                  Previous
+                </button>
+                <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 500 }}>
+                  Page {page} of {totalPages}
+                </span>
+                <button 
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: page === totalPages ? '#f8fafc' : '#ffffff', color: page === totalPages ? '#94a3b8' : '#334155', fontSize: '0.875rem', fontWeight: 500 }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

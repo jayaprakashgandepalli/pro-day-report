@@ -81,6 +81,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get('date');
     const search = searchParams.get('search');
+    const preset = searchParams.get('preset');
     const interest = searchParams.get('interest');
     const fee = searchParams.get('fee');
     const location = searchParams.get('location');
@@ -123,10 +124,33 @@ export async function GET(req: Request) {
     if (search) {
       whereClause.AND.push({
         OR: [
-          { studentName: { contains: search } },
+          { studentName: { contains: search, mode: 'insensitive' } },
           { phone: { contains: search } }
         ]
       });
+    }
+
+    if (preset === 'prime') {
+      const targetConfigs = await prisma.configValue.findMany({
+        where: {
+          OR: [
+            { type: 'STUDY_INTEREST', value: { contains: 'vizag', mode: 'insensitive' } },
+            { type: 'STUDY_INTEREST', value: { contains: 'visakha', mode: 'insensitive' } },
+            { type: 'FEE_BEARABLE', value: { contains: 'yes', mode: 'insensitive' } },
+            { type: 'FEE_BEARABLE', value: { contains: 'bearable', mode: 'insensitive' } },
+            { type: 'GROUP', value: { contains: 'MPC', mode: 'insensitive' } },
+            { type: 'GROUP', value: { contains: 'BIPC', mode: 'insensitive' } }
+          ]
+        }
+      });
+      
+      const interestIds = targetConfigs.filter(c => c.type === 'STUDY_INTEREST').map(c => c.id);
+      const feeIds = targetConfigs.filter(c => c.type === 'FEE_BEARABLE').map(c => c.id);
+      const groupIds = targetConfigs.filter(c => c.type === 'GROUP').map(c => c.id);
+
+      if (interestIds.length > 0) whereClause.AND.push({ studyInterestedAt: { in: interestIds } });
+      if (feeIds.length > 0) whereClause.AND.push({ ableToBearFee: { in: feeIds } });
+      if (groupIds.length > 0) whereClause.AND.push({ group: { in: groupIds } });
     }
 
     if (interest) whereClause.AND.push({ studyInterestedAt: interest });
