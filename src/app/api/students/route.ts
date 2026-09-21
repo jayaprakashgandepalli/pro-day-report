@@ -85,6 +85,8 @@ export async function GET(req: Request) {
     const interest = searchParams.get('interest');
     const fee = searchParams.get('fee');
     const location = searchParams.get('location');
+    const mandal = searchParams.get('mandal');
+    const village = searchParams.get('village');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
 
@@ -92,6 +94,43 @@ export async function GET(req: Request) {
 
     if (payload.role === 'EMPLOYEE') {
       whereClause.AND.push({ employeeId: payload.employeeId });
+    } else if (payload.role === 'COLLEGE') {
+      const user = await prisma.user.findUnique({
+        where: { employeeId: payload.employeeId },
+        select: { allowedGroups: true, allowedLocations: true }
+      });
+      if (user) {
+        if (user.allowedGroups.length > 0) {
+          whereClause.AND.push({ group: { in: user.allowedGroups } });
+        }
+        if (user.allowedLocations.length > 0) {
+          whereClause.AND.push({ studyInterestedAt: { in: user.allowedLocations } });
+        }
+        // If they have no permissions, they see nothing
+        if (user.allowedGroups.length === 0 && user.allowedLocations.length === 0) {
+           whereClause.AND.push({ id: 'none' }); // impossible condition
+        }
+      }
+
+      // Hide students admitted to other colleges
+      whereClause.AND.push({
+        OR: [
+          { joinedCollegeId: null },
+          { joinedCollegeId: payload.employeeId }
+        ]
+      });
+    }
+
+    const admissionStatus = searchParams.get('admissionStatus');
+    if (admissionStatus === 'admitted') {
+      whereClause.AND.push({ leadStatus: 'Admitted' });
+    } else if (admissionStatus === 'pending') {
+      whereClause.AND.push({
+        OR: [
+          { leadStatus: { not: 'Admitted' } },
+          { leadStatus: null }
+        ]
+      });
     }
 
     const startDate = searchParams.get('startDate');
@@ -166,29 +205,94 @@ export async function GET(req: Request) {
       });
     }
 
+    if (mandal) {
+      whereClause.AND.push({ mandal });
+    }
+    
+    if (village) {
+      whereClause.AND.push({ village });
+    }
+
+    const schoolName = searchParams.get('schoolName');
+    if (schoolName) {
+      whereClause.AND.push({ schoolName });
+    }
+
+    const profileStatus = searchParams.get('profileStatus');
+    if (profileStatus === 'incomplete') {
+      whereClause.AND.push({
+        OR: [
+          { fatherName: null }, { fatherName: '' },
+          { district: null }, { district: '' },
+          { mandal: null }, { mandal: '' },
+          { village: null }, { village: '' },
+          { schoolName: null }, { schoolName: '' },
+          { gender: null }, { gender: '' },
+          { occupation: null }, { occupation: '' }
+        ]
+      });
+    }
+
     const followup = searchParams.get('followup');
     if (followup) {
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
 
-      if (followup === 'today') {
-        whereClause.AND.push({
-          OR: [
-            { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
-            { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
-          ]
-        });
-      } else if (followup === 'upcoming') {
-        whereClause.AND.push({
-          OR: [
-            { nextFollowUpType: 'Date', nextFollowUpDate: { gt: endOfToday } },
-            { nextFollowUpType: null, nextFollowUpDate: { gt: endOfToday } }
-          ]
-        });
-      } else if (followup === 'action') {
-        whereClause.AND.push({
-          nextFollowUpType: { in: ['After Exams', 'After Results'] }
-        });
+      if (payload && payload.role === 'COLLEGE') {
+        if (followup === 'today') {
+          whereClause.AND.push({
+            visits: {
+              some: {
+                addedById: payload.employeeId,
+                OR: [
+                  { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
+                  { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
+                ]
+              }
+            }
+          });
+        } else if (followup === 'upcoming') {
+          whereClause.AND.push({
+            visits: {
+              some: {
+                addedById: payload.employeeId,
+                OR: [
+                  { nextFollowUpType: 'Date', nextFollowUpDate: { gt: endOfToday } },
+                  { nextFollowUpType: null, nextFollowUpDate: { gt: endOfToday } }
+                ]
+              }
+            }
+          });
+        } else if (followup === 'action') {
+          whereClause.AND.push({
+            visits: {
+              some: {
+                addedById: payload.employeeId,
+                nextFollowUpType: { in: ['After Exams', 'After Results'] }
+              }
+            }
+          });
+        }
+      } else {
+        if (followup === 'today') {
+          whereClause.AND.push({
+            OR: [
+              { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
+              { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
+            ]
+          });
+        } else if (followup === 'upcoming') {
+          whereClause.AND.push({
+            OR: [
+              { nextFollowUpType: 'Date', nextFollowUpDate: { gt: endOfToday } },
+              { nextFollowUpType: null, nextFollowUpDate: { gt: endOfToday } }
+            ]
+          });
+        } else if (followup === 'action') {
+          whereClause.AND.push({
+            nextFollowUpType: { in: ['After Exams', 'After Results'] }
+          });
+        }
       }
     }
 
@@ -199,14 +303,21 @@ export async function GET(req: Request) {
 
     const total = await prisma.student.count({ where: whereClause });
 
+    let visitInclude: any = {
+      orderBy: { visitDate: 'desc' as const },
+      take: 1
+    };
+    
+    if (payload.role === 'COLLEGE') {
+      visitInclude.where = { addedById: payload.employeeId };
+    }
+
     const students = await prisma.student.findMany({
       where: whereClause,
       include: { 
         employee: true,
-        visits: {
-          orderBy: { visitDate: 'desc' },
-          take: 1
-        }
+        visits: visitInclude,
+        joinedCollege: { select: { name: true } }
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,

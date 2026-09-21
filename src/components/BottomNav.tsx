@@ -11,7 +11,7 @@ export default function BottomNav() {
   if (pathname === '/login') return null;
 
   return (
-    <nav className="bottom-nav">
+    <nav className="bottom-nav mobile-only">
       <Link href="/employee" prefetch={false} className={`nav-item ${pathname === '/employee' ? 'active' : ''}`}>
         <Home size={24} />
         <span>Home</span>

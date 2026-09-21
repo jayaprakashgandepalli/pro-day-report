@@ -12,6 +12,7 @@ export default function EditStudent() {
 
   const [formData, setFormData] = useState({
     studentName: '',
+    gender: '',
     fatherName: '',
     occupation: '',
     address: '',
@@ -92,6 +93,7 @@ export default function EditStudent() {
         const s = data.student;
         setFormData({
           studentName: s.studentName || '',
+          gender: s.gender || '',
           fatherName: s.fatherName || '',
           occupation: s.occupation || '',
           address: s.address || '',
@@ -205,6 +207,15 @@ export default function EditStudent() {
           <div className="form-group">
             <label className="form-label" htmlFor="studentName">Student Name *</label>
             <input required type="text" id="studentName" name="studentName" className="form-control" value={formData.studentName} onChange={handleChange} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="gender">Gender</label>
+            <select id="gender" name="gender" className="form-control" value={formData.gender} onChange={handleChange}>
+              <option value="">Select Gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
           </div>
 
           <div className="form-group">
@@ -408,21 +419,21 @@ export default function EditStudent() {
             <textarea id="remarks" name="remarks" className="form-control" rows={3} value={formData.remarks} onChange={handleChange}></textarea>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '2rem' }}>
-            <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', marginBottom: '1rem' }}>
-              <input 
-                type="checkbox" 
-                id="doorstepCompleted" 
-                name="doorstepCompleted" 
-                checked={formData.doorstepCompleted} 
-                onChange={(e) => setFormData({...formData, doorstepCompleted: e.target.checked})} 
-                style={{ width: '1.2rem', height: '1.2rem' }}
-              />
-              <label className="form-label" htmlFor="doorstepCompleted" style={{ marginBottom: 0, cursor: 'pointer' }}>
-                Doorstep completed?
-              </label>
-            </div>
+          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', marginBottom: '1rem' }}>
+            <input 
+              type="checkbox" 
+              id="doorstepCompleted" 
+              name="doorstepCompleted" 
+              checked={formData.doorstepCompleted} 
+              onChange={(e) => setFormData({...formData, doorstepCompleted: e.target.checked})} 
+              style={{ width: '1.2rem', height: '1.2rem' }}
+            />
+            <label className="form-label" htmlFor="doorstepCompleted" style={{ marginBottom: 0, cursor: 'pointer' }}>
+              Doorstep completed?
+            </label>
+          </div>
 
+          <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={saving}>
               <Save size={20} /> {saving ? 'Updating...' : 'Update Student'}
             </button>

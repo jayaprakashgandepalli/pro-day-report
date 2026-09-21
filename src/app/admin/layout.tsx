@@ -14,7 +14,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' }}>
+    <div className="admin-layout">
       <AdminSidebar />
       <main style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
         {children}

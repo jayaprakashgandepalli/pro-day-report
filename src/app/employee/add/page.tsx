@@ -488,7 +488,7 @@ export default function AddStudentPage() {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1rem' }}>
+          <div className="form-actions">
             <button type="submit" className="btn btn-primary" disabled={isLoading} onClick={(e) => handleSave(e, false)} style={{ padding: '1rem', fontSize: '1.1rem', borderRadius: '12px' }}>
               <Save size={20} /> {isLoading ? 'Saving...' : 'Save Student Details'}
             </button>

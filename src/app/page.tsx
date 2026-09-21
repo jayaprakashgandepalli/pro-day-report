@@ -12,6 +12,8 @@ export default async function RootPage() {
     redirect('/admin');
   } else if (session.role === 'TELECALLER') {
     redirect('/telecaller');
+  } else if (session.role === 'COLLEGE') {
+    redirect('/college');
   } else {
     redirect('/employee');
   }

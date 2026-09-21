@@ -199,7 +199,7 @@ export default function VillageVisits() {
   };
 
   return (
-    <div className="container" style={{ padding: 0, paddingBottom: '100px', backgroundColor: '#f8fafc', minHeight: '100vh', maxWidth: '600px', margin: '0 auto', boxShadow: '0 0 20px rgba(0,0,0,0.05)' }}>
+    <div className="container" style={{ padding: 0, paddingBottom: '100px', backgroundColor: '#f8fafc', minHeight: '100vh', margin: '0 auto', boxShadow: '0 0 20px rgba(0,0,0,0.05)' }}>
       <header className="app-header-dark" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Link href="/employee" className="btn-icon" style={{ color: '#cbd5e1', padding: '0.25rem' }}>

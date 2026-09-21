@@ -9,14 +9,22 @@ datasource db {
 }
 
 model User {
-  id         String    @id @default(cuid())
-  employeeId String    @unique
-  name       String
-  password   String
-  role       String    @default("EMPLOYEE") // EMPLOYEE, TEAM_LEADER, ADMIN, TELECALLER
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  students   Student[]
+  id               String    @id @default(cuid())
+  employeeId       String    @unique
+  name             String
+  password         String
+  role             String    @default("EMPLOYEE") // EMPLOYEE, TEAM_LEADER, ADMIN, TELECALLER, COLLEGE
+  isActive         Boolean   @default(true)
+  
+  // New fields for COLLEGE role
+  allowedGroups    String[]  @default([])
+  allowedLocations String[]  @default([])
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  students         Student[]
+  visitsCreated    Visit[]   @relation("UserVisits")
+  admittedStudents Student[] @relation("CollegeAdmissions")
 }
 
 model ConfigValue {
@@ -65,6 +73,13 @@ model Student {
   nextFollowUpDate  DateTime?
   nextFollowUpType  String?
   doorstepCompleted Boolean  @default(false)
+  
+  // Admission Tracking
+  joinedCollegeId   String?
+  joinedCollege     User?    @relation("CollegeAdmissions", fields: [joinedCollegeId], references: [employeeId])
+  applicationNumber String?
+  admissionDate     DateTime?
+  
   visits            Visit[]
 
   createdAt         DateTime @default(now())
@@ -79,6 +94,10 @@ model Visit {
   id               String    @id @default(cuid())
   studentId        String
   student          Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  addedById        String?
+  addedBy          User?     @relation("UserVisits", fields: [addedById], references: [employeeId])
+  
   visitDate        DateTime  @default(now())
   remarks          String
   nextFollowUpDate DateTime?

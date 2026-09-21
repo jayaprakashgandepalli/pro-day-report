@@ -11,8 +11,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const payload = verifyToken(token) as { employeeId: string; role: string } | null;
+    
+    let whereClause: any = { studentId: id };
+    
+    if (payload && payload.role === 'COLLEGE') {
+      whereClause.addedById = payload.employeeId;
+    }
+
     const visits = await prisma.visit.findMany({
-      where: { studentId: id },
+      where: whereClause,
       orderBy: { visitDate: 'desc' }
     });
 
@@ -61,18 +69,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       nextFollowUpDate = new Date(data.nextFollowUpDate);
     }
 
-    // Use a transaction to ensure both records are updated together
-    const [newVisit, updatedStudent] = await prisma.$transaction([
-      prisma.visit.create({
-        data: {
-          studentId: id,
-          visitDate,
-          remarks: data.remarks,
-          nextFollowUpDate,
-          nextFollowUpType
-        }
-      }),
-      prisma.student.update({
+    let updateStudentPromise = null;
+    if (payload.role !== 'COLLEGE') {
+      updateStudentPromise = prisma.student.update({
         where: { id },
         data: {
           visitNumber: nextVisitNo,
@@ -81,8 +80,43 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           nextFollowUpType,
           updatedAt: new Date() // Force updatedAt change
         }
+      });
+    }
+
+    const transactionTasks: any[] = [];
+    
+    // For colleges, clear previous follow-up dates so that only the latest visit holds the follow-up info
+    if (payload.role === 'COLLEGE') {
+      transactionTasks.push(
+        prisma.visit.updateMany({
+          where: { studentId: id, addedById: payload.employeeId },
+          data: { nextFollowUpDate: null, nextFollowUpType: null }
+        })
+      );
+    }
+
+    transactionTasks.push(
+      prisma.visit.create({
+        data: {
+          studentId: id,
+          addedById: payload.employeeId,
+          visitDate,
+          remarks: data.remarks,
+          nextFollowUpDate,
+          nextFollowUpType
+        }
       })
-    ]);
+    );
+
+    if (updateStudentPromise) {
+      transactionTasks.push(updateStudentPromise);
+    }
+
+    // Use a transaction to ensure both records are updated together
+    const results = await prisma.$transaction(transactionTasks);
+    
+    const newVisit = results[0];
+    const updatedStudent = updateStudentPromise ? results[1] : student;
 
     return NextResponse.json({ message: 'Visit added successfully', visit: newVisit, student: updatedStudent }, { status: 201 });
   } catch (error) {

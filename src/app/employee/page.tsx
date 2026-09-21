@@ -118,7 +118,8 @@ export default async function Home() {
       </header>
 
       {/* Main Actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '2.5rem' }}>
+      <div className="mobile-only" style={{ marginBottom: '2.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.75rem' }}>
 
         <Link href="/employee/add" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
           <div style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(37,99,235,0.3)' }}>
@@ -169,6 +170,7 @@ export default async function Home() {
           </div>
           <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Gen PDF</span>
         </Link>
+      </div>
       </div>
 
       {/* Quick Stats - Premium List UI */}

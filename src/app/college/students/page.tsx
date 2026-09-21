@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, Phone, MessageCircle, Edit, Trash2, Search, FileText, PlusCircle } from 'lucide-react';
+import { Phone, MessageCircle, Search, PlusCircle, LogOut, GraduationCap, FileCheck } from 'lucide-react';
 
 type Student = {
   id: string;
@@ -28,13 +27,12 @@ type Student = {
   nextFollowUpDate: string | null;
   visits?: any[];
   leadStatus?: string | null;
-  joinedCollege?: { name: string } | null;
+  joinedCollegeId?: string | null;
   applicationNumber?: string | null;
-  admissionDate?: string | null;
-  employee?: { name: string } | null;
+  admissionDate?: Date | string | null;
 };
 
-export default function AllStudents() {
+export default function CollegeStudents() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -48,20 +46,33 @@ export default function AllStudents() {
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [visitRemarks, setVisitRemarks] = useState('');
-  const [admissionStatus, setAdmissionStatus] = useState<'' | 'admitted'>('');
-  const [profileStatus, setProfileStatus] = useState<'' | 'incomplete'>('');
-  
-  // Custom Filters
-  const [filterMandal, setFilterMandal] = useState('');
-  const [filterVillage, setFilterVillage] = useState('');
-  const [filterSchool, setFilterSchool] = useState('');
-  
-  const [stats, setStats] = useState<{ mandals: any[], villages: any[], schools: any[] }>({ mandals: [], villages: [], schools: [] });
-
   const [nextFollowUpType, setNextFollowUpType] = useState('');
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
   const [savingVisit, setSavingVisit] = useState(false);
+  
+  const [admitModalOpen, setAdmitModalOpen] = useState(false);
+  const [applicationNumber, setApplicationNumber] = useState('');
+  const [savingAdmit, setSavingAdmit] = useState(false);
+
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [collegeName, setCollegeName] = useState<string | null>(null);
+  const [tab, setTab] = useState<'pending' | 'admitted'>('pending');
+
+  const [availableMandals, setAvailableMandals] = useState<string[]>([]);
+  const [availableVillages, setAvailableVillages] = useState<string[]>([]);
+  const [selectedMandal, setSelectedMandal] = useState('');
+  const [selectedVillage, setSelectedVillage] = useState('');
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.user?.name) {
+          setCollegeName(data.user.name);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const toggleExpand = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -71,27 +82,44 @@ export default function AllStudents() {
   // View Modal State
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
   const [configMap, setConfigMap] = useState<Record<string, string>>({});
-  const [configParentMap, setConfigParentMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setPreset(params.get('preset'));
-    fetchConfigs();
+    const filter = params.get('filter');
+    if (filter) {
+      setPreset(filter);
+    }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (debouncedSearch !== search) {
-        setDebouncedSearch(search);
-        setPage(1);
+    fetchConfigs();
+    fetchLocations();
+  }, []);
+
+  const fetchLocations = async () => {
+    try {
+      const res = await fetch('/api/students/locations');
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableMandals(data.mandals || []);
+        setAvailableVillages(data.villages || []);
       }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, debouncedSearch]);
+  }, [search]);
 
   useEffect(() => {
     fetchStudents();
-  }, [page, preset, debouncedSearch, admissionStatus, profileStatus, filterMandal, filterVillage, filterSchool]);
+  }, [page, preset, debouncedSearch, tab, selectedMandal, selectedVillage]);
 
   const fetchConfigs = async () => {
     try {
@@ -99,28 +127,19 @@ export default function AllStudents() {
       if (res.ok) {
         const data = await res.json();
         const map: Record<string, string> = {};
-        const parentMap: Record<string, string> = {};
-        data.configs.forEach((c: any) => { 
-          map[c.id] = c.value; 
-          if (c.parentId) parentMap[c.id] = c.parentId;
+        data.configs.forEach((c: any) => {
+          map[c.id] = c.value;
         });
         setConfigMap(map);
-        setConfigParentMap(parentMap);
       }
-      
-      const statsRes = await fetch('/api/students/filters');
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  const resolveName = (val: string | null | undefined) => {
-    if (!val) return null;
-    return configMap[val] || val;
+  const resolveName = (id: string | null) => {
+    if (!id) return 'N/A';
+    return configMap[id] || id;
   };
 
   const fetchStudents = async () => {
@@ -129,21 +148,19 @@ export default function AllStudents() {
       const query = new URLSearchParams({
         page: page.toString(),
         limit: itemsPerPage.toString(),
+        admissionStatus: tab
       });
       if (preset) query.set('preset', preset);
       if (debouncedSearch) query.set('search', debouncedSearch);
-      if (admissionStatus) query.set('admissionStatus', admissionStatus);
-      if (profileStatus) query.set('profileStatus', profileStatus);
-      if (filterMandal) query.set('mandal', filterMandal);
-      if (filterVillage) query.set('village', filterVillage);
-      if (filterSchool) query.set('schoolName', filterSchool);
+      if (selectedMandal) query.set('mandal', selectedMandal);
+      if (selectedVillage) query.set('village', selectedVillage);
 
       const res = await fetch(`/api/students?${query.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students);
         setTotalStudents(data.total);
-        setTotalPages(Math.ceil(data.total / itemsPerPage));
+        setTotalPages(data.totalPages);
       }
     } catch (err) {
       console.error(err);
@@ -152,35 +169,30 @@ export default function AllStudents() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this student?')) return;
-    
-    // In a real app, you'd call a DELETE API endpoint here.
-    // For now, we'll just remove from state to simulate.
-    // const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-    setStudents(students.filter(s => s.id !== id));
-  };
-
   const handleAddVisit = async () => {
-    if (!visitRemarks) return alert("Remarks are required");
+    if (!visitRemarks.trim()) return alert('Remarks are required');
+    if (nextFollowUpType === 'Date' && !nextFollowUpDate) return alert('Next follow-up date is required');
+
     setSavingVisit(true);
     try {
+      const payload = {
+        remarks: visitRemarks,
+        nextFollowUpType: nextFollowUpType || null,
+        nextFollowUpDate: nextFollowUpType === 'Date' ? nextFollowUpDate : null
+      };
+
       const res = await fetch(`/api/students/${selectedStudentId}/visits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          remarks: visitRemarks, 
-          nextFollowUpType: nextFollowUpType || null,
-          nextFollowUpDate: (nextFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null 
-        })
+        body: JSON.stringify(payload)
       });
+
       if (res.ok) {
-        alert("Visit added!");
         setVisitModalOpen(false);
         setVisitRemarks('');
         setNextFollowUpType('');
         setNextFollowUpDate('');
-        fetchStudents(); // refresh the list
+        fetchStudents();
       } else {
         alert("Failed to add visit");
       }
@@ -191,140 +203,99 @@ export default function AllStudents() {
     }
   };
 
-  const getProfileCompletion = (s: Student) => {
-    const fields = [
-      { key: s.fatherName, label: 'Father Name' },
-      { key: s.district, label: 'Location (District)' },
-      { key: s.schoolName, label: 'School' },
-      { key: s.gender, label: 'Gender' },
-      { key: s.occupation, label: 'Occupation' }
-    ];
-    
-    const missing = fields.filter(f => !f.key || f.key.trim() === '').map(f => f.label);
-    const filledCount = fields.length - missing.length;
-    
-    let status = 'Complete';
-    let color = '#10b981'; // Green
-    let bg = '#d1fae5';
-    
-    if (missing.length === fields.length) {
-      status = 'Incomplete';
-      color = '#ef4444'; // Red
-      bg = '#fee2e2';
-    } else if (missing.length > 0) {
-      status = 'Partial';
-      color = '#f59e0b'; // Yellow/Orange
-      bg = '#fef3c7';
+  const handleAdmitStudent = async () => {
+    if (!applicationNumber.trim()) return alert('Application Number is required');
+    setSavingAdmit(true);
+    try {
+      const res = await fetch(`/api/students/${selectedStudentId}/admit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationNumber })
+      });
+      if (res.ok) {
+        alert("Student admitted successfully!");
+        setAdmitModalOpen(false);
+        setApplicationNumber('');
+        fetchStudents();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Failed to admit student");
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingAdmit(false);
     }
-
-    return { status, color, bg, missing };
   };
 
   return (
     <div className="container" style={{ padding: 0, paddingBottom: '100px', backgroundColor: '#f8fafc', minHeight: '100vh', margin: '0 auto', boxShadow: '0 0 20px rgba(0,0,0,0.05)' }}>
       <header className="app-header-dark" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link href="/" className="btn-icon" style={{ color: '#cbd5e1', padding: '0.25rem' }}>
-            <ArrowLeft size={20} />
-          </Link>
           <div>
             <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '-0.01em' }}>
-              {preset === 'prime' ? 'Hot Prospects' : 'All Students'}
+              Allocated Student Leads
             </h1>
-            <p style={{ margin: 0, fontSize: '0.65rem', textTransform: 'uppercase', color: '#bfdbfe', fontWeight: 500, letterSpacing: '0.05em' }}>Student Database</p>
+            <p style={{ margin: 0, fontSize: '0.65rem', textTransform: 'uppercase', color: '#bfdbfe', fontWeight: 500, letterSpacing: '0.05em' }}>
+              {collegeName || 'College Portal'}
+            </p>
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Link href="/reports/generate" style={{ display: 'inline-flex', alignItems: 'center', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.2)', gap: '0.25rem' }}>
-            <FileText size={14} /> PDF
-          </Link>
         </div>
       </header>
       
       <div style={{ padding: '1rem' }}>
-        {preset === 'prime' && (
-          <div style={{ background: '#fffbeb', color: '#d97706', padding: '0.75rem 1rem', borderRadius: '12px', marginBottom: '1rem', fontSize: '0.875rem', fontWeight: 600, border: '1px solid #fde68a', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            Showing students interested in Vizag, can bear fee, and studying MPC/BIPC.
-          </div>
-        )}
-
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <button
-            style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: (admissionStatus === '' && profileStatus === '') ? '#0F2B47' : '#e2e8f0', color: (admissionStatus === '' && profileStatus === '') ? '#ffffff' : '#475569' }}
-            onClick={() => { setAdmissionStatus(''); setProfileStatus(''); setPage(1); }}
+        
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+          <button 
+            className={`ios-btn ${tab === 'pending' ? 'ios-btn-primary' : ''}`} 
+            style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, backgroundColor: tab !== 'pending' ? '#e2e8f0' : undefined, color: tab !== 'pending' ? '#475569' : undefined, border: 'none', transition: 'all 0.2s' }}
+            onClick={() => { setTab('pending'); setPage(1); }}
           >
-            All Students
+            Pending Leads
           </button>
-          <button
-            style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: admissionStatus === 'admitted' ? '#16a34a' : '#e2e8f0', color: admissionStatus === 'admitted' ? '#ffffff' : '#475569' }}
-            onClick={() => { setAdmissionStatus('admitted'); setProfileStatus(''); setPage(1); }}
+          <button 
+            className={`ios-btn ${tab === 'admitted' ? 'ios-btn-primary' : ''}`} 
+            style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, backgroundColor: tab !== 'admitted' ? '#e2e8f0' : undefined, color: tab !== 'admitted' ? '#475569' : undefined, border: 'none', transition: 'all 0.2s' }}
+            onClick={() => { setTab('admitted'); setPage(1); }}
           >
-            ✓ Admitted
+            Admitted Students
           </button>
-          <button
-            style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: profileStatus === 'incomplete' ? '#ef4444' : '#e2e8f0', color: profileStatus === 'incomplete' ? '#ffffff' : '#475569' }}
-            onClick={() => { setProfileStatus('incomplete'); setAdmissionStatus(''); setPage(1); }}
-          >
-            ⚠️ Incomplete Profiles
-          </button>
-        </div>
-
-        {/* Dropdown Filters */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <select 
-            value={filterMandal} 
-            onChange={(e) => { setFilterMandal(e.target.value); setPage(1); }}
-            style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
-          >
-            <option value="">All Mandals</option>
-            {stats.mandals.map(m => (
-              <option key={m.id} value={m.id}>{resolveName(m.id)} ({m.count})</option>
-            ))}
-          </select>
-
-          <select 
-            value={filterVillage} 
-            onChange={(e) => { setFilterVillage(e.target.value); setFilterSchool(''); setPage(1); }}
-            style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
-          >
-            <option value="">All Villages</option>
-            {stats.villages
-              .filter(v => !filterMandal || configParentMap[v.id] === filterMandal)
-              .map(v => (
-              <option key={v.id} value={v.id}>{resolveName(v.id)} ({v.count})</option>
-            ))}
-          </select>
-
-          <select 
-            value={filterSchool} 
-            onChange={(e) => { setFilterSchool(e.target.value); setPage(1); }}
-            style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
-          >
-            <option value="">All Schools</option>
-            {stats.schools
-              .filter(s => !filterVillage || configParentMap[s.id] === filterVillage)
-              .map(s => (
-              <option key={s.id} value={s.id}>{resolveName(s.id)} ({s.count})</option>
-            ))}
-          </select>
         </div>
 
         {/* Search Bar */}
         <section style={{ marginBottom: '1rem' }}>
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', left: '0.75rem', top: '0', bottom: '0', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
-              <Search size={16} />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ position: 'relative', flex: '1 1 200px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input 
+                type="text" 
+                placeholder="Search name or phone..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: '100%', backgroundColor: '#ffffff', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '12px', padding: '0.625rem 2.5rem 0.625rem 2.25rem', fontSize: '0.75rem', color: '#1e293b', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+              />
             </div>
-            <input 
-              type="text" 
-              placeholder="Search name or phone..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: '100%', backgroundColor: '#ffffff', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '12px', padding: '0.625rem 2.5rem 0.625rem 2.25rem', fontSize: '0.75rem', color: '#1e293b', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
-            />
-            <div style={{ position: 'absolute', right: '0.5rem', top: '0', bottom: '0', display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.625rem', backgroundColor: '#f1f5f9', color: '#64748b', fontWeight: 500, padding: '0.125rem 0.375rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>Ctrl+K</span>
+            
+            <div style={{ flex: '1 1 150px' }}>
+              <select 
+                value={selectedMandal} 
+                onChange={(e) => { setSelectedMandal(e.target.value); setPage(1); }}
+                style={{ width: '100%', backgroundColor: '#ffffff', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '12px', padding: '0.625rem 1rem', fontSize: '0.75rem', color: '#1e293b', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', appearance: 'none' }}
+              >
+                <option value="">All Mandals</option>
+                {availableMandals.map(m => <option key={m} value={m}>{resolveName(m)}</option>)}
+              </select>
+            </div>
+            
+            <div style={{ flex: '1 1 150px' }}>
+              <select 
+                value={selectedVillage} 
+                onChange={(e) => { setSelectedVillage(e.target.value); setPage(1); }}
+                style={{ width: '100%', backgroundColor: '#ffffff', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '12px', padding: '0.625rem 1rem', fontSize: '0.75rem', color: '#1e293b', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', appearance: 'none' }}
+              >
+                <option value="">All Villages</option>
+                {availableVillages.map(v => <option key={v} value={v}>{resolveName(v)}</option>)}
+              </select>
             </div>
           </div>
         </section>
@@ -332,9 +303,9 @@ export default function AllStudents() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.125rem', marginBottom: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <h2 style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#334155', margin: 0 }}>
-              {admissionStatus === 'admitted' ? 'ADMITTED STUDENTS' : 'STUDENTS ENROLLED'}
+              {tab === 'pending' ? 'STUDENTS ENROLLED' : 'ADMITTED STUDENTS'}
             </h2>
-            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: admissionStatus === 'admitted' ? '#dcfce7' : '#E1EBF5', color: admissionStatus === 'admitted' ? '#166534' : '#0F2B47' }}>{totalStudents}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: '#E1EBF5', color: '#0F2B47' }}>{totalStudents}</span>
           </div>
         </div>
 
@@ -342,42 +313,30 @@ export default function AllStudents() {
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', fontSize: '0.875rem' }}>Loading students...</div>
         ) : students.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', fontSize: '0.875rem' }}>
-            No students found. <br/><br/>
-            <Link href="/employee/add" className="ios-btn-primary" style={{ display: 'inline-flex', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Add Student</Link>
+            No students allocated yet.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {students.map((s, index) => {
               const isExpanded = expandedStudentId === s.id;
               const displayIndex = (page - 1) * itemsPerPage + index + 1;
-              const comp = getProfileCompletion(s);
+              
               return (
                 <article key={s.id} className="student-card-ios" onClick={(e) => toggleExpand(s.id, e)}>
                   
                   <div className="student-card-ios-header">
-                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {displayIndex}. {s.studentName}
-                        </h3>
-                        <span style={{ fontSize: '0.625rem', fontWeight: 700, padding: '0.125rem 0.375rem', borderRadius: '4px', backgroundColor: comp.bg, color: comp.color, flexShrink: 0 }}>
-                          {comp.status}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
+                      <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {displayIndex}. {s.studentName}
+                      </h3>
+                      {s.leadStatus === 'Admitted' ? (
+                        <span className="ios-badge" style={{ backgroundColor: '#dcfce7', color: '#166534', flexShrink: 0 }}>
+                          Admitted
                         </span>
-                        {s.leadStatus === 'Admitted' ? (
-                          <span className="ios-badge" style={{ backgroundColor: '#dcfce7', color: '#166534', flexShrink: 0 }}>
-                            Admitted
-                          </span>
-                        ) : (
-                          <span className="ios-badge ios-badge-neutral" style={{ flexShrink: 0 }}>
-                            {resolveName(s.group)}
-                          </span>
-                        )}
-                      </div>
-                      
-                      {comp.missing.length > 0 && (
-                        <div style={{ fontSize: '0.6875rem', color: '#ef4444', marginTop: '0.25rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          Missing: {comp.missing.join(', ')}
-                        </div>
+                      ) : (
+                        <span className="ios-badge ios-badge-neutral" style={{ flexShrink: 0 }}>
+                          {resolveName(s.group)}
+                        </span>
                       )}
                     </div>
                     
@@ -403,23 +362,33 @@ export default function AllStudents() {
                               {resolveName(s.schoolName)}
                             </span>
                           )}
-                          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '9999px', fontSize: '0.6875rem', fontWeight: 500, backgroundColor: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }}>
-                            {s.employee?.name || 'Unknown'}
-                          </span>
                         </div>
                         
+                        {(s.visits && s.visits.length > 0 && s.leadStatus !== 'Admitted') && (
+                          <div style={{ marginTop: '0.75rem', backgroundColor: '#f8fafc', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                              <span style={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem' }}>Follow-up:</span>
+                              <span style={{ color: '#0f172a', fontWeight: 600, fontSize: '0.75rem' }}>
+                                {s.visits[0].nextFollowUpType === 'Date' ? new Date(s.visits[0].nextFollowUpDate!).toLocaleDateString('en-GB') : (s.visits[0].nextFollowUpType || 'None')}
+                              </span>
+                            </div>
+                            {s.visits[0].remarks && (
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
+                                <span style={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem' }}>Remarks:</span>
+                                <span style={{ color: '#334155', fontSize: '0.75rem' }}>{s.visits[0].remarks}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {s.leadStatus === 'Admitted' && (
                           <div style={{ marginTop: '0.75rem', backgroundColor: '#f0fdf4', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #bbf7d0' }}>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem', marginBottom: '0.25rem' }}>
-                              <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.75rem' }}>Admitted to:</span>
-                              <span style={{ color: '#15803d', fontWeight: 600, fontSize: '0.75rem' }}>{s.joinedCollege?.name || 'Unknown College'}</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem', marginBottom: '0.25rem' }}>
                               <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.75rem' }}>Application No:</span>
-                              <span style={{ color: '#15803d', fontSize: '0.75rem' }}>{s.applicationNumber || 'N/A'}</span>
+                              <span style={{ color: '#15803d', fontWeight: 600, fontSize: '0.75rem' }}>{s.applicationNumber || 'N/A'}</span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
-                              <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.75rem' }}>Date:</span>
+                              <span style={{ fontWeight: 700, color: '#166534', fontSize: '0.75rem' }}>Admitted On:</span>
                               <span style={{ color: '#15803d', fontSize: '0.75rem' }}>{s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-GB') : 'N/A'}</span>
                             </div>
                           </div>
@@ -440,22 +409,21 @@ export default function AllStudents() {
                           </div>
                           
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Link href={`/students/edit/${s.id}`} className="ios-btn-icon ios-btn-action" onClick={(e) => e.stopPropagation()} title="Edit">
-                              <Edit size={14} />
-                            </Link>
+                            {s.leadStatus !== 'Admitted' && (
+                              <button 
+                                className="ios-btn-icon" style={{ backgroundColor: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0' }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.id); setAdmitModalOpen(true); }}
+                                title="Mark Admitted"
+                              >
+                                <FileCheck size={16} />
+                              </button>
+                            )}
                             <button 
                               className="ios-btn-icon ios-btn-primary"
                               onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.id); setVisitModalOpen(true); }}
                               title="Add Visit"
                             >
                               <PlusCircle size={16} />
-                            </button>
-                            <button 
-                              className="ios-btn-icon" style={{ backgroundColor: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}
-                              onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                              title="Delete"
-                            >
-                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>
@@ -491,6 +459,7 @@ export default function AllStudents() {
         )}
       </div>
 
+      {/* Add Visit Modal */}
       {visitModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
           <div className="card" style={{ width: '100%', maxWidth: '400px', margin: 0 }}>
@@ -510,19 +479,52 @@ export default function AllStudents() {
             </div>
             {nextFollowUpType === 'Date' && (
               <div className="form-group">
-                <label className="form-label">Select Date</label>
-                <input type="date" className="form-control" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} />
+                <label className="form-label">Next Follow-up Date *</label>
+                <input type="date" className="form-control" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} required />
               </div>
             )}
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setVisitModalOpen(false)} disabled={savingVisit}>Cancel</button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>{savingVisit ? 'Saving...' : 'Save Visit'}</button>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button className="btn" style={{ flex: 1, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', color: '#475569' }} onClick={() => setVisitModalOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>
+                {savingVisit ? 'Saving...' : 'Save Visit'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* View Student Modal */}
+      {/* Admit Modal */}
+      {admitModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', margin: 0, animation: 'slideUp 0.3s ease-out' }}>
+            <h2 style={{ fontSize: '1.25rem', marginTop: 0, color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FileCheck size={20} /> Mark as Admitted
+            </h2>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '1.5rem' }}>
+              Please enter the Application Number to confirm this admission. Once admitted, other colleges will no longer see this student.
+            </p>
+            <div className="form-group">
+              <label className="form-label">Application Number *</label>
+              <input 
+                type="text" 
+                className="form-control" 
+                value={applicationNumber} 
+                onChange={e => setApplicationNumber(e.target.value)} 
+                placeholder="e.g. APP-2026-1029"
+                required 
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button className="btn" style={{ flex: 1, backgroundColor: '#ffffff', border: '1px solid #e2e8f0', color: '#475569' }} onClick={() => setAdmitModalOpen(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, backgroundColor: '#16a34a', color: 'white', border: 'none' }} onClick={handleAdmitStudent} disabled={savingAdmit}>
+                {savingAdmit ? 'Saving...' : 'Confirm Admission'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
       {viewStudent && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
           <div style={{ backgroundColor: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '1rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid #f1f5f9', maxHeight: '90vh' }}>
@@ -548,22 +550,20 @@ export default function AllStudents() {
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.6875rem', fontWeight: 600, backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>Verified</span>
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ fontWeight: 700, color: '#334155' }}>Phone:</span>
+                    <span style={{ fontWeight: 700, color: '#334155', minWidth: '3.5rem' }}>Phone:</span>
                     <span style={{ color: '#1e293b', fontWeight: 500 }}>{viewStudent.phone}</span>
                     <a href={`tel:${viewStudent.phone}`} style={{ color: '#116d66', padding: '0.25rem' }}>
                       <Phone size={14} />
                     </a>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ fontWeight: 700, color: '#334155' }}>WhatsApp:</span>
-                    <span style={{ color: '#1e293b', fontWeight: 500 }}>{viewStudent.whatsapp || 'N/A'}</span>
-                    {viewStudent.whatsapp && (
-                      <a href={`https://wa.me/${viewStudent.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#059669', padding: '0.25rem' }}>
-                        <MessageCircle size={14} />
-                      </a>
-                    )}
+                    <span style={{ fontWeight: 700, color: '#334155', minWidth: '3.5rem' }}>WhatsApp:</span>
+                    <span style={{ color: '#1e293b', fontWeight: 500, whiteSpace: 'nowrap' }}>{viewStudent.whatsapp || viewStudent.phone}</span>
+                    <a href={`https://wa.me/${(viewStudent.whatsapp || viewStudent.phone).replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#059669', padding: '0.25rem' }}>
+                      <MessageCircle size={14} />
+                    </a>
                   </div>
                 </div>
                 
@@ -593,7 +593,7 @@ export default function AllStudents() {
                   <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{resolveName(viewStudent.schoolName) || 'N/A'} {viewStudent.schoolArea ? `(${resolveName(viewStudent.schoolArea)})` : ''}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Location:</span>
+                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Residential:</span>
                   <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{[resolveName(viewStudent.village), resolveName(viewStudent.mandal), resolveName(viewStudent.district)].filter(Boolean).join(', ') || 'N/A'}</span>
                 </div>
                 {viewStudent.address && (
@@ -604,44 +604,20 @@ export default function AllStudents() {
                 )}
               </section>
               
-              <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
-              
               <section style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', alignItems: 'start' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                      <span style={{ fontWeight: 700, color: '#334155' }}>Doorstep Completed:</span>
-                      {viewStudent.doorstepCompleted ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '1.25rem', height: '1.25rem', backgroundColor: '#059669', color: '#ffffff', borderRadius: '0.25rem' }}>
-                          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </span>
-                      ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '1.25rem', height: '1.25rem', backgroundColor: '#e2e8f0', color: '#64748b', borderRadius: '0.25rem' }}>
-                          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </span>
-                      )}
-                    </div>
-                    <span style={{ color: '#334155', fontWeight: 500, fontSize: '0.875rem' }}>{viewStudent.doorstepCompleted ? 'Yes' : 'No'}</span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
-                    <span style={{ fontWeight: 700, color: '#334155' }}>Fee capacity:</span>
-                    <span style={{ color: '#1e293b', fontWeight: 500 }}>{resolveName(viewStudent.ableToBearFee) || 'N/A'}</span>
-                  </div>
-                </div>
                 
-                {(viewStudent.nextFollowUpType || viewStudent.nextFollowUpDate || viewStudent.remarks) && (
+                {(viewStudent.visits && viewStudent.visits.length > 0) && (
                   <>
                     <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.25rem' }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                        <span style={{ fontWeight: 700, color: '#334155' }}>Follow-up:</span>
-                        <span style={{ color: '#475569', fontWeight: 500 }}>{viewStudent.nextFollowUpType === 'Date' ? new Date(viewStudent.nextFollowUpDate!).toLocaleDateString('en-GB') : (viewStudent.nextFollowUpType || 'None')}</span>
+                        <span style={{ fontWeight: 700, color: '#334155' }}>Your Latest Follow-up:</span>
+                        <span style={{ color: '#475569', fontWeight: 500 }}>{viewStudent.visits[0].nextFollowUpType === 'Date' ? new Date(viewStudent.visits[0].nextFollowUpDate!).toLocaleDateString('en-GB') : (viewStudent.visits[0].nextFollowUpType || 'None')}</span>
                       </div>
-                      {viewStudent.remarks && (
+                      {viewStudent.visits[0].remarks && (
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 700, color: '#334155' }}>Remarks:</span>
-                          <span style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.875rem', backgroundColor: '#f8fafc', padding: '0.125rem 0.5rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}>{viewStudent.remarks}</span>
+                          <span style={{ fontWeight: 700, color: '#334155' }}>Your Remarks:</span>
+                          <span style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.875rem', backgroundColor: '#f8fafc', padding: '0.125rem 0.5rem', borderRadius: '0.25rem', border: '1px solid #e2e8f0' }}>{viewStudent.visits[0].remarks}</span>
                         </div>
                       )}
                     </div>

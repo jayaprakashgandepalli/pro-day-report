@@ -26,6 +26,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 });
     }
 
+    if (user.isActive === false) {
+      return NextResponse.json({ error: 'Account is disabled. Please contact Admin.' }, { status: 403 });
+    }
+
     const token = signToken({
       id: user.id,
       employeeId: user.employeeId,

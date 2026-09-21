@@ -1,14 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin, Users2, Briefcase, GraduationCap, Activity, ClipboardList, LogOut, Menu, X, BookOpen } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Home, UserPlus, Users, CalendarDays, MapPin, Star, FileText, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-export default function AdminSidebar() {
+export default function EmployeeSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -17,42 +16,45 @@ export default function AdminSidebar() {
   };
 
   const menuItems = [
-    { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-    { name: 'Students', path: '/admin/students', icon: BookOpen },
-    { name: 'Users', path: '/admin/users', icon: Users },
-    { name: 'Locations', path: '/admin/config/locations', icon: MapPin },
-    { name: 'Groups', path: '/admin/config/groups', icon: Users2 },
-    { name: 'Occupations', path: '/admin/config/occupations', icon: Briefcase },
-    { name: 'Schools', path: '/admin/config/schools', icon: GraduationCap },
-    { name: 'Statuses', path: '/admin/config/statuses', icon: Activity },
-    { name: 'Survey Fields', path: '/admin/config/survey', icon: ClipboardList },
+    { name: 'Dashboard', path: '/employee', icon: Home },
+    { name: 'Add Student', path: '/employee/add', icon: UserPlus },
+    { name: 'All Students', path: '/employee/students', icon: Users },
+    { name: 'Follow-ups', path: '/employee/followups', icon: CalendarDays },
+    { name: 'Village Visits', path: '/employee/village-visits', icon: MapPin },
+    { name: 'Star Leads', path: '/employee/students?preset=prime', icon: Star },
+    { name: 'Day Report (PDF)', path: '/reports/generate', icon: FileText },
   ];
 
   return (
-    <aside className="admin-sidebar" style={{ boxShadow: '4px 0 10px rgba(0,0,0,0.1)' }}>
-      <div style={{ padding: '1.5rem', borderBottom: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8' }}>Admin Panel</h2>
-        <button 
-          className="mobile-only"
-          onClick={() => setIsOpen(!isOpen)}
-          style={{ background: 'transparent', border: 'none', color: '#f8fafc', cursor: 'pointer', padding: '0.25rem' }}
-        >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+    <aside className="desktop-only" style={{
+      width: '260px',
+      backgroundColor: '#0f172a',
+      color: '#f8fafc',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      position: 'sticky',
+      top: 0,
+      boxShadow: '4px 0 10px rgba(0,0,0,0.1)',
+    }}>
+      <div style={{ padding: '1.5rem', borderBottom: '1px solid #1e293b' }}>
+        <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8' }}>Sri Vaatsalya</h2>
+        <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: '0.25rem' }}>Employee Portal</div>
       </div>
 
-      <div style={{ display: isOpen ? 'flex' : 'none', flexDirection: 'column', flex: 1 }} className="admin-menu-wrapper">
-        <nav style={{ flex: 1, padding: '1rem 0', overflowY: 'auto' }}>
+      <nav style={{ flex: 1, padding: '1rem 0', overflowY: 'auto' }}>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
           {menuItems.map(item => {
             const Icon = item.icon;
-            const isActive = pathname === item.path || (pathname.startsWith(item.path) && item.path !== '/admin');
+            // Precise active matching
+            const isActive = pathname === item.path || 
+                             (pathname.startsWith(item.path) && item.path !== '/employee') ||
+                             (item.path.includes('preset=prime') && typeof window !== 'undefined' && window.location.search.includes('preset=prime'));
             
             return (
               <li key={item.path}>
                 <Link 
                   href={item.path} 
-                  onClick={() => setIsOpen(false)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -95,7 +97,6 @@ export default function AdminSidebar() {
           <LogOut size={20} />
           <span>Logout</span>
         </button>
-      </div>
       </div>
     </aside>
   );

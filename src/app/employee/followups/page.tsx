@@ -26,6 +26,12 @@ type Student = {
   studyInterestedAt: string | null;
   educationStage: string | null;
   ableToBearFee: string | null;
+  visits?: any[];
+  leadStatus?: string | null;
+  joinedCollege?: { name: string } | null;
+  applicationNumber?: string | null;
+  admissionDate?: string | null;
+  employee?: { name: string } | null;
 };
 
 export default function FollowUpsPage() {
@@ -200,6 +206,23 @@ export default function FollowUpsPage() {
                   {s.remarks && (
                     <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem', borderRadius: '6px' }}>
                       <span style={{ fontWeight: 600 }}>Last remark:</span> {s.remarks}
+                    </div>
+                  )}
+
+                  {s.leadStatus === 'Admitted' && (
+                    <div style={{ marginTop: '0.75rem', backgroundColor: '#f0fdf4', padding: '0.5rem', borderRadius: '6px', border: '1px solid #bbf7d0', fontSize: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: 700, color: '#166534' }}>Admitted to:</span>
+                        <span style={{ color: '#15803d', fontWeight: 600 }}>{s.joinedCollege?.name || 'Unknown College'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: 700, color: '#166534' }}>Application No:</span>
+                        <span style={{ color: '#15803d' }}>{s.applicationNumber || 'N/A'}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
+                        <span style={{ fontWeight: 700, color: '#166534' }}>Date:</span>
+                        <span style={{ color: '#15803d' }}>{s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-GB') : 'N/A'}</span>
+                      </div>
                     </div>
                   )}
                 </div>

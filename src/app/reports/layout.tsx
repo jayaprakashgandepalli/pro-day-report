@@ -3,7 +3,7 @@ import EmployeeSidebar from '@/components/EmployeeSidebar';
 import { getSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 
-export default async function EmployeeLayout({
+export default async function ReportsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -13,7 +13,6 @@ export default async function EmployeeLayout({
   if (!session || session.role !== 'EMPLOYEE') {
     if (session?.role === 'ADMIN') redirect('/admin');
     if (session?.role === 'TELECALLER') redirect('/telecaller');
-    if (session?.role === 'COLLEGE') redirect('/college');
     redirect('/login');
   }
 

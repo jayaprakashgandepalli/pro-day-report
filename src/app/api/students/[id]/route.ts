@@ -34,6 +34,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       where: { id },
       data: {
         studentName: data.studentName !== undefined ? data.studentName : undefined,
+        gender: data.gender !== undefined ? data.gender : undefined,
         fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
         occupation: data.occupation !== undefined ? data.occupation : undefined,
         address: data.address !== undefined ? data.address : undefined,
