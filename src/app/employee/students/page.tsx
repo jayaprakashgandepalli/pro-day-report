@@ -107,16 +107,29 @@ export default function AllStudents() {
         setConfigMap(map);
         setConfigParentMap(parentMap);
       }
-      
-      const statsRes = await fetch('/api/students/filters');
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
     } catch (e) {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const query = new URLSearchParams();
+        if (filterMandal) query.set('mandal', filterMandal);
+        if (filterVillage) query.set('village', filterVillage);
+        
+        const statsRes = await fetch(`/api/students/filters?${query.toString()}`);
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(statsData);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchStats();
+  }, [filterMandal, filterVillage]);
 
   const resolveName = (val: string | null | undefined) => {
     if (!val) return null;
@@ -289,9 +302,7 @@ export default function AllStudents() {
             style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
           >
             <option value="">All Villages</option>
-            {stats.villages
-              .filter(v => !filterMandal || configParentMap[v.id] === filterMandal)
-              .map(v => (
+            {stats.villages.map(v => (
               <option key={v.id} value={v.id}>{resolveName(v.id)} ({v.count})</option>
             ))}
           </select>
@@ -302,9 +313,7 @@ export default function AllStudents() {
             style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
           >
             <option value="">All Schools</option>
-            {stats.schools
-              .filter(s => !filterVillage || configParentMap[s.id] === filterVillage)
-              .map(s => (
+            {stats.schools.map(s => (
               <option key={s.id} value={s.id}>{resolveName(s.id)} ({s.count})</option>
             ))}
           </select>

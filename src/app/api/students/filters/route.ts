@@ -44,8 +44,30 @@ export async function GET(req: Request) {
       });
     }
 
+    const { searchParams } = new URL(req.url);
+    const mandal = searchParams.get('mandal');
+    const village = searchParams.get('village');
+
     if (whereClause.AND.length === 0) {
       delete whereClause.AND;
+    }
+
+    const mandalWhere = { ...whereClause, mandal: { not: null } };
+    
+    const villageWhere: any = { ...whereClause, village: { not: null } };
+    if (mandal) {
+      if (!villageWhere.AND) villageWhere.AND = [];
+      villageWhere.AND.push({ mandal });
+    }
+
+    const schoolWhere: any = { ...whereClause, schoolName: { not: null } };
+    if (mandal) {
+      if (!schoolWhere.AND) schoolWhere.AND = [];
+      schoolWhere.AND.push({ mandal });
+    }
+    if (village) {
+      if (!schoolWhere.AND) schoolWhere.AND = [];
+      schoolWhere.AND.push({ village });
     }
 
     // Parallel fetch for grouped counts
@@ -53,17 +75,17 @@ export async function GET(req: Request) {
       prisma.student.groupBy({
         by: ['mandal'],
         _count: { id: true },
-        where: { ...whereClause, mandal: { not: null } }
+        where: mandalWhere
       }),
       prisma.student.groupBy({
         by: ['village'],
         _count: { id: true },
-        where: { ...whereClause, village: { not: null } }
+        where: villageWhere
       }),
       prisma.student.groupBy({
         by: ['schoolName'],
         _count: { id: true },
-        where: { ...whereClause, schoolName: { not: null } }
+        where: schoolWhere
       })
     ]);
 

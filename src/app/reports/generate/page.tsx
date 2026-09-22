@@ -18,15 +18,42 @@ export default function GeneratePDFPage() {
   const [configs, setConfigs] = useState<any[]>([]);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
+  const [isAllTime, setIsAllTime] = useState(false);
+  
+  // Location Filters
+  const [filterMandal, setFilterMandal] = useState('');
+  const [filterVillage, setFilterVillage] = useState('');
+  const [filterSchool, setFilterSchool] = useState('');
+  const [stats, setStats] = useState<{ mandals: any[], villages: any[], schools: any[] }>({ mandals: [], villages: [], schools: [] });
+
   const router = useRouter();
 
   useEffect(() => {
     // Load today's data by default on mount
-    fetchReportData(startDate, endDate);
+    fetchReportData(isAllTime ? '' : startDate, isAllTime ? '' : endDate, filterMandal, filterVillage, filterSchool);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchReportData = async (start: string, end: string) => {
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const query = new URLSearchParams();
+        if (filterMandal) query.set('mandal', filterMandal);
+        if (filterVillage) query.set('village', filterVillage);
+        
+        const statsRes = await fetch(`/api/students/filters?${query.toString()}`);
+        if (statsRes.ok) {
+          const statsData = await statsRes.json();
+          setStats(statsData);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchStats();
+  }, [filterMandal, filterVillage]);
+
+  const fetchReportData = async (start: string, end: string, mandal: string, village: string, school: string) => {
     setLoading(true);
     try {
       const meRes = await fetch('/api/auth/me');
@@ -36,12 +63,22 @@ export default function GeneratePDFPage() {
       const configData = await configRes.json();
       if (configData.configs) setConfigs(configData.configs);
 
-      const res = await fetch(`/api/students?startDate=${start}&endDate=${end}&limit=100000`);
+      let url = `/api/students?limit=100000`;
+      if (start && end) {
+        url += `&startDate=${start}&endDate=${end}`;
+      }
+      if (mandal) url += `&mandal=${mandal}`;
+      if (village) url += `&village=${village}`;
+      if (school) url += `&schoolName=${school}`;
+
+      const res = await fetch(url);
       if (res.ok) {
         const json = await res.json();
         
         let dateString = '';
-        if (start === end) {
+        if (!start || !end) {
+          dateString = 'All Time';
+        } else if (start === end) {
           dateString = new Date(start).toLocaleDateString('en-GB');
         } else {
           dateString = `${new Date(start).toLocaleDateString('en-GB')} to ${new Date(end).toLocaleDateString('en-GB')}`;
@@ -51,7 +88,8 @@ export default function GeneratePDFPage() {
           students: json.students,
           employeeName: meData.user?.name || 'Current Employee',
           date: dateString,
-          day: new Date().toLocaleDateString('en-GB', { weekday: 'long' })
+          day: new Date().toLocaleDateString('en-GB', { weekday: 'long' }),
+          filters: { mandal, village, school }
         });
       }
     } catch (err) {
@@ -62,7 +100,7 @@ export default function GeneratePDFPage() {
   };
 
   const handleFetchClick = () => {
-    fetchReportData(startDate, endDate);
+    fetchReportData(isAllTime ? '' : startDate, isAllTime ? '' : endDate, filterMandal, filterVillage, filterSchool);
   };
 
   const generatePDF = async (action: 'download' | 'share' = 'download') => {
@@ -106,16 +144,31 @@ export default function GeneratePDFPage() {
       doc.setFont('helvetica', 'bold');
       doc.text('REPORT', doc.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Employee Name: ${data.employeeName}`, 14, currentY + 6);
-      doc.text(`Date Range: ${data.date}`, doc.internal.pageSize.getWidth() - 100, currentY + 6);
+
 
       const getConfigName = (id: string | null) => {
         if (!id) return '';
         const conf = configs.find(c => c.id === id || c.value === id);
         return conf ? conf.value : id;
       };
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Employee Name: ${data.employeeName}`, 14, currentY + 6);
+      
+      let rightText = `Date Range: ${data.date}`;
+      const filterParts = [];
+      if (data.filters.mandal) filterParts.push(`Mandal: ${getConfigName(data.filters.mandal)}`);
+      if (data.filters.village) filterParts.push(`Village: ${getConfigName(data.filters.village)}`);
+      if (data.filters.school) filterParts.push(`School: ${getConfigName(data.filters.school)}`);
+      
+      let tableStartY = currentY + 10;
+      if (filterParts.length > 0) {
+        rightText += `\nFilters: ${filterParts.join(' | ')}`;
+        tableStartY = currentY + 16;
+      }
+
+      doc.text(rightText, doc.internal.pageSize.getWidth() - 14, currentY + 6, { align: 'right' });
 
       // Table
       const tableData = data.students.map((s: any, index: number) => {
@@ -153,7 +206,7 @@ export default function GeneratePDFPage() {
       }
 
       autoTable(doc, {
-        startY: currentY + 10,
+        startY: tableStartY,
         head: [['S.No.', 'Student Name', "Father's Name", 'Occupation', 'Address', 'Phone', 'WhatsApp', 'Group', 'Visit No.', 'School Name', 'Doorstep', 'Remarks']],
         body: tableData,
         theme: 'grid',
@@ -256,11 +309,22 @@ export default function GeneratePDFPage() {
       </header>
 
       <div className="card" style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Calendar size={20} className="text-muted" /> Select Date Range
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-          <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Calendar size={20} className="text-muted" /> Select Date Range
+          </h2>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>
+            <input 
+              type="checkbox" 
+              checked={isAllTime}
+              onChange={(e) => setIsAllTime(e.target.checked)}
+              style={{ width: '1.125rem', height: '1.125rem', accentColor: 'var(--primary-color)' }}
+            />
+            All Time (Ignore Date)
+          </label>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', opacity: isAllTime ? 0.5 : 1, pointerEvents: isAllTime ? 'none' : 'auto' }}>
+          <div style={{ flex: '1 1 150px' }}>
             <label className="form-label">From Date</label>
             <input 
               type="date" 
@@ -269,7 +333,7 @@ export default function GeneratePDFPage() {
               onChange={e => setStartDate(e.target.value)} 
             />
           </div>
-          <div>
+          <div style={{ flex: '1 1 150px' }}>
             <label className="form-label">To Date</label>
             <input 
               type="date" 
@@ -280,6 +344,55 @@ export default function GeneratePDFPage() {
             />
           </div>
         </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ flex: '1 1 200px' }}>
+            <label className="form-label">Mandal (Optional)</label>
+            <select 
+              className="form-control" 
+              value={filterMandal} 
+              onChange={(e) => { setFilterMandal(e.target.value); }}
+            >
+              <option value="">All Mandals</option>
+              {stats.mandals.map(m => {
+                const conf = configs.find(c => c.id === m.id);
+                const name = conf ? conf.value : m.id;
+                return <option key={m.id} value={m.id}>{name} ({m.count})</option>
+              })}
+            </select>
+          </div>
+          <div style={{ flex: '1 1 200px' }}>
+            <label className="form-label">Village (Optional)</label>
+            <select 
+              className="form-control" 
+              value={filterVillage} 
+              onChange={(e) => { setFilterVillage(e.target.value); setFilterSchool(''); }}
+            >
+              <option value="">All Villages</option>
+              {stats.villages.map(v => {
+                const conf = configs.find(c => c.id === v.id);
+                const name = conf ? conf.value : v.id;
+                return <option key={v.id} value={v.id}>{name} ({v.count})</option>
+              })}
+            </select>
+          </div>
+          <div style={{ flex: '1 1 200px' }}>
+            <label className="form-label">School (Optional)</label>
+            <select 
+              className="form-control" 
+              value={filterSchool} 
+              onChange={(e) => { setFilterSchool(e.target.value); }}
+            >
+              <option value="">All Schools</option>
+              {stats.schools.map(s => {
+                const conf = configs.find(c => c.id === s.id);
+                const name = conf ? conf.value : s.id;
+                return <option key={s.id} value={s.id}>{name} ({s.count})</option>
+              })}
+            </select>
+          </div>
+        </div>
+
         <button 
           className="btn btn-primary" 
           style={{ width: '100%' }} 
