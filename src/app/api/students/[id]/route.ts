@@ -10,7 +10,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const token = cookieStore.get('auth_token')?.value;
 
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const payload = verifyToken(token) as { role: string } | null;
+    const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
     // Allow TELECALLER, ADMIN, or the EMPLOYEE who owns it (for simplicity, we'll just check if logged in for now, ideally restrict based on role)
     if (!payload) {
@@ -30,33 +30,61 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
-    const student = await prisma.student.update({
-      where: { id },
-      data: {
-        studentName: data.studentName !== undefined ? data.studentName : undefined,
-        gender: data.gender !== undefined ? data.gender : undefined,
-        fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
-        occupation: data.occupation !== undefined ? data.occupation : undefined,
-        address: data.address !== undefined ? data.address : undefined,
-        phone: data.phone !== undefined ? data.phone : undefined,
-        whatsapp: data.whatsapp !== undefined ? data.whatsapp : undefined,
-        group: data.group !== undefined ? data.group : undefined,
-        visitNumber: data.visitNumber !== undefined ? data.visitNumber : undefined,
-        schoolName: data.schoolName !== undefined ? data.schoolName : undefined,
-        schoolArea: data.schoolArea !== undefined ? data.schoolArea : undefined,
-        district: data.district !== undefined ? data.district : undefined,
-        mandal: data.mandal !== undefined ? data.mandal : undefined,
-        village: data.village !== undefined ? data.village : undefined,
-        studyInterestedAt: data.studyInterestedAt !== undefined ? data.studyInterestedAt : undefined,
-        educationStage: data.educationStage !== undefined ? data.educationStage : undefined,
-        ableToBearFee: data.ableToBearFee !== undefined ? data.ableToBearFee : undefined,
-        doorstepCompleted: data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined,
-        leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
-        remarks: data.remarks !== undefined ? data.remarks : undefined,
-        nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : undefined,
-        nextFollowUpDate: data.nextFollowUpType === 'Date' && data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : (data.nextFollowUpType && data.nextFollowUpType !== 'Date' ? null : undefined),
-      }
-    });
+    const nextFollowUpDate = data.nextFollowUpType === 'Date' && data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : (data.nextFollowUpType && data.nextFollowUpType !== 'Date' ? null : undefined);
+
+    const updateData = {
+      studentName: data.studentName !== undefined ? data.studentName : undefined,
+      gender: data.gender !== undefined ? data.gender : undefined,
+      fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
+      occupation: data.occupation !== undefined ? data.occupation : undefined,
+      address: data.address !== undefined ? data.address : undefined,
+      phone: data.phone !== undefined ? data.phone : undefined,
+      whatsapp: data.whatsapp !== undefined ? data.whatsapp : undefined,
+      group: data.group !== undefined ? data.group : undefined,
+      visitNumber: data.visitNumber !== undefined ? data.visitNumber : undefined,
+      schoolName: data.schoolName !== undefined ? data.schoolName : undefined,
+      schoolArea: data.schoolArea !== undefined ? data.schoolArea : undefined,
+      district: data.district !== undefined ? data.district : undefined,
+      mandal: data.mandal !== undefined ? data.mandal : undefined,
+      village: data.village !== undefined ? data.village : undefined,
+      studyInterestedAt: data.studyInterestedAt !== undefined ? data.studyInterestedAt : undefined,
+      educationStage: data.educationStage !== undefined ? data.educationStage : undefined,
+      ableToBearFee: data.ableToBearFee !== undefined ? data.ableToBearFee : undefined,
+      doorstepCompleted: data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined,
+      leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
+      remarks: data.remarks !== undefined ? data.remarks : undefined,
+      nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : undefined,
+      nextFollowUpDate,
+    };
+
+    const transactionTasks = [];
+    
+    // Add student update task
+    transactionTasks.push(
+      prisma.student.update({
+        where: { id },
+        data: updateData
+      })
+    );
+
+    // If remarks changed, create a visit record to count it for the user
+    if (data.remarks !== undefined && data.remarks !== currentStudent?.remarks) {
+      transactionTasks.push(
+        prisma.visit.create({
+          data: {
+            studentId: id,
+            addedById: payload.employeeId,
+            visitDate: new Date(),
+            remarks: data.remarks,
+            nextFollowUpDate: nextFollowUpDate !== undefined ? nextFollowUpDate : currentStudent?.nextFollowUpDate,
+            nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : currentStudent?.nextFollowUpType,
+          }
+        })
+      );
+    }
+
+    const results = await prisma.$transaction(transactionTasks);
+    const student = results[0];
 
     return NextResponse.json({ message: 'Student updated', student }, { status: 200 });
   } catch (error) {

@@ -26,6 +26,7 @@ export async function GET() {
         isActive: true,
         allowedGroups: true,
         allowedLocations: true,
+        assignedEmployees: true,
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' }
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { employeeId, name, password, role, allowedGroups, allowedLocations } = await req.json();
+    const { employeeId, name, password, role, allowedGroups, allowedLocations, assignedEmployees } = await req.json();
 
     if (!employeeId || !name || !password || !role) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
@@ -108,6 +109,9 @@ export async function POST(req: Request) {
         ...(role === 'COLLEGE' && {
           allowedGroups: allowedGroups || [],
           allowedLocations: allowedLocations || []
+        }),
+        ...(role === 'TELECALLER' && {
+          assignedEmployees: assignedEmployees || []
         })
       },
       select: { id: true, employeeId: true, name: true, role: true }
@@ -133,7 +137,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { employeeId, name, password, role, allowedGroups, allowedLocations } = await req.json();
+    const { employeeId, name, password, role, allowedGroups, allowedLocations, assignedEmployees } = await req.json();
 
     if (!employeeId) return NextResponse.json({ error: 'employeeId required' }, { status: 400 });
 
@@ -141,9 +145,15 @@ export async function PUT(req: Request) {
     if (role === 'COLLEGE') {
       updateData.allowedGroups = allowedGroups || [];
       updateData.allowedLocations = allowedLocations || [];
+      updateData.assignedEmployees = [];
+    } else if (role === 'TELECALLER') {
+      updateData.assignedEmployees = assignedEmployees || [];
+      updateData.allowedGroups = [];
+      updateData.allowedLocations = [];
     } else {
       updateData.allowedGroups = [];
       updateData.allowedLocations = [];
+      updateData.assignedEmployees = [];
     }
     if (password && password.trim() !== '') {
       updateData.password = await bcrypt.hash(password, 10);

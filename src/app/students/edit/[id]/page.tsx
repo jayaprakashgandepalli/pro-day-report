@@ -193,11 +193,11 @@ export default function EditStudent() {
 
   return (
     <div className="container" style={{ paddingBottom: '100px' }}>
-      <header className="app-header" style={{ margin: '-1rem -1rem 1rem -1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <button onClick={() => router.back()} className="btn-icon" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-          <ArrowLeft />
+      <header className="app-header" style={{ margin: '-1rem -1rem 1rem -1rem', padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+        <button onClick={() => router.back()} className="btn-icon" style={{ background: 'none', border: 'none', color: '#0f172a', cursor: 'pointer' }}>
+          <ArrowLeft size={24} />
         </button>
-        <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Edit Student</h1>
+        <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>Edit Student</h1>
       </header>
 
       {loading ? (

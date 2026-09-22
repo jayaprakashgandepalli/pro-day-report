@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Home, UserPlus, Users, CalendarDays, MapPin, Star, FileText, LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function EmployeeSidebar() {
+function SidebarContent() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const preset = searchParams?.get('preset');
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -18,10 +20,10 @@ export default function EmployeeSidebar() {
   const menuItems = [
     { name: 'Dashboard', path: '/employee', icon: Home },
     { name: 'Add Student', path: '/employee/add', icon: UserPlus },
-    { name: 'All Students', path: '/employee/students', icon: Users },
+    { name: 'All Students', path: '/employee/students', icon: Users, matchPreset: null },
+    { name: 'Star Leads', path: '/employee/students?preset=prime', icon: Star, matchPreset: 'prime' },
     { name: 'Follow-ups', path: '/employee/followups', icon: CalendarDays },
     { name: 'Village Visits', path: '/employee/village-visits', icon: MapPin },
-    { name: 'Star Leads', path: '/employee/students?preset=prime', icon: Star },
     { name: 'Day Report (PDF)', path: '/reports/generate', icon: FileText },
   ];
 
@@ -46,10 +48,14 @@ export default function EmployeeSidebar() {
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
           {menuItems.map(item => {
             const Icon = item.icon;
-            // Precise active matching
-            const isActive = pathname === item.path || 
-                             (pathname.startsWith(item.path) && item.path !== '/employee') ||
-                             (item.path.includes('preset=prime') && typeof window !== 'undefined' && window.location.search.includes('preset=prime'));
+            let isActive = false;
+            if (item.path === '/employee') {
+              isActive = pathname === '/employee';
+            } else if (item.path.startsWith('/employee/students')) {
+              isActive = pathname === '/employee/students' && (preset || null) === (item.matchPreset || null);
+            } else {
+              isActive = pathname === item.path || pathname.startsWith(item.path);
+            }
             
             return (
               <li key={item.path}>
@@ -99,5 +105,13 @@ export default function EmployeeSidebar() {
         </button>
       </div>
     </aside>
+  );
+}
+
+export default function EmployeeSidebar() {
+  return (
+    <Suspense fallback={<div style={{ width: '260px', height: '100vh', backgroundColor: '#0f172a' }} />}>
+      <SidebarContent />
+    </Suspense>
   );
 }

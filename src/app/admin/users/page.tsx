@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { UserPlus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight } from 'lucide-react';
+import { UserPlus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, Settings } from 'lucide-react';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -26,6 +26,13 @@ export default function AdminUsersPage() {
   const [editAllowedGroups, setEditAllowedGroups] = useState<string[]>([]);
   const [editAllowedLocations, setEditAllowedLocations] = useState<string[]>([]);
   const [editLoading, setEditLoading] = useState(false);
+
+  // Settings modal state
+  const [settingsUser, setSettingsUser] = useState<any | null>(null);
+  const [settingsAllowedGroups, setSettingsAllowedGroups] = useState<string[]>([]);
+  const [settingsAllowedLocations, setSettingsAllowedLocations] = useState<string[]>([]);
+  const [settingsAssignedEmployees, setSettingsAssignedEmployees] = useState<string[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -130,6 +137,44 @@ export default function AdminUsersPage() {
     } finally {
       setEditLoading(false);
     }
+  };
+
+  const handleSettingsSave = async () => {
+    if (!settingsUser) return;
+    setSettingsLoading(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: settingsUser.employeeId,
+          name: settingsUser.name,
+          role: settingsUser.role,
+          allowedGroups: settingsAllowedGroups,
+          allowedLocations: settingsAllowedLocations,
+          assignedEmployees: settingsAssignedEmployees,
+        })
+      });
+      if (res.ok) {
+        setSettingsUser(null);
+        setSuccess('Permissions updated successfully!');
+        fetchUsers();
+      } else {
+        const d = await res.json();
+        setError(d.error || 'Failed to update permissions');
+      }
+    } catch (err) {
+      setError('An error occurred');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const openSettingsModal = (u: any) => {
+    setSettingsUser(u);
+    setSettingsAllowedGroups(u.allowedGroups || []);
+    setSettingsAllowedLocations(u.allowedLocations || []);
+    setSettingsAssignedEmployees(u.assignedEmployees || []);
   };
 
   const handleDelete = async (u: any) => {
@@ -282,6 +327,12 @@ export default function AdminUsersPage() {
                       {u.isActive ? 'Active' : 'Inactive'}
                     </button>
                     <button
+                      onClick={() => openSettingsModal(u)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.375rem 0.75rem', backgroundColor: '#f3f4f6', color: '#4b5563', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      <Settings size={13} /> Settings
+                    </button>
+                    <button
                       onClick={() => openEditModal(u)}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.375rem 0.75rem', backgroundColor: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
                     >
@@ -366,6 +417,76 @@ export default function AdminUsersPage() {
                 <Check size={16} /> {editLoading ? 'Saving...' : 'Save Changes'}
               </button>
               <button onClick={() => setEditUser(null)} style={{ padding: '0.75rem 1.25rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {settingsUser && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', width: '100%', maxWidth: '480px', padding: '1.5rem', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Permissions: {settingsUser.name}</h2>
+              <button onClick={() => setSettingsUser(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={20} /></button>
+            </div>
+
+            {settingsUser.role === 'COLLEGE' && (
+              <>
+                <div className="form-group" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ marginBottom: '0.75rem', fontWeight: 600 }}>Allowed Groups (Courses)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem' }}>
+                    {groups.map(g => (
+                      <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={settingsAllowedGroups.includes(g.value)} onChange={() => toggleArrayItem(setSettingsAllowedGroups, settingsAllowedGroups, g.value)} />
+                        {g.value}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <label className="form-label" style={{ marginBottom: '0.75rem', fontWeight: 600 }}>Allowed Locations (Study Interest)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                    {locations.map(l => (
+                      <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={settingsAllowedLocations.includes(l.value)} onChange={() => toggleArrayItem(setSettingsAllowedLocations, settingsAllowedLocations, l.value)} />
+                        {l.value}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {settingsUser.role === 'TELECALLER' && (
+              <div className="form-group" style={{ padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
+                <label className="form-label" style={{ marginBottom: '0.75rem', fontWeight: 600 }}>Assigned Employees (Data Visibility)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                  {users.filter(u => u.role === 'EMPLOYEE').map(emp => (
+                    <label key={emp.employeeId} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={settingsAssignedEmployees.includes(emp.employeeId)} onChange={() => toggleArrayItem(setSettingsAssignedEmployees, settingsAssignedEmployees, emp.employeeId)} />
+                      {emp.name} ({emp.employeeId})
+                    </label>
+                  ))}
+                  {users.filter(u => u.role === 'EMPLOYEE').length === 0 && (
+                    <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No employees found.</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
+              <button
+                onClick={handleSettingsSave}
+                disabled={settingsLoading}
+                style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', backgroundColor: '#0F2B47', color: '#ffffff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Check size={16} /> {settingsLoading ? 'Saving...' : 'Save Permissions'}
+              </button>
+              <button onClick={() => setSettingsUser(null)} style={{ padding: '0.75rem 1.25rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}>
                 Cancel
               </button>
             </div>

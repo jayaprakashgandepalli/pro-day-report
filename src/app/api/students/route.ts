@@ -94,6 +94,16 @@ export async function GET(req: Request) {
 
     if (payload.role === 'EMPLOYEE') {
       whereClause.AND.push({ employeeId: payload.employeeId });
+    } else if (payload.role === 'TELECALLER') {
+      const user = await prisma.user.findUnique({
+        where: { employeeId: payload.employeeId },
+        select: { assignedEmployees: true }
+      });
+      if (user && user.assignedEmployees && user.assignedEmployees.length > 0) {
+        whereClause.AND.push({ employeeId: { in: user.assignedEmployees } });
+      } else {
+        whereClause.AND.push({ id: 'none' }); // No access if no employees assigned
+      }
     } else if (payload.role === 'COLLEGE') {
       const user = await prisma.user.findUnique({
         where: { employeeId: payload.employeeId },
@@ -118,6 +128,27 @@ export async function GET(req: Request) {
           { joinedCollegeId: null },
           { joinedCollegeId: payload.employeeId }
         ]
+      });
+    }
+    
+    const callStatus = searchParams.get('callStatus');
+    if (callStatus === 'not_called') {
+      whereClause.AND.push({
+        OR: [
+          { remarks: null },
+          { remarks: '' }
+        ]
+      });
+    }
+
+    const addedDate = searchParams.get('addedDate');
+    if (addedDate) {
+      const startOfDay = new Date(addedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(addedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      whereClause.AND.push({
+        createdAt: { gte: startOfDay, lte: endOfDay }
       });
     }
 
@@ -169,7 +200,12 @@ export async function GET(req: Request) {
       });
     }
 
+    console.log("=== API /api/students HIT ===");
+    console.log("URL:", req.url);
+    console.log("Preset:", preset);
+    
     if (preset === 'prime') {
+      console.log("Applying prime preset filters...");
       const targetConfigs = await prisma.configValue.findMany({
         where: {
           OR: [
@@ -187,9 +223,29 @@ export async function GET(req: Request) {
       const feeIds = targetConfigs.filter(c => c.type === 'FEE_BEARABLE').map(c => c.id);
       const groupIds = targetConfigs.filter(c => c.type === 'GROUP').map(c => c.id);
 
-      if (interestIds.length > 0) whereClause.AND.push({ studyInterestedAt: { in: interestIds } });
-      if (feeIds.length > 0) whereClause.AND.push({ ableToBearFee: { in: feeIds } });
-      if (groupIds.length > 0) whereClause.AND.push({ group: { in: groupIds } });
+      whereClause.AND.push({
+        OR: [
+          { studyInterestedAt: { in: interestIds } },
+          { studyInterestedAt: { contains: 'vizag', mode: 'insensitive' } },
+          { studyInterestedAt: { contains: 'visakha', mode: 'insensitive' } }
+        ]
+      });
+
+      whereClause.AND.push({
+        OR: [
+          { ableToBearFee: { in: feeIds } },
+          { ableToBearFee: { contains: 'yes', mode: 'insensitive' } },
+          { ableToBearFee: { contains: 'bearable', mode: 'insensitive' } }
+        ]
+      });
+
+      whereClause.AND.push({
+        OR: [
+          { group: { in: groupIds } },
+          { group: { contains: 'mpc', mode: 'insensitive' } },
+          { group: { contains: 'bipc', mode: 'insensitive' } }
+        ]
+      });
     }
 
     if (interest) whereClause.AND.push({ studyInterestedAt: interest });

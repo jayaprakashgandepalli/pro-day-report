@@ -20,6 +20,9 @@ model User {
   allowedGroups    String[]  @default([])
   allowedLocations String[]  @default([])
   
+  // Field for TELECALLER role to restrict visibility to specific employees
+  assignedEmployees String[] @default([])
+  
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   students         Student[]

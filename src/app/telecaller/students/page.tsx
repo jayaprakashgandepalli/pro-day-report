@@ -49,7 +49,9 @@ export default function AllStudents() {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [visitRemarks, setVisitRemarks] = useState('');
   const [admissionStatus, setAdmissionStatus] = useState<'' | 'admitted'>('');
+  const [callStatus, setCallStatus] = useState<'' | 'not_called'>('');
   const [profileStatus, setProfileStatus] = useState<'' | 'incomplete'>('');
+  const [addedDate, setAddedDate] = useState('');
   
   // Custom Filters
   const [filterMandal, setFilterMandal] = useState('');
@@ -91,7 +93,7 @@ export default function AllStudents() {
 
   useEffect(() => {
     fetchStudents();
-  }, [page, preset, debouncedSearch, admissionStatus, profileStatus, filterMandal, filterVillage, filterSchool]);
+  }, [page, preset, debouncedSearch, admissionStatus, callStatus, profileStatus, addedDate, filterMandal, filterVillage, filterSchool]);
 
   const fetchConfigs = async () => {
     try {
@@ -149,14 +151,17 @@ export default function AllStudents() {
       if (preset) query.set('preset', preset);
       if (debouncedSearch) query.set('search', debouncedSearch);
       if (admissionStatus) query.set('admissionStatus', admissionStatus);
+      if (callStatus) query.set('callStatus', callStatus);
       if (profileStatus) query.set('profileStatus', profileStatus);
       if (addedDate) query.set('addedDate', addedDate);
       if (filterMandal) query.set('mandal', filterMandal);
       if (filterVillage) query.set('village', filterVillage);
       if (filterSchool) query.set('schoolName', filterSchool);
-      query.set('_t', Date.now().toString());
+      query.set('_t', Date.now().toString()); // Cache buster
 
       const res = await fetch(`/api/students?${query.toString()}`);
+      
+      // Prevent race conditions: only update if this is the most recent fetch
       if (currentFetchId !== fetchIdRef.current) return;
 
       if (res.ok) {
@@ -175,14 +180,6 @@ export default function AllStudents() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this student?')) return;
-    
-    // In a real app, you'd call a DELETE API endpoint here.
-    // For now, we'll just remove from state to simulate.
-    // const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-    setStudents(students.filter(s => s.id !== id));
-  };
 
   const handleAddVisit = async () => {
     if (!visitRemarks) return alert("Remarks are required");
@@ -247,7 +244,7 @@ export default function AllStudents() {
     <div className="container" style={{ padding: 0, paddingBottom: '100px', backgroundColor: '#f8fafc', minHeight: '100vh', margin: '0 auto', boxShadow: '0 0 20px rgba(0,0,0,0.05)' }}>
       <header className="app-header-dark" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Link href="/" className="btn-icon" style={{ color: '#cbd5e1', padding: '0.25rem' }}>
+          <Link href="/telecaller" className="btn-icon" style={{ color: '#cbd5e1', padding: '0.25rem' }}>
             <ArrowLeft size={20} />
           </Link>
           <div>
@@ -276,25 +273,30 @@ export default function AllStudents() {
           <>
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
               <button
-                style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: (admissionStatus === '' && profileStatus === '') ? '#0F2B47' : '#e2e8f0', color: (admissionStatus === '' && profileStatus === '') ? '#ffffff' : '#475569' }}
-                onClick={() => { setAdmissionStatus(''); setProfileStatus(''); setPage(1); }}
+                style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: (admissionStatus === '' && profileStatus === '' && callStatus === '') ? '#0F2B47' : '#e2e8f0', color: (admissionStatus === '' && profileStatus === '' && callStatus === '') ? '#ffffff' : '#475569' }}
+                onClick={() => { setAdmissionStatus(''); setProfileStatus(''); setCallStatus(''); setAddedDate(''); setPage(1); }}
               >
                 All Students
               </button>
               <button
                 style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: admissionStatus === 'admitted' ? '#16a34a' : '#e2e8f0', color: admissionStatus === 'admitted' ? '#ffffff' : '#475569' }}
-                onClick={() => { setAdmissionStatus('admitted'); setProfileStatus(''); setPage(1); }}
+                onClick={() => { setAdmissionStatus('admitted'); setProfileStatus(''); setCallStatus(''); setPage(1); }}
               >
                 ✓ Admitted
               </button>
               <button
                 style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: profileStatus === 'incomplete' ? '#ef4444' : '#e2e8f0', color: profileStatus === 'incomplete' ? '#ffffff' : '#475569' }}
-                onClick={() => { setProfileStatus('incomplete'); setAdmissionStatus(''); setPage(1); }}
+                onClick={() => { setProfileStatus('incomplete'); setAdmissionStatus(''); setCallStatus(''); setPage(1); }}
               >
                 ⚠️ Incomplete Profiles
               </button>
+              <button
+                style={{ borderRadius: '20px', padding: '0.375rem 1rem', fontSize: '0.8125rem', fontWeight: 600, border: 'none', cursor: 'pointer', transition: 'all 0.2s', backgroundColor: callStatus === 'not_called' ? '#f59e0b' : '#e2e8f0', color: callStatus === 'not_called' ? '#ffffff' : '#475569' }}
+                onClick={() => { setCallStatus('not_called'); setAdmissionStatus(''); setProfileStatus(''); setPage(1); }}
+              >
+                📞 Not Called
+              </button>
             </div>
-
             {/* Dropdown Filters */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <select 
@@ -329,7 +331,21 @@ export default function AllStudents() {
               <option key={s.id} value={s.id}>{resolveName(s.id)} ({s.count})</option>
             ))}
           </select>
-          </select>
+
+          <input 
+            type="date" 
+            value={addedDate} 
+            onChange={(e) => { setAddedDate(e.target.value); setPage(1); }}
+            style={{ padding: '0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500 }}
+            title="Filter by Date Added"
+          />
+          {addedDate && (
+             <button 
+               onClick={() => { setAddedDate(''); setPage(1); }} 
+               style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, padding: '0 0.25rem' }}>
+               Clear Date
+             </button>
+          )}
         </div>
           </>
         )}
@@ -366,8 +382,7 @@ export default function AllStudents() {
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', fontSize: '0.875rem' }}>Loading students...</div>
         ) : students.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b', fontSize: '0.875rem' }}>
-            No students found. <br/><br/>
-            <Link href="/employee/add" className="ios-btn-primary" style={{ display: 'inline-flex', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 600, fontSize: '0.875rem' }}>Add Student</Link>
+            No students found.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -473,13 +488,6 @@ export default function AllStudents() {
                               title="Add Visit"
                             >
                               <PlusCircle size={16} />
-                            </button>
-                            <button 
-                              className="ios-btn-icon" style={{ backgroundColor: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}
-                              onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                              title="Delete"
-                            >
-                              <Trash2 size={14} />
                             </button>
                           </div>
                         </div>
