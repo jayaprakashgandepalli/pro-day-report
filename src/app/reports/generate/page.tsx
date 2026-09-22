@@ -36,7 +36,7 @@ export default function GeneratePDFPage() {
       const configData = await configRes.json();
       if (configData.configs) setConfigs(configData.configs);
 
-      const res = await fetch(`/api/students?startDate=${start}&endDate=${end}`);
+      const res = await fetch(`/api/students?startDate=${start}&endDate=${end}&limit=100000`);
       if (res.ok) {
         const json = await res.json();
         
@@ -159,12 +159,7 @@ export default function GeneratePDFPage() {
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [15, 118, 110] },
-        margin: { top: 35 },
-        didDrawPage: (dataArg) => {
-          if (dataArg.pageNumber > 1) {
-            doc.addImage(imgData, 'PNG', xOffset, 5, imgWidth, imgHeight);
-          }
-        }
+        margin: { top: 15 }
       });
 
       // Totals (dynamic based on config)
