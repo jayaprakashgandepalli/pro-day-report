@@ -71,15 +71,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     let updateStudentPromise = null;
     if (payload.role !== 'COLLEGE') {
+      const updateData: any = {
+        visitNumber: nextVisitNo,
+        remarks: data.remarks,
+        nextFollowUpDate,
+        nextFollowUpType,
+        doorstepCompleted: true, // Automatically check doorstep completed when a visit is recorded
+        updatedAt: new Date() // Force updatedAt change
+      };
+      if (data.leadStatus) {
+        updateData.leadStatus = data.leadStatus;
+        
+        if (data.leadStatus === 'Admitted' && data.joinedCollegeId) {
+          updateData.joinedCollegeId = data.joinedCollegeId;
+          updateData.applicationNumber = data.applicationNumber || null;
+          updateData.admissionDate = new Date();
+        }
+      }
       updateStudentPromise = prisma.student.update({
         where: { id },
-        data: {
-          visitNumber: nextVisitNo,
-          remarks: data.remarks,
-          nextFollowUpDate,
-          nextFollowUpType,
-          updatedAt: new Date() // Force updatedAt change
-        }
+        data: updateData
       });
     }
 

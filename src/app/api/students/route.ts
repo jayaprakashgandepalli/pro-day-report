@@ -47,6 +47,7 @@ export async function POST(req: Request) {
         visitNumber: data.visitNumber || null,
         schoolName: data.schoolName || null,
         schoolArea: data.schoolArea || null,
+        marks: data.marks || null,
         remarks: data.remarks || null,
         district: data.district || null,
         mandal: data.mandal || null,
@@ -128,6 +129,13 @@ export async function GET(req: Request) {
           { joinedCollegeId: null },
           { joinedCollegeId: payload.employeeId }
         ]
+      });
+
+      // Hide students who joined external competitor colleges
+      whereClause.AND.push({
+        NOT: {
+          leadStatus: 'Joined Other College'
+        }
       });
     }
     
@@ -357,6 +365,8 @@ export async function GET(req: Request) {
       delete whereClause.AND;
     }
 
+    const minimal = searchParams.get('minimal') === 'true';
+
     const total = await prisma.student.count({ where: whereClause });
 
     let visitInclude: any = {
@@ -368,17 +378,40 @@ export async function GET(req: Request) {
       visitInclude.where = { addedById: payload.employeeId };
     }
 
-    const students = await prisma.student.findMany({
+    const queryOptions: any = {
       where: whereClause,
-      include: { 
-        employee: true,
-        visits: visitInclude,
-        joinedCollege: { select: { name: true } }
-      },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
-    });
+    };
+
+    if (minimal) {
+      queryOptions.select = {
+        id: true,
+        studentName: true,
+        phone: true,
+        whatsapp: true,
+        fatherName: true,
+        group: true,
+        schoolName: true,
+        schoolArea: true,
+        marks: true,
+        village: true,
+        studyInterestedAt: true,
+        ableToBearFee: true,
+        leadStatus: true,
+        createdAt: true,
+        visits: visitInclude,
+      };
+    } else {
+      queryOptions.include = { 
+        employee: true,
+        visits: visitInclude,
+        joinedCollege: { select: { name: true } }
+      };
+    }
+
+    const students = await prisma.student.findMany(queryOptions);
 
     return NextResponse.json({ students, total, page, limit }, { status: 200 });
   } catch (error) {

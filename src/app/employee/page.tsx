@@ -64,6 +64,7 @@ export default async function Home() {
   const matchedStudents = groupStats.reduce((sum, g) => sum + g.count, 0);
   const otherCount = allStudents.length - matchedStudents;
   const doorstepsNotCompletedCount = allStudents.filter(s => !s.doorstepCompleted).length;
+  const admittedCount = allStudents.filter(s => s.leadStatus === 'Admitted').length;
 
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
@@ -202,13 +203,15 @@ export default async function Home() {
               if (n.includes('CLARITY')) return { abbr: '●', sub: 'Awaiting student confirmation', bg: '#fefce8', color: '#eab308' };
               if (n === 'OTHER' || n === 'OTHER GROUPS') return { abbr: 'OT', sub: 'Miscellaneous groups', bg: '#f1f5f9', color: '#475569' };
               if (n === 'DOORSTEP PENDING') return { abbr: 'DP', sub: 'Action required', bg: '#fff1f2', color: '#e11d48' };
+              if (n === 'ADMITTED STUDENTS') return { abbr: 'AD', sub: 'Successfully joined', bg: '#dcfce7', color: '#166534' };
               return { abbr: name.substring(0, 2).toUpperCase(), sub: 'Group metrics', bg: '#f0fdf4', color: '#22c55e' };
             };
 
             const allRows = [
               ...groupStats.map(stat => ({ name: stat.name, count: stat.count })),
               { name: 'Other Groups', count: otherCount },
-              { name: 'Doorstep Pending', count: doorstepsNotCompletedCount }
+              { name: 'Doorstep Pending', count: doorstepsNotCompletedCount },
+              { name: 'Admitted Students', count: admittedCount }
             ];
 
             return allRows.map((stat, idx) => {

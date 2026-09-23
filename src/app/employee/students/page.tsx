@@ -60,8 +60,12 @@ export default function AllStudents() {
 
   const [nextFollowUpType, setNextFollowUpType] = useState('');
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
+  const [joinedCollegeId, setJoinedCollegeId] = useState('');
+  const [applicationNumber, setApplicationNumber] = useState('');
   const [savingVisit, setSavingVisit] = useState(false);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  
+  const [colleges, setColleges] = useState<{employeeId: string, name: string}[]>([]);
 
   const toggleExpand = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -106,6 +110,13 @@ export default function AllStudents() {
         });
         setConfigMap(map);
         setConfigParentMap(parentMap);
+      }
+      
+      // Fetch colleges
+      const colRes = await fetch('/api/colleges/list');
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColleges(colData.colleges || []);
       }
     } catch (e) {
       console.error(e);
@@ -187,14 +198,37 @@ export default function AllStudents() {
     if (!visitRemarks) return alert("Remarks are required");
     setSavingVisit(true);
     try {
+      let leadStatus = undefined;
+      if (nextFollowUpType === 'joined_other') leadStatus = 'Joined Other College';
+      if (nextFollowUpType === 'not_interested') leadStatus = 'Not Interested';
+      if (nextFollowUpType === 'admitted') leadStatus = 'Admitted';
+
+      let apiFollowUpType = null;
+      if (nextFollowUpType === 'After Exams' || nextFollowUpType === 'After Results' || nextFollowUpType === 'Date') {
+        apiFollowUpType = nextFollowUpType;
+      }
+
+      const payload: any = { 
+        remarks: visitRemarks, 
+        nextFollowUpType: apiFollowUpType,
+        nextFollowUpDate: (nextFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null,
+        leadStatus
+      };
+
+      if (nextFollowUpType === 'admitted') {
+        if (!joinedCollegeId) {
+          alert('Please select the college branch.');
+          setSavingVisit(false);
+          return;
+        }
+        payload.joinedCollegeId = joinedCollegeId;
+        payload.applicationNumber = applicationNumber;
+      }
+
       const res = await fetch(`/api/students/${selectedStudentId}/visits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          remarks: visitRemarks, 
-          nextFollowUpType: nextFollowUpType || null,
-          nextFollowUpDate: (nextFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null 
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         alert("Visit added!");
@@ -202,6 +236,8 @@ export default function AllStudents() {
         setVisitRemarks('');
         setNextFollowUpType('');
         setNextFollowUpDate('');
+        setJoinedCollegeId('');
+        setApplicationNumber('');
         fetchStudents(); // refresh the list
       } else {
         alert("Failed to add visit");
@@ -522,12 +558,15 @@ export default function AllStudents() {
               <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed?"></textarea>
             </div>
             <div className="form-group">
-              <label className="form-label">Next Follow-up Action</label>
+              <label className="form-label">Next Follow-up Action / Outcome</label>
               <select className="form-control" value={nextFollowUpType} onChange={e => { setNextFollowUpType(e.target.value); setNextFollowUpDate(''); }}>
                 <option value="">Select option</option>
-                <option value="After Exams">After Exams</option>
-                <option value="After Results">After Results</option>
-                <option value="Date">Specific Date</option>
+                <option value="After Exams">Follow-up After Exams</option>
+                <option value="After Results">Follow-up After Results</option>
+                <option value="Date">Follow-up on Specific Date</option>
+                <option value="admitted">Closed - Admitted to Our College</option>
+                <option value="joined_other">Closed - Joined Other College</option>
+                <option value="not_interested">Closed - Not Interested</option>
               </select>
             </div>
             {nextFollowUpType === 'Date' && (
@@ -535,6 +574,23 @@ export default function AllStudents() {
                 <label className="form-label">Select Date</label>
                 <input type="date" className="form-control" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} />
               </div>
+            )}
+            {nextFollowUpType === 'admitted' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Select College Branch *</label>
+                  <select className="form-control" value={joinedCollegeId} onChange={e => setJoinedCollegeId(e.target.value)}>
+                    <option value="">Select College...</option>
+                    {colleges.map(c => (
+                      <option key={c.employeeId} value={c.employeeId}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Application Number (Optional)</label>
+                  <input type="text" className="form-control" value={applicationNumber} onChange={e => setApplicationNumber(e.target.value)} placeholder="e.g. APP-12345" />
+                </div>
+              </>
             )}
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setVisitModalOpen(false)} disabled={savingVisit}>Cancel</button>

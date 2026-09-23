@@ -44,6 +44,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       visitNumber: data.visitNumber !== undefined ? data.visitNumber : undefined,
       schoolName: data.schoolName !== undefined ? data.schoolName : undefined,
       schoolArea: data.schoolArea !== undefined ? data.schoolArea : undefined,
+      marks: data.marks !== undefined ? data.marks : undefined,
       district: data.district !== undefined ? data.district : undefined,
       mandal: data.mandal !== undefined ? data.mandal : undefined,
       village: data.village !== undefined ? data.village : undefined,
@@ -67,21 +68,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       })
     );
 
-    // If remarks changed, create a visit record to count it for the user
-    if (data.remarks !== undefined && data.remarks !== currentStudent?.remarks) {
-      transactionTasks.push(
-        prisma.visit.create({
-          data: {
-            studentId: id,
-            addedById: payload.employeeId,
-            visitDate: new Date(),
-            remarks: data.remarks,
-            nextFollowUpDate: nextFollowUpDate !== undefined ? nextFollowUpDate : currentStudent?.nextFollowUpDate,
-            nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : currentStudent?.nextFollowUpType,
-          }
-        })
-      );
-    }
+    // We no longer automatically create a visit record when remarks change.
+    // Visits must be explicitly added via the "Record Visit" popup.
 
     const results = await prisma.$transaction(transactionTasks);
     const student = results[0];

@@ -19,6 +19,7 @@ export default function AddStudentPage() {
     visitNumber: '',
     schoolName: '',
     schoolArea: '',
+    marks: '',
     remarks: '',
     district: '',
     mandal: '',
@@ -144,6 +145,7 @@ export default function AddStudentPage() {
             schoolDistrict: '',
             schoolMandal: '',
             schoolVillage: '',
+            marks: '',
             remarks: '',
             district: '',
             mandal: '',
@@ -208,7 +210,7 @@ export default function AddStudentPage() {
               className="btn btn-primary" 
               onClick={() => {
                 setFormData({
-                  studentName: '', gender: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', schoolName: '', schoolArea: '', schoolDistrict: '', schoolMandal: '', schoolVillage: '', remarks: '', district: '', mandal: '', village: '', studyInterestedAt: '', educationStage: '', ableToBearFee: '', doorstepCompleted: false, address: ''
+                  studentName: '', gender: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', schoolName: '', schoolArea: '', schoolDistrict: '', schoolMandal: '', schoolVillage: '', marks: '', remarks: '', district: '', mandal: '', village: '', studyInterestedAt: '', educationStage: '', ableToBearFee: '', doorstepCompleted: false, address: ''
                 });
                 setIsSuccessScreen(false);
                 setSuccessMsg('');
@@ -349,6 +351,11 @@ export default function AddStudentPage() {
                 </select>
               </div>
             )}
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="marks">Marks / Grade / GPA</label>
+              <input type="text" id="marks" name="marks" className="form-control" value={formData.marks} onChange={handleChange} placeholder="e.g., 95%, 9.5, 950" />
+            </div>
 
             {formData.schoolName && schoolStats && (
               <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>

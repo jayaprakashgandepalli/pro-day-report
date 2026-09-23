@@ -42,10 +42,15 @@ export default function VillageVisits() {
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [visitRemarks, setVisitRemarks] = useState('');
-  const [nextFollowUpType, setNextFollowUpType] = useState('');
+  const [visitOutcome, setVisitOutcome] = useState('');
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
+  const [joinedCollegeId, setJoinedCollegeId] = useState('');
+  const [applicationNumber, setApplicationNumber] = useState('');
   const [savingVisit, setSavingVisit] = useState(false);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [viewStudent, setViewStudent] = useState<Student | null>(null);
+  
+  const [colleges, setColleges] = useState<{employeeId: string, name: string}[]>([]);
 
   const toggleExpand = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -71,6 +76,13 @@ export default function VillageVisits() {
         setConfigMap(map);
         setConfigParentMap(pMap);
       }
+      
+      // Fetch colleges
+      const colRes = await fetch('/api/colleges/list');
+      if (colRes.ok) {
+        const colData = await colRes.json();
+        setColleges(colData.colleges || []);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -80,7 +92,7 @@ export default function VillageVisits() {
     try {
       setLoading(true);
       // Fetching all students, filtering locally
-      const res = await fetch(`/api/students?limit=1000`);
+      const res = await fetch(`/api/students?limit=1000&minimal=true`);
       if (res.ok) {
         const data = await res.json();
         setStudents(data.students);
@@ -140,6 +152,7 @@ export default function VillageVisits() {
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const isStudentClosed = () => {
+        if (s.leadStatus === 'Joined Other College' || s.leadStatus === 'Not Interested') return true;
         if (s.ableToBearFee === 'Not Bearable') return true;
         if (s.studyInterestedAt === 'Local College' || s.studyInterestedAt === 'Other') return true;
         const dropGroups = ['CEC', 'HEC', 'ITI academy', 'Polytechnic', 'Defence academy'];
@@ -170,6 +183,23 @@ export default function VillageVisits() {
     setSavingVisit(true);
     
     // We send the selectedDate to the API so the visit is recorded for that date if they chose a past date
+    let apiFollowUpType = null;
+    let apiStudentStatus = null;
+
+    if (visitOutcome === 'after_exams') { apiFollowUpType = 'After Exams'; apiStudentStatus = 'Following Up'; }
+    if (visitOutcome === 'after_results') { apiFollowUpType = 'After Results'; apiStudentStatus = 'Following Up'; }
+    if (visitOutcome === 'specific_date') { apiFollowUpType = 'Date'; apiStudentStatus = 'Following Up'; }
+    if (visitOutcome === 'joined_other') { apiStudentStatus = 'Joined Other College'; }
+    if (visitOutcome === 'not_interested') { apiStudentStatus = 'Not Interested'; }
+    if (visitOutcome === 'following_up') { apiStudentStatus = 'Following Up'; }
+    if (visitOutcome === 'admitted') { apiStudentStatus = 'Admitted'; }
+
+    if (visitOutcome === 'admitted' && !joinedCollegeId) {
+      alert('Please select the college branch.');
+      setSavingVisit(false);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/students/${selectedStudentId}/visits`, {
         method: 'POST',
@@ -177,16 +207,21 @@ export default function VillageVisits() {
         body: JSON.stringify({ 
           remarks: visitRemarks, 
           visitDate: new Date(selectedDate).toISOString(),
-          nextFollowUpType: nextFollowUpType || null,
-          nextFollowUpDate: (nextFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null 
+          nextFollowUpType: apiFollowUpType,
+          nextFollowUpDate: (apiFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null,
+          leadStatus: apiStudentStatus,
+          joinedCollegeId: visitOutcome === 'admitted' ? joinedCollegeId : undefined,
+          applicationNumber: visitOutcome === 'admitted' ? applicationNumber : undefined
         })
       });
       if (res.ok) {
         alert("Visit added!");
         setVisitModalOpen(false);
         setVisitRemarks('');
-        setNextFollowUpType('');
+        setVisitOutcome('');
         setNextFollowUpDate('');
+        setJoinedCollegeId('');
+        setApplicationNumber('');
         fetchStudents(); // refresh the list to get new visit date
       } else {
         alert("Failed to add visit");
@@ -371,9 +406,9 @@ export default function VillageVisits() {
                                 <MessageCircle size={14} />
                               </a>
                             )}
-                            <Link href={`/students/edit/${s.id}`} onClick={(e) => e.stopPropagation()} style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                            <button onClick={(e) => { e.stopPropagation(); setViewStudent(s); }} style={{ background: 'transparent', border: 'none', fontSize: '0.6875rem', fontWeight: 600, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: 0 }}>
                               Full Details <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                            </Link>
+                            </button>
                           </div>
                           
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -415,23 +450,143 @@ export default function VillageVisits() {
               <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed?"></textarea>
             </div>
             <div className="form-group">
-              <label className="form-label">Next Follow-up Action</label>
-              <select className="form-control" value={nextFollowUpType} onChange={e => { setNextFollowUpType(e.target.value); setNextFollowUpDate(''); }}>
-                <option value="">Select option</option>
-                <option value="After Exams">After Exams</option>
-                <option value="After Results">After Results</option>
-                <option value="Date">Specific Date</option>
+              <label className="form-label">Visit Outcome / Next Action</label>
+              <select className="form-control" value={visitOutcome} onChange={e => { setVisitOutcome(e.target.value); setNextFollowUpDate(''); }}>
+                <option value="">Select option...</option>
+                <option value="following_up">Just Follow-up (No specific date)</option>
+                <option value="after_exams">Follow-up After Exams</option>
+                <option value="after_results">Follow-up After Results</option>
+                <option value="specific_date">Follow-up on Specific Date</option>
+                <option value="admitted">Closed - Admitted to Our College</option>
+                <option value="joined_other">Closed - Joined Other College</option>
+                <option value="not_interested">Closed - Not Interested</option>
               </select>
             </div>
-            {nextFollowUpType === 'Date' && (
+            {visitOutcome === 'specific_date' && (
               <div className="form-group">
                 <label className="form-label">Select Follow-up Date</label>
                 <input type="date" className="form-control" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} />
               </div>
             )}
+            {visitOutcome === 'admitted' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Select College Branch *</label>
+                  <select className="form-control" value={joinedCollegeId} onChange={e => setJoinedCollegeId(e.target.value)}>
+                    <option value="">Select College...</option>
+                    {colleges.map(c => (
+                      <option key={c.employeeId} value={c.employeeId}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Application Number (Optional)</label>
+                  <input type="text" className="form-control" value={applicationNumber} onChange={e => setApplicationNumber(e.target.value)} placeholder="e.g. APP-12345" />
+                </div>
+              </>
+            )}
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setVisitModalOpen(false)} disabled={savingVisit}>Cancel</button>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>{savingVisit ? 'Saving...' : 'Save Visit'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Student Modal */}
+      {viewStudent && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div style={{ backgroundColor: '#ffffff', width: '100%', maxWidth: '480px', borderRadius: '1rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column', border: '1px solid #f1f5f9', maxHeight: '90vh' }}>
+            <header style={{ paddingTop: '1.25rem', paddingLeft: '1.5rem', paddingRight: '1.5rem', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#116d66', margin: 0 }}>Student Details</h1>
+                <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500, letterSpacing: '0.025em' }}>Field Survey Quick View</span>
+              </div>
+              <button 
+                onClick={() => setViewStudent(null)} 
+                style={{ width: '2.25rem', height: '2.25rem', borderRadius: '9999px', border: '1px solid #cbd5e1', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', cursor: 'pointer' }}
+              >
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>
+              </button>
+            </header>
+            
+            <div style={{ padding: '1.5rem', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9375rem', overflowY: 'auto' }}>
+              
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 700, color: '#334155' }}>Name:</span>
+                  <span style={{ fontWeight: 700, color: '#0f172a', letterSpacing: '0.025em', textTransform: 'uppercase' }}>{viewStudent.studentName}</span>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span style={{ fontWeight: 700, color: '#334155' }}>Phone:</span>
+                    <span style={{ color: '#1e293b', fontWeight: 500 }}>{viewStudent.phone}</span>
+                    <a href={`tel:${viewStudent.phone}`} style={{ color: '#116d66', padding: '0.25rem' }}>
+                      <Phone size={14} />
+                    </a>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <span style={{ fontWeight: 700, color: '#334155' }}>WhatsApp:</span>
+                    <span style={{ color: '#1e293b', fontWeight: 500 }}>{viewStudent.whatsapp || 'N/A'}</span>
+                    {viewStudent.whatsapp && (
+                      <a href={`https://wa.me/${viewStudent.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#059669', padding: '0.25rem' }}>
+                        <MessageCircle size={14} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
+                    <span style={{ fontWeight: 700, color: '#334155' }}>Father:</span>
+                    <span style={{ color: '#1e293b', fontWeight: 500, textTransform: 'capitalize' }}>{viewStudent.fatherName || 'N/A'}</span>
+                  </div>
+                </div>
+              </section>
+              
+              <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
+              
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 700, color: '#334155' }}>Group:</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.625rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1' }}>
+                    {resolveName(viewStudent.group)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>School:</span>
+                  <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{resolveName(viewStudent.schoolName) || 'N/A'} {viewStudent.schoolArea ? `(${resolveName(viewStudent.schoolArea)})` : ''}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Location:</span>
+                  <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{resolveName(viewStudent.village) || 'N/A'}</span>
+                </div>
+              </section>
+              
+              <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
+              
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
+                  <span style={{ fontWeight: 700, color: '#334155' }}>Fee capacity:</span>
+                  <span style={{ color: '#1e293b', fontWeight: 500 }}>{resolveName(viewStudent.ableToBearFee) || 'N/A'}</span>
+                </div>
+              </section>
+              
+              <footer style={{ paddingTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                <button 
+                  onClick={() => setViewStudent(null)}
+                  style={{ flex: 1, padding: '0.75rem 1rem', backgroundColor: '#f1f5f9', color: '#475569', fontWeight: 600, borderRadius: '0.75rem', fontSize: '0.9375rem', border: 'none', cursor: 'pointer' }}
+                >
+                  Close
+                </button>
+                <Link 
+                  href={`/students/edit/${viewStudent.id}`}
+                  style={{ flex: 1, padding: '0.75rem 1rem', backgroundColor: '#116d66', color: '#ffffff', fontWeight: 600, borderRadius: '0.75rem', fontSize: '0.9375rem', border: 'none', cursor: 'pointer', textAlign: 'center', textDecoration: 'none' }}
+                >
+                  Edit Profile
+                </Link>
+              </footer>
             </div>
           </div>
         </div>

@@ -21,6 +21,7 @@ export default function EditStudent() {
     group: '',
     visitNumber: '',
     schoolName: '',
+    marks: '',
     remarks: '',
     district: '',
     mandal: '',
@@ -102,6 +103,7 @@ export default function EditStudent() {
           group: s.group || '',
           visitNumber: s.visitNumber || '',
           schoolName: s.schoolName || '',
+          marks: s.marks || '',
           remarks: s.remarks || '',
           district: s.district || '',
           mandal: s.mandal || '',
@@ -346,6 +348,11 @@ export default function EditStudent() {
               </select>
             </div>
           )}
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="marks">Marks / Grade / GPA</label>
+            <input type="text" id="marks" name="marks" className="form-control" value={formData.marks} onChange={handleChange} placeholder="e.g., 95%, 9.5, 950" />
+          </div>
 
           {formData.schoolName && schoolStats && (
             <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
