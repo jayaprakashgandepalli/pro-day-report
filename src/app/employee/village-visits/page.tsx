@@ -22,6 +22,7 @@ type Student = {
   village: string | null;
   studyInterestedAt?: string | null;
   ableToBearFee?: string | null;
+  leadStatus?: string | null;
   visits?: Visit[];
 };
 
