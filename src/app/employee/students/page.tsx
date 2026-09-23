@@ -150,7 +150,6 @@ export default function AllStudents() {
       if (debouncedSearch) query.set('search', debouncedSearch);
       if (admissionStatus) query.set('admissionStatus', admissionStatus);
       if (profileStatus) query.set('profileStatus', profileStatus);
-      if (addedDate) query.set('addedDate', addedDate);
       if (filterMandal) query.set('mandal', filterMandal);
       if (filterVillage) query.set('village', filterVillage);
       if (filterSchool) query.set('schoolName', filterSchool);
@@ -328,7 +327,6 @@ export default function AllStudents() {
             {stats.schools.map(s => (
               <option key={s.id} value={s.id}>{resolveName(s.id)} ({s.count})</option>
             ))}
-          </select>
           </select>
         </div>
           </>
