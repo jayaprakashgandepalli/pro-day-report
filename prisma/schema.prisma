@@ -89,6 +89,14 @@ model Student {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  // Student Login & Assessment Fields
+  password           String?
+  registrationStatus String   @default("APPROVED") // PENDING, APPROVED, REJECTED
+  registeredBy       String   @default("EMPLOYEE") // EMPLOYEE, SELF
+  
+  testResponses      StudentTestResponse[]
+  assessmentReport   AssessmentReport?
+
   @@index([schoolName])
   @@index([mandal])
   @@index([employeeId])
@@ -107,4 +115,63 @@ model Visit {
   nextFollowUpDate DateTime?
   nextFollowUpType String?
   createdAt        DateTime  @default(now())
+}
+
+// ==========================================
+// STUDENT ASSESSMENT & CAREER GUIDANCE MODELS
+// ==========================================
+
+model Question {
+  id            String   @id @default(cuid())
+  module        String   @default("1") // "1" for Group Clarity, "2" for Study Discipline, "3" for Screen Time, "4" for Family, "5" for Career Readiness
+  order         Int      @default(1)
+  text          String
+  options       Option[]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  
+  studentResponses StudentTestResponse[]
+}
+
+model Option {
+  id          String   @id @default(cuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text        String
+  score       Int      @default(0) // Used to calculate aptitude/behavior score
+  traitPoints String?  // e.g., 'SCIENCE:5, MATH:2' or JSON string to weight different traits
+}
+
+model StudentTestResponse {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionId    String
+  createdAt   DateTime @default(now())
+  
+  @@unique([studentId, questionId])
+}
+
+model AssessmentReport {
+  id               String   @id @default(cuid())
+  studentId        String   @unique
+  student          Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  recommendedGroup String?  // e.g., "MPC", "BiPC"
+  recommendedJobs  String?  // e.g., "Software Engineer, Doctor"
+  dailyActivities  String?  @db.Text
+  identifiedFlaws  String?  @db.Text
+  advice           String?  @db.Text
+  
+  // Modular Scores
+  disciplineScore      Int?
+  screenTimeScore      Int?
+  familyAttitudeScore  Int?
+  careerClarityScore   Int?
+  moduleInsights       Json?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

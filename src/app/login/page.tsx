@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import logoImg from '../../../public/logo.png';
 
 export default function LoginPage() {
@@ -159,6 +160,31 @@ export default function LoginPage() {
             {isLoading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
+
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <p style={{ color: '#475569', fontSize: '0.875rem', marginBottom: '0.75rem' }}>Are you a Student?</p>
+          <a
+            href="/student/login"
+            style={{
+              display: 'block',
+              width: '100%',
+              padding: '0.75rem',
+              backgroundColor: '#f1f5f9',
+              color: '#3b82f6',
+              border: '1px solid #cbd5e1',
+              borderRadius: '10px',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              textDecoration: 'none',
+              transition: 'all 0.2s',
+            }}
+            onMouseOver={e => { e.currentTarget.style.backgroundColor = '#e2e8f0'; e.currentTarget.style.color = '#2563eb'; }}
+            onMouseOut={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}
+          >
+            Go to Student Portal
+          </a>
+        </div>
       </div>
       
       <div style={{ marginTop: '2rem', color: '#cbd5e1', fontSize: '0.75rem', zIndex: 10 }}>
