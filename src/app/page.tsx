@@ -1,4 +1,4 @@
-import { getSession } from '@/lib/session';
+import { getSession, getStudentSession } from '@/lib/session';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -7,12 +7,15 @@ import logoImg from '../../public/logo.png';
 
 export default async function RootPage() {
   const session = await getSession();
+  const studentSession = await getStudentSession();
 
   if (session) {
     if (session.role === 'ADMIN') redirect('/admin');
     else if (session.role === 'TELECALLER') redirect('/telecaller');
     else if (session.role === 'COLLEGE') redirect('/college');
     else redirect('/employee');
+  } else if (studentSession) {
+    redirect('/student/dashboard');
   }
 
   return (
