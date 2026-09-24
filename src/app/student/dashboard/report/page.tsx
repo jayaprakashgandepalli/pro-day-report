@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 import { Award, Briefcase, Calendar, Target, AlertTriangle, Sparkles, BookOpen, ShieldAlert, Users, Compass } from 'lucide-react';
 import Link from 'next/link';
-import ResetTestButton from '@/components/ResetTestButton';
 
 export default async function AssessmentReportPage() {
   const session = await getStudentSession();
@@ -138,9 +137,6 @@ export default async function AssessmentReportPage() {
         </div>
       </Link>
 
-      <div style={{ textAlign: 'center', marginTop: '3rem' }}>
-        <ResetTestButton />
-      </div>
 
     </div>
   );

@@ -14,6 +14,7 @@ interface Question {
   text: string;
   order: number;
   isActive: boolean;
+  module: string;
   options: Option[];
 }
 

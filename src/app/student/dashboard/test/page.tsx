@@ -164,21 +164,7 @@ export default function CareerTestPage() {
 
       {/* Header & Progress */}
       <header style={{ marginBottom: '3rem', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '-2rem', right: '0' }}>
-           <button 
-             onClick={() => {
-               const dummyAnswers: Record<string, string> = {};
-               questions.forEach(q => {
-                 if (q.options.length > 0) dummyAnswers[q.id] = q.options[0].id;
-               });
-               setAnswers(dummyAnswers);
-               setCurrentIndex(questions.length - 1);
-             }}
-             style={{ background: '#f59e0b', color: 'white', padding: '0.25rem 0.5rem', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem' }}
-           >
-             ⚡ Auto-Fill (Dev Only)
-           </button>
-        </div>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: `${moduleInfo.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

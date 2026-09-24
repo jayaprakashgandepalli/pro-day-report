@@ -214,7 +214,7 @@ export default async function RootPage() {
               <p style={{ color: '#64748b', fontSize: '0.95rem', maxWidth: '500px', margin: '0 auto' }}>We replace guesswork with science and anxiety with assurance.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '1rem', autoRows: 'minmax(200px, auto)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '1rem', gridAutoRows: 'minmax(200px, auto)' }}>
 
               <div className="bento-box-v2" style={{ gridColumn: 'span 7', backgroundColor: '#ffffff', borderRadius: '24px', padding: '2rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <div style={{ minWidth: '48px', height: '48px', backgroundColor: '#f0fdf4', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a', marginBottom: '1.25rem', alignSelf: 'flex-start' }}>
