@@ -46,8 +46,8 @@ export default function StudentLoginPage() {
           <div className="icon-wrapper">
             <GraduationCap size={40} color="#fff" />
           </div>
-          <h2>Student Portal</h2>
-          <p>Login to view your career guidance and reports</p>
+          <h2>10th Class Student Portal</h2>
+          <p>Login to view your intermediate career guidance and reports</p>
         </div>
 
         {error && (

@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Lock, Phone, School, ArrowRight, UserPlus, CheckCircle } from 'lucide-react';
+import { User, Lock, Phone, School, ArrowRight, UserPlus, CheckCircle, BookOpen } from 'lucide-react';
 import '../student.css';
 
 export default function StudentRegisterPage() {
@@ -12,6 +12,7 @@ export default function StudentRegisterPage() {
     phone: '',
     password: '',
     schoolName: '',
+    studentClass: '10th Class',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,11 +56,13 @@ export default function StudentRegisterPage() {
           <div className="icon-wrapper" style={{ background: 'linear-gradient(135deg, #10b981, #059669)', margin: '0 auto 1.5rem auto' }}>
             <CheckCircle size={40} color="#fff" />
           </div>
-          <h2>Registration Successful!</h2>
-          <p style={{ marginTop: '1rem', marginBottom: '2rem', lineHeight: '1.6' }}>
-            Your account has been created successfully. However, it is currently <strong style={{color: '#f59e0b'}}>PENDING</strong> approval from your school admin. 
+          <h2 style={{ color: '#ffffff' }}>Registration Successful!</h2>
+          <p style={{ marginTop: '1rem', marginBottom: '2rem', lineHeight: '1.6', color: '#f1f5f9' }}>
+            Your account has been created successfully. However, it is currently <strong style={{color: '#f59e0b'}}>PENDING</strong> approval from the Naaguru admin. 
             <br/><br/>
-            You will be able to login once your account is approved.
+            You will receive a call from our team shortly for verification and approval. You will be able to login once your account is approved.
+            <br/><br/>
+            For immediate assistance, contact us at: <strong style={{color: '#10b981'}}>7013559518</strong>
           </p>
           <button onClick={() => router.push('/student/login')} className="student-btn-primary" style={{ width: '100%' }}>
             Go to Login
@@ -119,6 +122,23 @@ export default function StudentRegisterPage() {
                 placeholder="10-digit mobile number"
                 required 
               />
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label htmlFor="studentClass">Select Class</label>
+            <div className="input-with-icon">
+              <BookOpen size={20} className="input-icon" />
+              <select 
+                id="studentClass" 
+                name="studentClass"
+                value={formData.studentClass} 
+                onChange={handleChange} 
+                style={{ width: '100%', padding: '0.8rem 1rem 0.8rem 2.8rem', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '12px', color: '#fff', fontSize: '0.95rem', outline: 'none', appearance: 'none', cursor: 'pointer' }}
+                required 
+              >
+                <option value="10th Class" style={{ color: '#0f172a' }}>10th Class</option>
+              </select>
             </div>
           </div>
 

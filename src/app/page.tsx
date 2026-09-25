@@ -66,7 +66,7 @@ export default async function RootPage() {
             <div style={{ flex: '1 1 100%', maxWidth: '600px', zIndex: 10 }}>
               <div className="badge-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0.75rem', backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(10px)', color: '#0f172a', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 700, marginBottom: '1.25rem', border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                 <span className="pulse-dot" style={{ width: '6px', height: '6px', backgroundColor: '#10b981', borderRadius: '50%' }} />
-                Admissions for 2026-2027
+                Exclusive for 10th Class Students | Admissions 2026-2027
               </div>
 
               <h1 className="hero-heading" style={{ fontSize: 'clamp(2.25rem, 7vw, 4.5rem)', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.04em', lineHeight: 1.1, marginBottom: '1rem' }}>
@@ -80,7 +80,7 @@ export default async function RootPage() {
               </h1>
 
               <p className="hero-desc" style={{ fontSize: 'clamp(0.95rem, 2vw, 1.15rem)', color: '#475569', marginBottom: '2rem', lineHeight: 1.6, maxWidth: '500px' }}>
-                Join thousands of students who have discovered their true potential. We provide data-backed career counseling and direct pathways to top educational institutions.
+                Join thousands of 10th class students who have discovered their true potential. We provide data-backed career counseling and direct pathways to top Junior Colleges for your intermediate education.
               </p>
 
               {/* Creative Input Interaction */}
@@ -150,7 +150,7 @@ export default async function RootPage() {
             <div className="pathway-header" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem', marginBottom: '2rem' }}>
               <div style={{ maxWidth: '600px' }}>
                 <h2 style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '0.5rem' }}>Explore Your Potential Pathways</h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>Not sure what to choose? Our assessment engine maps your cognitive strengths to the most suitable academic streams.</p>
+                <p style={{ color: '#94a3b8', fontSize: '0.9rem', lineHeight: 1.5, margin: 0 }}>Not sure what group to choose after 10th? Our assessment engine maps your cognitive strengths to the most suitable intermediate streams.</p>
               </div>
               <Link href="/student/login" className="pathway-btn-ghost" style={{ padding: '0.5rem 1rem', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '999px', color: 'white', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.3s', fontSize: '0.8rem' }}>
                 View All Streams <ArrowRight size={14} />
