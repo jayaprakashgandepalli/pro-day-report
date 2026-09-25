@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, LogOut, Home, Compass, BookOpen, Menu, X, Settings } from 'lucide-react';
+import { User, LogOut, Home, Compass, BookOpen, Menu, X, Settings, Map, Library, MessageCircle } from 'lucide-react';
 
 export default function StudentSidebar({ sessionName }: { sessionName: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -91,6 +91,42 @@ export default function StudentSidebar({ sessionName }: { sessionName: string })
                   color: pathname.includes('/student/dashboard/report') ? 'white' : '#cbd5e1'
                 }}>
                 <BookOpen size={20} color={pathname.includes('/student/dashboard/report') ? '#a855f7' : '#cbd5e1'} /> My Report
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/student/dashboard/career-guidance" 
+                onClick={() => setIsOpen(false)}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s',
+                  background: pathname.includes('/student/dashboard/career-guidance') ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: pathname.includes('/student/dashboard/career-guidance') ? 'white' : '#cbd5e1'
+                }}>
+                <Map size={20} color={pathname.includes('/student/dashboard/career-guidance') ? '#a855f7' : '#cbd5e1'} /> Career Pathways
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/student/dashboard/resources" 
+                onClick={() => setIsOpen(false)}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s',
+                  background: pathname.includes('/student/dashboard/resources') ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: pathname.includes('/student/dashboard/resources') ? 'white' : '#cbd5e1'
+                }}>
+                <Library size={20} color={pathname.includes('/student/dashboard/resources') ? '#a855f7' : '#cbd5e1'} /> Resources
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/student/dashboard/ask-expert" 
+                onClick={() => setIsOpen(false)}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s',
+                  background: pathname.includes('/student/dashboard/ask-expert') ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: pathname.includes('/student/dashboard/ask-expert') ? 'white' : '#cbd5e1'
+                }}>
+                <MessageCircle size={20} color={pathname.includes('/student/dashboard/ask-expert') ? '#a855f7' : '#cbd5e1'} /> Ask an Expert
               </Link>
             </li>
             <li>
