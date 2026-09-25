@@ -16,7 +16,27 @@ export async function POST(req: Request) {
     });
 
     if (existingStudent) {
-      return NextResponse.json({ error: 'This phone number is already registered.' }, { status: 400 });
+      if (!existingStudent.password) {
+        // Update password for students pre-added by employees
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await prisma.student.update({
+          where: { id: existingStudent.id },
+          data: {
+            password: hashedPassword,
+            studentName: existingStudent.studentName || studentName,
+            schoolName: existingStudent.schoolName || schoolName,
+            registrationStatus: 'APPROVED' // ensure they can login immediately
+          }
+        });
+        return NextResponse.json(
+          { 
+            message: 'Your account was pre-registered by our team. Your new password has been set successfully!',
+            isPreRegistered: true 
+          },
+          { status: 201 }
+        );
+      }
+      return NextResponse.json({ error: 'This phone number is already registered. Please login.' }, { status: 400 });
     }
 
     // Hash the password

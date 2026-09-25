@@ -17,6 +17,7 @@ export default function StudentRegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [preRegisteredMessage, setPreRegisteredMessage] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -40,6 +41,9 @@ export default function StudentRegisterPage() {
 
       if (res.ok) {
         setIsSuccess(true);
+        if (data.isPreRegistered) {
+          setPreRegisteredMessage(data.message);
+        }
       } else {
         setError(data.error || 'Registration failed.');
       }
@@ -58,11 +62,17 @@ export default function StudentRegisterPage() {
           </div>
           <h2 style={{ color: '#ffffff' }}>Registration Successful!</h2>
           <p style={{ marginTop: '1rem', marginBottom: '2rem', lineHeight: '1.6', color: '#f1f5f9' }}>
-            Your account has been created successfully. However, it is currently <strong style={{color: '#f59e0b'}}>PENDING</strong> approval from the Naaguru admin. 
-            <br/><br/>
-            You will receive a call from our team shortly for verification and approval. You will be able to login once your account is approved.
-            <br/><br/>
-            For immediate assistance, contact us at: <strong style={{color: '#10b981'}}>7013559518</strong>
+            {preRegisteredMessage ? (
+              <span style={{ fontSize: '1.1rem' }}>{preRegisteredMessage}</span>
+            ) : (
+              <>
+                Your account has been created successfully. However, it is currently <strong style={{color: '#f59e0b'}}>PENDING</strong> approval from the Naaguru admin. 
+                <br/><br/>
+                You will receive a call from our team shortly for verification and approval. You will be able to login once your account is approved.
+                <br/><br/>
+                For immediate assistance, contact us at: <strong style={{color: '#10b981'}}>7013559518</strong>
+              </>
+            )}
           </p>
           <button onClick={() => router.push('/student/login')} className="student-btn-primary" style={{ width: '100%' }}>
             Go to Login

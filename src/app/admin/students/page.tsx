@@ -88,6 +88,23 @@ export default function AdminStudentsPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this student?')) return;
+    try {
+      const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setStudents(students.filter(s => s.id !== id));
+        setTotal(total - 1);
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete student');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred');
+    }
+  };
+
   const getConfigName = (id: string | null) => {
     if (!id) return '-';
     const conf = configs.find(c => c.id === id || c.value === id);
@@ -232,9 +249,18 @@ export default function AdminStudentsPage() {
                     />
                   </td>
                   <td style={{ padding: '1rem' }}>
-                    <Link href={`/students/edit/${student.id}`} className="btn btn-outline" style={{ display: 'inline-flex', padding: '0.5rem', fontSize: '0.875rem' }}>
-                      Edit
-                    </Link>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <Link href={`/students/edit/${student.id}`} className="btn btn-outline" style={{ display: 'inline-flex', padding: '0.5rem', fontSize: '0.875rem' }}>
+                        Edit
+                      </Link>
+                      <button 
+                        onClick={() => handleDelete(student.id)} 
+                        className="btn btn-outline" 
+                        style={{ display: 'inline-flex', padding: '0.5rem', fontSize: '0.875rem', borderColor: '#ef4444', color: '#ef4444' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
