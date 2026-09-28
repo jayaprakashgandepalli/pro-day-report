@@ -36,6 +36,9 @@ export async function POST(req: Request) {
           { status: 201 }
         );
       }
+      if (existingStudent.registrationStatus === 'PENDING') {
+        return NextResponse.json({ error: 'Your account is already registered but waiting for approval.' }, { status: 400 });
+      }
       return NextResponse.json({ error: 'This phone number is already registered. Please login.' }, { status: 400 });
     }
 

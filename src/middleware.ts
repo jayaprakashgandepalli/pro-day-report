@@ -15,14 +15,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isPublicPage = request.nextUrl.pathname === '/';
+  const isPublicPage = request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/terms-and-conditions';
 
   if (!token && !studentToken && !isAuthPage && !isPublicPage) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
   // If a student tries to access non-student pages, redirect them to their dashboard
-  if (studentToken && !token && !request.nextUrl.pathname.startsWith('/student')) {
+  if (studentToken && !token && !request.nextUrl.pathname.startsWith('/student') && request.nextUrl.pathname !== '/terms-and-conditions') {
     return NextResponse.redirect(new URL('/student/dashboard', request.url));
   }
   

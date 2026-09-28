@@ -357,7 +357,7 @@ export default function VillageVisits() {
                   
                   <div className="student-card-ios-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
-                      <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <h3 style={{ flex: 1, minWidth: 0, fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {index + 1}. {s.studentName}
                       </h3>
                       {isMet && (
@@ -365,7 +365,7 @@ export default function VillageVisits() {
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </span>
                       )}
-                      <span className={`ios-badge ${isMet ? 'ios-badge-completed' : 'ios-badge-pending'}`}>
+                      <span style={{ flexShrink: 0 }} className={`ios-badge ${isMet ? 'ios-badge-completed' : 'ios-badge-pending'}`}>
                         {isMet ? 'Completed' : 'Pending'}
                       </span>
                     </div>

@@ -141,7 +141,7 @@ export default async function StudentDashboardPage() {
       </div>
 
       {/* Memory Secrets Banner */}
-      <MemorySecretsBanner />
+      <MemorySecretsBanner isLocked={!report} />
     </div>
   );
 }

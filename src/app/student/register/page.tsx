@@ -14,6 +14,7 @@ export default function StudentRegisterPage() {
     schoolName: '',
     studentClass: '10th Class',
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -184,7 +185,24 @@ export default function StudentRegisterPage() {
             </div>
           </div>
 
-          <button type="submit" className="student-btn-primary" disabled={isLoading} style={{ marginTop: '1rem' }}>
+          <div className="input-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
+            <input 
+              type="checkbox" 
+              id="terms" 
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              required
+              style={{ width: '1.25rem', height: '1.25rem', cursor: 'pointer', accentColor: '#8b5cf6', flexShrink: 0 }}
+            />
+            <div style={{ margin: 0, fontSize: '0.95rem', color: '#cbd5e1', lineHeight: '1.4', display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+              <label htmlFor="terms" style={{ cursor: 'pointer', margin: 0 }}>I agree to the</label>
+              <Link href="/terms-and-conditions" target="_blank" onClick={(e) => e.stopPropagation()} style={{ color: '#a78bfa', textDecoration: 'underline' }}>
+                Terms and Conditions
+              </Link>
+            </div>
+          </div>
+
+          <button type="submit" className="student-btn-primary" disabled={isLoading || !acceptedTerms} style={{ marginTop: '1rem', opacity: (!acceptedTerms || isLoading) ? 0.6 : 1 }}>
             {isLoading ? (
               <span className="loader"></span>
             ) : (

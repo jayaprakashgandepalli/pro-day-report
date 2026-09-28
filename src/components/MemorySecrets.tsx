@@ -1,10 +1,38 @@
 "use client";
 
 import React, { useState } from 'react';
-import { BookOpen, Headphones, Eye, Mic, PenTool, Brain, TrendingUp, Target, Users, Lightbulb, Link as LinkIcon, Sparkles, ZoomIn, Smile, Wand2, BookMarked, Layers } from 'lucide-react';
+import { BookOpen, Headphones, Eye, Mic, PenTool, Brain, TrendingUp, Target, Users, Lightbulb, Link as LinkIcon, Sparkles, ZoomIn, Smile, Wand2, BookMarked, Layers, LineChart } from 'lucide-react';
 
 export default function MemorySecrets() {
-  const [activeTab, setActiveTab] = useState('chart');
+  const [activeTab, setActiveTab] = useState('curve');
+
+  // Curve data
+  const forgettingCurveData = [
+    { time: 'వెంటనే (Immediately)', retention: 100 },
+    { time: '20 నిమిషాలు (20 mins)', retention: 58 },
+    { time: '1 గంట (1 hour)', retention: 44 },
+    { time: '9 గంటలు (9 hours)', retention: 36 },
+    { time: '1 రోజు (1 day)', retention: 33 },
+    { time: '2 రోజులు (2 days)', retention: 28 },
+    { time: '6 రోజులు (6 days)', retention: 25 },
+    { time: '31 రోజులు (31 days)', retention: 21 }
+  ];
+
+  const timeVsForgettingData = [
+    { time: '20 నిమిషాలు', forgetting: 42 },
+    { time: 'ఒక గంట', forgetting: 56 },
+    { time: 'ఒక రోజు', forgetting: 67 },
+    { time: 'ఆరు రోజులు', forgetting: 75 },
+    { time: '31 రోజులు', forgetting: 79 }
+  ];
+
+  const sensesData = [
+    { sense: 'కన్నులు', action: 'చూస్తూ', retention: 83 },
+    { sense: 'చెవులు', action: 'వింటూ', retention: 11 },
+    { sense: 'స్పర్శ', action: 'తాకుతూ', retention: 2.5 },
+    { sense: 'ముక్కు', action: 'వాసన ద్వారా', retention: 2 },
+    { sense: 'నాలుక', action: 'రుచి చూస్తూ', retention: 1.5 }
+  ];
 
   // Chart data
   const chartData = [
@@ -240,6 +268,25 @@ export default function MemorySecrets() {
         paddingBottom: '0.5rem'
       }}>
         <button 
+          onClick={() => setActiveTab('curve')}
+          style={{ 
+            padding: '0.5rem 1rem', 
+            borderRadius: '20px', 
+            border: 'none', 
+            background: activeTab === 'curve' ? '#8b5cf6' : '#f1f5f9', 
+            color: activeTab === 'curve' ? 'white' : '#64748b', 
+            fontWeight: 600, 
+            cursor: 'pointer', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            whiteSpace: 'nowrap',
+            transition: 'all 0.2s'
+          }}
+        >
+          <LineChart size={16} /> ఫర్‌గెట్టింగ్ కర్వ్
+        </button>
+        <button 
           onClick={() => setActiveTab('chart')}
           style={{ 
             padding: '0.5rem 1rem', 
@@ -376,6 +423,84 @@ export default function MemorySecrets() {
 
       {/* Content */}
       <div style={{ minHeight: '300px' }}>
+        {activeTab === 'curve' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', animation: 'fadeIn 0.5s' }}>
+            <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <h4 style={{ fontSize: '1.25rem', color: '#1e293b', marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <LineChart color="#8b5cf6" /> ఎబ్బింగ్ హాస్ ఫర్‌గెట్టింగ్ కర్వ్ (Ebbinghaus Forgetting Curve)
+              </h4>
+              <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+                ఈ పట్టికలు ప్రతి విద్యార్థికే కాదు ప్రతీ ఒక్కరికి తరచూ ఎదురయ్యే సమస్యలే. మనిషి జ్ఞాపకశక్తి పై అనేక ప్రయోగాలు జరిగాయి. 19వ శతాబ్దానికి చెందిన జర్మన్ సైకాలజిస్ట్ <strong>హెర్మన్ ఎబ్బింగ్ హాస్</strong> నేర్చుకున్న విషయాన్ని మరచిపోయే అంశంపై తనదైన శైలిలో ప్రయోగాలు చేసి వారు మనం నేర్చుకున్న అంశాలను ఎలా మరచిపోతుంటామో తెలియజేశాడు. ఆయన అంచనా ప్రకారం...
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+                <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <div style={{ background: '#f1f5f9', padding: '0.75rem 1rem', fontWeight: 600, color: '#334155', borderBottom: '1px solid #e2e8f0' }}>
+                    Elapsed Time Since Learning
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <tbody>
+                      {forgettingCurveData.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: idx !== forgettingCurveData.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                          <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>{row.time}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#10b981', fontWeight: 600, textAlign: 'right' }}>{row.retention}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <div style={{ background: '#fef2f2', padding: '0.75rem 1rem', fontWeight: 600, color: '#991b1b', borderBottom: '1px solid #fee2e2' }}>
+                    నేర్చుకున్న తర్వాత జరిగిన కాల వ్యవధి
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <tbody>
+                      {timeVsForgettingData.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: idx !== timeVsForgettingData.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                          <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>{row.time}</td>
+                          <td style={{ padding: '0.75rem 1rem', color: '#ef4444', fontWeight: 600, textAlign: 'right' }}>మరచిపోయే శాతం {row.forgetting}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+                పై పట్టికలను పరిశీలించి ఆశ్చర్యపోవడం సహజమే కానీ, అందులో వాస్తవాలు దాగిఉన్నాయి. అంటే మనం చదివినదానిలో కొంతశాతం మాత్రమే గుర్తుంటుంది. అందుకే నేర్చుకున్నది ఎక్కువకాలం గుర్తుంచుకోవడానికి <strong>'రివిజన్'</strong> అనేది చాలా ముఖ్యం. మనం ఏకాగ్రతతో చదివేటప్పుడు వివిధ జ్ఞానేంద్రియాల ద్వారా పొందే జ్ఞానం ఎలా ఉంటుందో ఈ పట్టికలో చూద్దాం.
+              </p>
+
+              <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', marginBottom: '1rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+                  <thead style={{ background: '#eff6ff', color: '#1e3a8a' }}>
+                    <tr>
+                      <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #bfdbfe' }}>జ్ఞానేంద్రియం</th>
+                      <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #bfdbfe' }}>చేసే పని</th>
+                      <th style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #bfdbfe', textAlign: 'right' }}>గ్రహించే విషయం శాతం</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sensesData.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: idx !== sensesData.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                        <td style={{ padding: '0.75rem 1rem', color: '#475569', fontWeight: 500 }}>{row.sense}</td>
+                        <td style={{ padding: '0.75rem 1rem', color: '#475569' }}>{row.action}</td>
+                        <td style={{ padding: '0.75rem 1rem', color: '#3b82f6', fontWeight: 600, textAlign: 'right' }}>{row.retention}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <div style={{ background: '#fffbeb', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid #f59e0b', color: '#b45309', fontSize: '0.9rem' }}>
+                దీన్నిబట్టి <strong>దృశ్యరూపంలో నేర్చుకునే అంశం</strong> మన మనస్సులో గాఢంగా నాటుకుపోతుందని అర్థమౌతుంది. చదువుతున్నపుడు కళ్ళు మూసుకొని ఊహించుకుంటూ చదవడం ద్వారా మన మనస్సులో ఒక చిత్రరూపం ఉండిపోతుంది. ముఖ్యంగా మనం చదివేటప్పుడు ఒక అంశాన్ని ఇంకొక అంశానికి ముడిపెట్టి చదవడం, నిత్య జీవితంలో ఎదురయ్యే సంఘటనలతో జోడించి చదువుకోవడం వలన ఎక్కువకాలం గుర్తుంచుకోవచ్చు.
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'chart' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', animation: 'fadeIn 0.5s' }}>
             <p style={{ color: '#475569', fontSize: '0.95rem', marginBottom: '0.5rem', lineHeight: '1.5' }}>
