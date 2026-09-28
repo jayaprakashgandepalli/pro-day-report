@@ -2,6 +2,7 @@ import { getStudentSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { ArrowRight, Trophy, BookOpen, Clock, Activity, Zap } from 'lucide-react';
+import MemorySecretsBanner from '@/components/MemorySecretsBanner';
 
 export default async function StudentDashboardPage() {
   const session = await getStudentSession();
@@ -138,6 +139,9 @@ export default async function StudentDashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Memory Secrets Banner */}
+      <MemorySecretsBanner />
     </div>
   );
 }
