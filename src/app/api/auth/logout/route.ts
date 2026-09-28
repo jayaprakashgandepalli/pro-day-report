@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 export async function POST() {
   const cookieStore = await cookies();
   cookieStore.delete('auth_token');
+  cookieStore.delete('student_token');
   
   return NextResponse.json({ message: 'Logged out successfully' }, { status: 200 });
 }
