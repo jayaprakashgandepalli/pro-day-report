@@ -77,6 +77,19 @@ export default function AdminBooksPage() {
     }
   };
 
+  const getThumbnailUrl = (book: Book) => {
+    if (book.thumbnailUrl && book.thumbnailUrl.trim() !== '') {
+      return book.thumbnailUrl;
+    }
+    if (book.pdfUrl && book.pdfUrl.includes('drive.google.com/file/d/')) {
+      const match = book.pdfUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w600-h800`;
+      }
+    }
+    return 'https://via.placeholder.com/400x600?text=Book+Cover';
+  };
+
   return (
     <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
       <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '2rem' }}>Manage Study Books</h1>
@@ -93,8 +106,8 @@ export default function AdminBooksPage() {
             <input required type="url" value={pdfUrl} onChange={e => setPdfUrl(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }} placeholder="https://drive.google.com/file/d/..." />
           </div>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Thumbnail Image URL *</label>
-            <input required type="url" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }} placeholder="https://example.com/image.jpg" />
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Thumbnail Image URL (Optional)</label>
+            <input type="url" value={thumbnailUrl} onChange={e => setThumbnailUrl(e.target.value)} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }} placeholder="Leave blank to auto-generate from PDF" />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Description (Optional)</label>
@@ -111,7 +124,7 @@ export default function AdminBooksPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem' }}>
           {books.map(book => (
             <div key={book.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <img src={book.thumbnailUrl} alt={book.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+              <img src={getThumbnailUrl(book)} alt={book.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/400x600?text=Book+Cover' }} />
               <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.5rem' }}>{book.title}</h3>
                 <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '1rem', flex: 1 }}>{book.description}</p>

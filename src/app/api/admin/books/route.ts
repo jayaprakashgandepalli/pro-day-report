@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   try {
     const { title, description, pdfUrl, thumbnailUrl } = await req.json();
 
-    if (!title || !pdfUrl || !thumbnailUrl) {
+    if (!title || !pdfUrl) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         title,
         description,
         pdfUrl,
-        thumbnailUrl,
+        thumbnailUrl: thumbnailUrl || "",
       },
     });
 
