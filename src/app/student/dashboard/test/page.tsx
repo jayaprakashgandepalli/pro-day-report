@@ -4,7 +4,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ArrowRight, ArrowLeft, AlertCircle, Sparkles, Brain, Target, ShieldAlert, Users, Compass } from 'lucide-react';
 import Link from 'next/link';
-import { Player } from '@lottiefiles/react-lottie-player';
+import dynamic from 'next/dynamic';
+
+const Player = dynamic(() => import('@lottiefiles/react-lottie-player').then(mod => mod.Player), {
+  ssr: false,
+});
 
 interface Option {
   id: string;

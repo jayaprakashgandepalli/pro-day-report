@@ -9,13 +9,16 @@ export async function GET() {
     const session = await getStudentSession();
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Check if student profile is complete (e.g., district and schoolName must be filled)
+    // Check if student profile is complete (based on new mandatory fields)
     const student = await prisma.student.findUnique({
       where: { id: session.id },
-      select: { district: true, schoolName: true }
+      select: { schoolName: true, fatherName: true, gender: true, schoolArea: true, village: true }
     });
 
-    if (!student || !student.district || !student.schoolName) {
+    // We check schoolArea or village since we map town/city to both in the profile update
+    const townValue = student?.schoolArea || student?.village;
+
+    if (!student || !student.schoolName || !student.fatherName || !student.gender || !townValue) {
       return NextResponse.json({ profileIncomplete: true });
     }
 
