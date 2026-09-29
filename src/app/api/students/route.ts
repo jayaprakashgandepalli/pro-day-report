@@ -259,6 +259,12 @@ export async function GET(req: Request) {
     if (interest) whereClause.AND.push({ studyInterestedAt: interest });
     if (fee) whereClause.AND.push({ ableToBearFee: fee });
 
+    const employeeIdFilter = searchParams.get('employeeId');
+    if (employeeIdFilter) whereClause.AND.push({ employeeId: employeeIdFilter });
+
+    const groupFilter = searchParams.get('group');
+    if (groupFilter) whereClause.AND.push({ group: groupFilter });
+
     if (location) {
       whereClause.AND.push({
         OR: [

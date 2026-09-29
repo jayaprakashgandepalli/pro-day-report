@@ -13,13 +13,16 @@ export default function AdminStudentsPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [date, setDate] = useState('');
+  const [employeeId, setEmployeeId] = useState('');
+  const [group, setGroup] = useState('');
   const [interest, setInterest] = useState('');
   const [fee, setFee] = useState('');
   const [district, setDistrict] = useState('');
   const [mandal, setMandal] = useState('');
   const [village, setVillage] = useState('');
   const [admissionStatus, setAdmissionStatus] = useState<'' | 'admitted'>('');
+  
+  const [employees, setEmployees] = useState<any[]>([]);
   
   // Pagination
   const [page, setPage] = useState(1);
@@ -35,11 +38,24 @@ export default function AdminStudentsPage() {
 
   useEffect(() => {
     fetchConfigs();
+    fetchEmployees();
   }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      if (data.users) {
+        setEmployees(data.users.filter((u: any) => u.role === 'EMPLOYEE'));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
     fetchStudents();
-  }, [debouncedSearch, date, interest, fee, district, mandal, village, page, admissionStatus]);
+  }, [debouncedSearch, employeeId, group, interest, fee, district, mandal, village, page, admissionStatus]);
 
   const fetchConfigs = async () => {
     const res = await fetch('/api/config');
@@ -55,7 +71,8 @@ export default function AdminStudentsPage() {
         limit: limit.toString(),
       });
       if (debouncedSearch) params.append('search', debouncedSearch);
-      if (date) params.append('date', date);
+      if (employeeId) params.append('employeeId', employeeId);
+      if (group) params.append('group', group);
       if (interest) params.append('interest', interest);
       if (fee) params.append('fee', fee);
       
@@ -150,12 +167,15 @@ export default function AdminStudentsPage() {
             />
           </div>
 
-          <input 
-            type="date" 
-            className="form-control" 
-            value={date} 
-            onChange={(e) => { setDate(e.target.value); setPage(1); }}
-          />
+          <select className="form-control" value={employeeId} onChange={(e) => { setEmployeeId(e.target.value); setPage(1); }}>
+            <option value="">All Employees</option>
+            {employees.map(emp => <option key={emp.employeeId} value={emp.employeeId}>{emp.name}</option>)}
+          </select>
+
+          <select className="form-control" value={group} onChange={(e) => { setGroup(e.target.value); setPage(1); }}>
+            <option value="">All Groups</option>
+            {configs.filter(c => c.type === 'GROUP').map(c => <option key={c.id} value={c.value}>{c.value}</option>)}
+          </select>
 
           <select className="form-control" value={interest} onChange={(e) => { setInterest(e.target.value); setPage(1); }}>
             <option value="">All Interests</option>
