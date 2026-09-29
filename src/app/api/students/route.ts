@@ -20,30 +20,28 @@ export async function POST(req: Request) {
 
     const data = await req.json();
 
-    if (!data.studentName || !data.phone || !data.group) {
-      return NextResponse.json({ error: 'Student Name, Phone, and Group are required.' }, { status: 400 });
-    }
+    // Check for existing phone number if provided
+    if (data.phone) {
+      const existingStudent = await prisma.student.findFirst({
+        where: { phone: data.phone }
+      });
 
-    // Check for existing phone number
-    const existingStudent = await prisma.student.findFirst({
-      where: { phone: data.phone }
-    });
-
-    if (existingStudent) {
-      return NextResponse.json({ error: 'Student with this phone number already exists.' }, { status: 400 });
+      if (existingStudent) {
+        return NextResponse.json({ error: 'Student with this phone number already exists.' }, { status: 400 });
+      }
     }
 
     const newStudent = await prisma.student.create({
       data: {
         employeeId: payload.employeeId,
-        studentName: data.studentName,
+        studentName: data.studentName || "",
         fatherName: data.fatherName || null,
         occupation: data.occupation || null,
         address: data.address || null,
-        phone: data.phone,
+        phone: data.phone || "",
         whatsapp: data.whatsapp || null,
         gender: data.gender || null,
-        group: data.group,
+        group: data.group || "",
         visitNumber: data.visitNumber || null,
         schoolName: data.schoolName || null,
         schoolArea: data.schoolArea || null,

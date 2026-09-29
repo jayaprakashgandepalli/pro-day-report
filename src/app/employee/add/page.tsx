@@ -234,8 +234,8 @@ export default function AddStudentPage() {
             </h3>
             
             <div className="form-group">
-              <label className="form-label" htmlFor="studentName">Student Name *</label>
-              <input required type="text" id="studentName" name="studentName" className="form-control" value={formData.studentName} onChange={handleChange} />
+              <label className="form-label" htmlFor="studentName">Student Name</label>
+              <input type="text" id="studentName" name="studentName" className="form-control" value={formData.studentName} onChange={handleChange} />
             </div>
 
             <div className="form-group">
@@ -271,8 +271,8 @@ export default function AddStudentPage() {
             </h3>
 
             <div className="form-group" style={{ position: 'relative' }}>
-              <label className="form-label" htmlFor="phone">Phone Number *</label>
-              <input required type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} style={{ borderColor: phoneExistsError ? 'var(--danger)' : '' }} />
+              <label className="form-label" htmlFor="phone">Phone Number</label>
+              <input type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} style={{ borderColor: phoneExistsError ? 'var(--danger)' : '' }} />
               {isCheckingPhone && <span style={{ position: 'absolute', right: '10px', top: '38px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Checking...</span>}
               {phoneExistsError && <span className="form-error">{phoneExistsError}</span>}
             </div>
@@ -305,8 +305,8 @@ export default function AddStudentPage() {
             </h3>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="group">Group Opting *</label>
-              <select required id="group" name="group" className="form-control" value={formData.group} onChange={handleChange}>
+              <label className="form-label" htmlFor="group">Group Opting</label>
+              <select id="group" name="group" className="form-control" value={formData.group} onChange={handleChange}>
                 <option value="">Select Group</option>
                 {getByType('GROUP').map(g => (
                   <option key={g.id} value={g.value}>{g.value}</option>
@@ -315,8 +315,8 @@ export default function AddStudentPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Previous School (District) *</label>
-              <select required id="schoolDistrict" name="schoolDistrict" className="form-control" value={formData.schoolDistrict} onChange={(e) => setFormData({...formData, schoolDistrict: e.target.value, schoolMandal: '', schoolVillage: '', schoolName: ''})}>
+              <label className="form-label">Previous School (District)</label>
+              <select id="schoolDistrict" name="schoolDistrict" className="form-control" value={formData.schoolDistrict} onChange={(e) => setFormData({...formData, schoolDistrict: e.target.value, schoolMandal: '', schoolVillage: '', schoolName: ''})}>
                 <option value="">Select District</option>
                 {getByType('DISTRICT').map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
               </select>
@@ -324,8 +324,8 @@ export default function AddStudentPage() {
 
             {formData.schoolDistrict && (
               <div className="form-group">
-                <label className="form-label">Previous School (Mandal) *</label>
-                <select required id="schoolMandal" name="schoolMandal" className="form-control" value={formData.schoolMandal} onChange={(e) => setFormData({...formData, schoolMandal: e.target.value, schoolVillage: '', schoolName: ''})}>
+                <label className="form-label">Previous School (Mandal)</label>
+                <select id="schoolMandal" name="schoolMandal" className="form-control" value={formData.schoolMandal} onChange={(e) => setFormData({...formData, schoolMandal: e.target.value, schoolVillage: '', schoolName: ''})}>
                   <option value="">Select Mandal</option>
                   {getByParent('MANDAL', formData.schoolDistrict).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>
@@ -334,8 +334,8 @@ export default function AddStudentPage() {
 
             {formData.schoolMandal && (
               <div className="form-group">
-                <label className="form-label">Previous School (Village) *</label>
-                <select required id="schoolVillage" name="schoolVillage" className="form-control" value={formData.schoolVillage} onChange={(e) => setFormData({...formData, schoolVillage: e.target.value, schoolName: ''})}>
+                <label className="form-label">Previous School (Village)</label>
+                <select id="schoolVillage" name="schoolVillage" className="form-control" value={formData.schoolVillage} onChange={(e) => setFormData({...formData, schoolVillage: e.target.value, schoolName: ''})}>
                   <option value="">Select Village</option>
                   {getByParent('VILLAGE', formData.schoolMandal).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>
