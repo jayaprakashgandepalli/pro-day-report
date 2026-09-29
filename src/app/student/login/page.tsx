@@ -43,9 +43,11 @@ export default function StudentLoginPage() {
     <div className="student-auth-container">
       <div className="student-auth-card">
         <div className="student-auth-header">
-          <div className="icon-wrapper">
-            <GraduationCap size={40} color="#fff" />
-          </div>
+          <Link href="/">
+            <div className="icon-wrapper" style={{ cursor: 'pointer' }}>
+              <GraduationCap size={40} color="#fff" />
+            </div>
+          </Link>
           <h2>10th Class Student Portal</h2>
           <p>Login to view your intermediate career guidance and reports</p>
         </div>
