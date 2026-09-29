@@ -20,6 +20,8 @@ export default function AdminSidebar() {
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Pending Approvals', path: '/admin/pending-students', icon: UserCheck },
     { name: 'Students', path: '/admin/students', icon: BookOpen },
+    { name: 'Study Books', path: '/admin/books', icon: BookOpen },
+    { name: 'Study Videos', path: '/admin/videos', icon: Activity },
     { name: 'Career Questions', path: '/admin/questions', icon: HelpCircle },
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Locations', path: '/admin/config/locations', icon: MapPin },

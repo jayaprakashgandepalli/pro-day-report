@@ -107,14 +107,26 @@ export default function StudentSidebar({ sessionName }: { sessionName: string })
             </li>
             <li>
               <Link 
-                href="/student/dashboard/resources" 
+                href="/student/dashboard/books" 
                 onClick={() => setIsOpen(false)}
                 style={{ 
                   display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s',
-                  background: pathname.includes('/student/dashboard/resources') ? 'rgba(255,255,255,0.1)' : 'transparent',
-                  color: pathname.includes('/student/dashboard/resources') ? 'white' : '#cbd5e1'
+                  background: pathname.includes('/student/dashboard/books') ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: pathname.includes('/student/dashboard/books') ? 'white' : '#cbd5e1'
                 }}>
-                <Library size={20} color={pathname.includes('/student/dashboard/resources') ? '#a855f7' : '#cbd5e1'} /> Resources
+                <Library size={20} color={pathname.includes('/student/dashboard/books') ? '#a855f7' : '#cbd5e1'} /> Study Books
+              </Link>
+            </li>
+            <li>
+              <Link 
+                href="/student/dashboard/videos" 
+                onClick={() => setIsOpen(false)}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem 1rem', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s',
+                  background: pathname.includes('/student/dashboard/videos') ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  color: pathname.includes('/student/dashboard/videos') ? 'white' : '#cbd5e1'
+                }}>
+                <BookOpen size={20} color={pathname.includes('/student/dashboard/videos') ? '#a855f7' : '#cbd5e1'} /> Study Videos
               </Link>
             </li>
             <li>
