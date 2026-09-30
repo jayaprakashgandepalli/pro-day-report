@@ -19,21 +19,18 @@ export default function StudentBooksPage() {
   const iframeContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+    // Optionally handle escape key to exit fullscreen
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
     };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isFullscreen]);
 
   const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      iframeContainerRef.current?.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
+    setIsFullscreen(!isFullscreen);
   };
   useEffect(() => {
     fetchBooks();
@@ -118,7 +115,12 @@ export default function StudentBooksPage() {
               </div>
               <div 
                 ref={iframeContainerRef}
-                style={{ height: isFullscreen ? '100vh' : '80vh', width: '100%', background: '#f1f5f9', position: 'relative' }}
+                style={{
+                  ...(isFullscreen 
+                    ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999 } 
+                    : { position: 'relative', height: '80vh', width: '100%' }),
+                  background: '#f1f5f9'
+                }}
               >
                 {isFullscreen && (
                   <button 
