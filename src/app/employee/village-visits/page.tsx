@@ -20,6 +20,7 @@ type Student = {
   schoolName: string | null;
   schoolArea: string | null;
   village: string | null;
+  address?: string | null;
   studyInterestedAt?: string | null;
   ableToBearFee?: string | null;
   leadStatus?: string | null;
@@ -562,6 +563,10 @@ export default function VillageVisits() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
                   <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Location:</span>
                   <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{resolveName(viewStudent.village) || 'N/A'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
+                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Landmark:</span>
+                  <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{viewStudent.address || 'N/A'}</span>
                 </div>
               </section>
               

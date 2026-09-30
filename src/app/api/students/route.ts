@@ -401,6 +401,7 @@ export async function GET(req: Request) {
         schoolArea: true,
         marks: true,
         village: true,
+        address: true,
         studyInterestedAt: true,
         ableToBearFee: true,
         leadStatus: true,
