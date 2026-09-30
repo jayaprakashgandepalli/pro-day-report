@@ -42,6 +42,16 @@ export default function TermsAndConditionsPage() {
               The contact information you provide during registration (including but not limited to your name, phone number, and current educational details) may be shared with our partnered educational institutions and colleges. These institutions may use this information to reach out to you regarding career counseling, course offerings, and admission processes.
             </p>
 
+            <h3 style={{ color: '#f8fafc', fontSize: '1.3rem', marginBottom: '1rem' }}>Disclaimer: Career Test Recommendations</h3>
+            <p style={{ marginBottom: '1.5rem' }}>
+              The group recommendations and career paths suggested based on our test are intended solely for general awareness and guidance. They do not constitute definitive career advice. We strongly advise students to consult with their teachers, school counselors, or higher education experts before making any important educational or career decisions.
+            </p>
+
+            <h3 style={{ color: '#f8fafc', fontSize: '1.3rem', marginBottom: '1rem' }}>Content Source & Accuracy</h3>
+            <p style={{ marginBottom: '1.5rem' }}>
+              The study materials, book recommendations, mind power improvement techniques, and other educational content provided on our platform are curated from various published books and publicly available online sources. While we strive to provide helpful information for personal development, it is intended strictly for general educational purposes.
+            </p>
+
             <h3 style={{ color: '#f8fafc', fontSize: '1.3rem', marginBottom: '1rem' }}>Your Consent</h3>
             <p style={{ marginBottom: '0' }}>
               By checking the "I agree to the Terms and Conditions" box during registration, you explicitly consent to the collection, storage, and sharing of your contact information for the educational purposes stated above.
