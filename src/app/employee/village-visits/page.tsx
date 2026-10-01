@@ -54,6 +54,7 @@ export default function VillageVisits() {
   const [savingVisit, setSavingVisit] = useState(false);
   const [visitSavedSuccessfully, setVisitSavedSuccessfully] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const closeVisitModal = () => {
     setVisitModalOpen(false);
@@ -67,8 +68,12 @@ export default function VillageVisits() {
   };
 
   const handleShareToWhatsApp = async () => {
+    if (isSharing) return;
+    
     const student = students.find(s => s.id === selectedStudentId);
     if (!student) return;
+
+    setIsSharing(true);
 
     if (!photoFile) {
         const text = `*Student Name:* ${student.studentName}\n*Father Name:* ${student.fatherName || 'N/A'}\n*Village:* ${resolveName(student.village) || 'N/A'}\n*Phone:* ${student.phone}\n*Remarks:* ${visitRemarks}`;
@@ -93,6 +98,7 @@ export default function VillageVisits() {
         } else {
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         }
+        setIsSharing(false);
         return;
     }
 
@@ -226,6 +232,8 @@ export default function VillageVisits() {
     } catch (e) {
         console.error(e);
         alert("Error processing image");
+    } finally {
+        setIsSharing(false);
     }
   };
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
@@ -656,8 +664,13 @@ export default function VillageVisits() {
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={closeVisitModal}>Close</button>
-                  <button className="btn btn-primary" style={{ flex: 2, backgroundColor: '#25D366', borderColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} onClick={handleShareToWhatsApp}>
-                    <MessageCircle size={18} /> Share to WhatsApp
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ flex: 2, backgroundColor: '#25D366', borderColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', opacity: isSharing ? 0.7 : 1 }} 
+                    onClick={handleShareToWhatsApp}
+                    disabled={isSharing}
+                  >
+                    <MessageCircle size={18} /> {isSharing ? 'Processing...' : 'Share to WhatsApp'}
                   </button>
                 </div>
               </div>
