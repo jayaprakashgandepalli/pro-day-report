@@ -90,7 +90,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const student = await prisma.student.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        visits: {
+          orderBy: { visitDate: 'desc' }
+        }
+      }
     });
 
     if (!student) {

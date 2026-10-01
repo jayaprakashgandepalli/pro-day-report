@@ -49,6 +49,133 @@ export default function VillageVisits() {
   const [joinedCollegeId, setJoinedCollegeId] = useState('');
   const [applicationNumber, setApplicationNumber] = useState('');
   const [savingVisit, setSavingVisit] = useState(false);
+  const [visitSavedSuccessfully, setVisitSavedSuccessfully] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  const closeVisitModal = () => {
+    setVisitModalOpen(false);
+    setVisitRemarks('');
+    setVisitOutcome('');
+    setNextFollowUpDate('');
+    setJoinedCollegeId('');
+    setApplicationNumber('');
+    setVisitSavedSuccessfully(false);
+    setPhotoFile(null);
+  };
+
+  const handleShareToWhatsApp = async () => {
+    const student = students.find(s => s.id === selectedStudentId);
+    if (!student) return;
+
+    if (!photoFile) {
+        const text = `*Student Name:* ${student.studentName}\n*Father Name:* ${student.fatherName || 'N/A'}\n*Village:* ${resolveName(student.village) || 'N/A'}\n*Phone:* ${student.phone}\n*Remarks:* ${visitRemarks}`;
+        if (navigator.share) {
+            try { await navigator.share({ text }); } catch(e) {}
+        } else {
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        }
+        closeVisitModal();
+        return;
+    }
+
+    try {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(photoFile);
+        
+        img.onload = async () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            // Prepare text (using \n for forced line breaks)
+            let fullText = `Student Name: ${student.studentName}`;
+            if (student.fatherName) fullText += `\nFather Name: ${student.fatherName}`;
+            if (student.village) fullText += `\nVillage: ${resolveName(student.village)}`;
+            if (student.schoolName) fullText += `\nSchool: ${resolveName(student.schoolName)}`;
+            fullText += `\nMobile No: ${student.phone}`;
+            if (visitRemarks) fullText += `\nRemarks: ${visitRemarks}`;
+
+            // Typography calculation (increased font size to fill space better)
+            const fontSize = Math.max(32, Math.floor(img.width * 0.045)); 
+            ctx.font = `${fontSize}px sans-serif`;
+            const padding = fontSize * 1.0;
+            const lineHeight = fontSize * 1.4;
+            const maxWidth = img.width - (padding * 2);
+
+            // Text wrapping logic
+            const lines = [];
+            const paragraphs = fullText.split('\n');
+            
+            paragraphs.forEach(paragraph => {
+                if (!paragraph.trim()) return;
+                let words = paragraph.split(' ');
+                let currentLine = words[0] || '';
+                
+                for (let i = 1; i < words.length; i++) {
+                    let word = words[i];
+                    let width = ctx.measureText(currentLine + " " + word).width;
+                    if (width < maxWidth) {
+                        currentLine += " " + word;
+                    } else {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    }
+                }
+                lines.push(currentLine);
+            });
+
+            // Calculate height of the new extension area
+            const extensionHeight = padding * 2.0 + (lines.length * lineHeight);
+
+            // New canvas size
+            canvas.width = img.width;
+            canvas.height = img.height + extensionHeight;
+
+            // Draw original image at top
+            ctx.drawImage(img, 0, 0);
+
+            // Draw extension background
+            ctx.fillStyle = '#202C33';
+            ctx.fillRect(0, img.height, canvas.width, extensionHeight);
+
+            // Draw text
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            
+            let currentY = img.height + padding;
+            
+            lines.forEach((line) => {
+                ctx.font = `${fontSize}px sans-serif`;
+                if (line.includes(student.phone)) {
+                    ctx.fillStyle = '#4CB07D'; // WhatsApp green link color
+                } else {
+                    ctx.fillStyle = '#E9EDEF';
+                }
+                ctx.fillText(line, padding, currentY);
+                currentY += lineHeight;
+            });
+
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+                const watermarkedFile = new File([blob], 'visit_report.jpg', { type: 'image/jpeg' });
+                
+                if (navigator.share) {
+                    try {
+                        await navigator.share({ files: [watermarkedFile] });
+                        closeVisitModal();
+                    } catch (error) {
+                        console.error('Error sharing', error);
+                    }
+                }
+                URL.revokeObjectURL(objectUrl);
+            }, 'image/jpeg', 0.9);
+        };
+        img.src = objectUrl;
+    } catch (e) {
+        console.error(e);
+        alert("Error processing image");
+    }
+  };
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
   
@@ -217,13 +344,7 @@ export default function VillageVisits() {
         })
       });
       if (res.ok) {
-        alert("Visit added!");
-        setVisitModalOpen(false);
-        setVisitRemarks('');
-        setVisitOutcome('');
-        setNextFollowUpDate('');
-        setJoinedCollegeId('');
-        setApplicationNumber('');
+        setVisitSavedSuccessfully(true);
         fetchStudents(); // refresh the list to get new visit date
       } else {
         alert("Failed to add visit");
@@ -408,7 +529,19 @@ export default function VillageVisits() {
                                 <MessageCircle size={14} />
                               </a>
                             )}
-                            <button onClick={(e) => { e.stopPropagation(); setViewStudent(s); }} style={{ background: 'transparent', border: 'none', fontSize: '0.6875rem', fontWeight: 600, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: 0 }}>
+                            <button onClick={async (e) => { 
+                              e.stopPropagation(); 
+                              setViewStudent(s); 
+                              try {
+                                const res = await fetch(`/api/students/${s.id}`);
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  setViewStudent(data.student);
+                                }
+                              } catch(err) {
+                                console.error(err);
+                              }
+                            }} style={{ background: 'transparent', border: 'none', fontSize: '0.6875rem', fontWeight: 600, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: 0 }}>
                               Full Details <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </button>
                           </div>
@@ -447,50 +580,83 @@ export default function VillageVisits() {
             <div style={{ background: '#eff6ff', color: '#1e3a8a', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
               Recording visit for <strong>{selectedDate}</strong>
             </div>
-            <div className="form-group">
-              <label className="form-label">Remarks *</label>
-              <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed?"></textarea>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Visit Outcome / Next Action</label>
-              <select className="form-control" value={visitOutcome} onChange={e => { setVisitOutcome(e.target.value); setNextFollowUpDate(''); }}>
-                <option value="">Select option...</option>
-                <option value="following_up">Just Follow-up (No specific date)</option>
-                <option value="after_exams">Follow-up After Exams</option>
-                <option value="after_results">Follow-up After Results</option>
-                <option value="specific_date">Follow-up on Specific Date</option>
-                <option value="admitted">Closed - Admitted to Our College</option>
-                <option value="joined_other">Closed - Joined Other College</option>
-                <option value="not_interested">Closed - Not Interested</option>
-              </select>
-            </div>
-            {visitOutcome === 'specific_date' && (
-              <div className="form-group">
-                <label className="form-label">Select Follow-up Date</label>
-                <input type="date" className="form-control" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} />
+            {visitSavedSuccessfully ? (
+              <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                <div style={{ color: '#10b981', marginBottom: '1rem', fontWeight: 600, fontSize: '1.1rem' }}>
+                  ✅ Visit saved successfully!
+                </div>
+                <div className="form-group" style={{ textAlign: 'left' }}>
+                  <label className="form-label">Attach Photo (Optional)</label>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="form-control" 
+                    style={{ padding: '0.5rem' }}
+                    onChange={e => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setPhotoFile(e.target.files[0]);
+                      }
+                    }} 
+                  />
+                  <small style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+                    * This photo will be shared directly to WhatsApp and will not be saved on our server.
+                  </small>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={closeVisitModal}>Close</button>
+                  <button className="btn btn-primary" style={{ flex: 2, backgroundColor: '#25D366', borderColor: '#25D366', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} onClick={handleShareToWhatsApp}>
+                    <MessageCircle size={18} /> Share to WhatsApp
+                  </button>
+                </div>
               </div>
-            )}
-            {visitOutcome === 'admitted' && (
+            ) : (
               <>
                 <div className="form-group">
-                  <label className="form-label">Select College Branch *</label>
-                  <select className="form-control" value={joinedCollegeId} onChange={e => setJoinedCollegeId(e.target.value)}>
-                    <option value="">Select College...</option>
-                    {colleges.map(c => (
-                      <option key={c.employeeId} value={c.employeeId}>{c.name}</option>
-                    ))}
-                  </select>
+                  <label className="form-label">Remarks *</label>
+                  <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed?"></textarea>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Application Number (Optional)</label>
-                  <input type="text" className="form-control" value={applicationNumber} onChange={e => setApplicationNumber(e.target.value)} placeholder="e.g. APP-12345" />
+                  <label className="form-label">Visit Outcome / Next Action</label>
+                  <select className="form-control" value={visitOutcome} onChange={e => { setVisitOutcome(e.target.value); setNextFollowUpDate(''); }}>
+                    <option value="">Select option...</option>
+                    <option value="following_up">Just Follow-up (No specific date)</option>
+                    <option value="after_exams">Follow-up After Exams</option>
+                    <option value="after_results">Follow-up After Results</option>
+                    <option value="specific_date">Follow-up on Specific Date</option>
+                    <option value="admitted">Closed - Admitted to Our College</option>
+                    <option value="joined_other">Closed - Joined Other College</option>
+                    <option value="not_interested">Closed - Not Interested</option>
+                  </select>
+                </div>
+                {visitOutcome === 'specific_date' && (
+                  <div className="form-group">
+                    <label className="form-label">Select Follow-up Date</label>
+                    <input type="date" className="form-control" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} />
+                  </div>
+                )}
+                {visitOutcome === 'admitted' && (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Select College Branch *</label>
+                      <select className="form-control" value={joinedCollegeId} onChange={e => setJoinedCollegeId(e.target.value)}>
+                        <option value="">Select College...</option>
+                        {colleges.map(c => (
+                          <option key={c.employeeId} value={c.employeeId}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Application Number (Optional)</label>
+                      <input type="text" className="form-control" value={applicationNumber} onChange={e => setApplicationNumber(e.target.value)} placeholder="e.g. APP-12345" />
+                    </div>
+                  </>
+                )}
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={closeVisitModal} disabled={savingVisit}>Cancel</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>{savingVisit ? 'Saving...' : 'Save Visit'}</button>
                 </div>
               </>
             )}
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setVisitModalOpen(false)} disabled={savingVisit}>Cancel</button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>{savingVisit ? 'Saving...' : 'Save Visit'}</button>
-            </div>
           </div>
         </div>
       )}
@@ -577,6 +743,28 @@ export default function VillageVisits() {
                   <span style={{ fontWeight: 700, color: '#334155' }}>Fee capacity:</span>
                   <span style={{ color: '#1e293b', fontWeight: 500 }}>{resolveName(viewStudent.ableToBearFee) || 'N/A'}</span>
                 </div>
+              </section>
+              
+              <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
+              
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 700, color: '#116d66', fontSize: '0.95rem' }}>Visit History</span>
+                {viewStudent.visits && viewStudent.visits.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {viewStudent.visits.map(visit => (
+                      <div key={visit.id} style={{ backgroundColor: '#f8fafc', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, marginBottom: '0.25rem', textTransform: 'uppercase' }}>
+                          {new Date(visit.visitDate).toLocaleDateString('en-GB')}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 500 }}>
+                          {visit.remarks}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ color: '#64748b', fontStyle: 'italic', fontSize: '0.85rem' }}>No visits recorded yet.</span>
+                )}
               </section>
               
               <footer style={{ paddingTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
