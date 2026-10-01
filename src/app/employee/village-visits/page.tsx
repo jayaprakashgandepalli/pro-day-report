@@ -103,7 +103,7 @@ export default function VillageVisits() {
             const maxWidth = img.width - (padding * 2);
 
             // Text wrapping logic
-            const lines = [];
+            const lines: string[] = [];
             const paragraphs = fullText.split('\n');
             
             paragraphs.forEach(paragraph => {
