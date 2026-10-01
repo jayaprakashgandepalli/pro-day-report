@@ -3,6 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Phone, MessageCircle, Search, PlusCircle, MapPin, Calendar, Edit } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 type Visit = {
   id: string;
@@ -69,108 +72,157 @@ export default function VillageVisits() {
 
     if (!photoFile) {
         const text = `*Student Name:* ${student.studentName}\n*Father Name:* ${student.fatherName || 'N/A'}\n*Village:* ${resolveName(student.village) || 'N/A'}\n*Phone:* ${student.phone}\n*Remarks:* ${visitRemarks}`;
-        if (navigator.share) {
-            try { await navigator.share({ text }); } catch(e) {}
+        if (Capacitor.isNativePlatform()) {
+            try {
+                await Share.share({
+                    text: text,
+                    dialogTitle: 'Share to WhatsApp'
+                });
+                closeVisitModal();
+            } catch (error) {
+                console.error('Error sharing native', error);
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            }
+        } else if (navigator.share) {
+            try { 
+                await navigator.share({ text }); 
+                closeVisitModal();
+            } catch(e) {
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            }
         } else {
             window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         }
-        closeVisitModal();
         return;
     }
 
     try {
-        const img = new Image();
         const objectUrl = URL.createObjectURL(photoFile);
         
-        img.onload = async () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
+        const blob = await new Promise<Blob>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return reject(new Error('No context'));
 
-            // Prepare text (using \n for forced line breaks)
-            let fullText = `Student Name: ${student.studentName}`;
-            if (student.fatherName) fullText += `\nFather Name: ${student.fatherName}`;
-            if (student.village) fullText += `\nVillage: ${resolveName(student.village)}`;
-            if (student.schoolName) fullText += `\nSchool: ${resolveName(student.schoolName)}`;
-            fullText += `\nMobile No: ${student.phone}`;
-            if (visitRemarks) fullText += `\nRemarks: ${visitRemarks}`;
+                // Prepare text (using \n for forced line breaks)
+                let fullText = `Student Name: ${student.studentName}`;
+                if (student.fatherName) fullText += `\nFather Name: ${student.fatherName}`;
+                if (student.village) fullText += `\nVillage: ${resolveName(student.village)}`;
+                if (student.schoolName) fullText += `\nSchool: ${resolveName(student.schoolName)}`;
+                fullText += `\nMobile No: ${student.phone}`;
+                if (visitRemarks) fullText += `\nRemarks: ${visitRemarks}`;
 
-            // Typography calculation (increased font size to fill space better)
-            const fontSize = Math.max(32, Math.floor(img.width * 0.045)); 
-            ctx.font = `${fontSize}px sans-serif`;
-            const padding = fontSize * 1.0;
-            const lineHeight = fontSize * 1.4;
-            const maxWidth = img.width - (padding * 2);
-
-            // Text wrapping logic
-            const lines: string[] = [];
-            const paragraphs = fullText.split('\n');
-            
-            paragraphs.forEach(paragraph => {
-                if (!paragraph.trim()) return;
-                let words = paragraph.split(' ');
-                let currentLine = words[0] || '';
-                
-                for (let i = 1; i < words.length; i++) {
-                    let word = words[i];
-                    let width = ctx.measureText(currentLine + " " + word).width;
-                    if (width < maxWidth) {
-                        currentLine += " " + word;
-                    } else {
-                        lines.push(currentLine);
-                        currentLine = word;
-                    }
-                }
-                lines.push(currentLine);
-            });
-
-            // Calculate height of the new extension area
-            const extensionHeight = padding * 2.0 + (lines.length * lineHeight);
-
-            // New canvas size
-            canvas.width = img.width;
-            canvas.height = img.height + extensionHeight;
-
-            // Draw original image at top
-            ctx.drawImage(img, 0, 0);
-
-            // Draw extension background
-            ctx.fillStyle = '#202C33';
-            ctx.fillRect(0, img.height, canvas.width, extensionHeight);
-
-            // Draw text
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            
-            let currentY = img.height + padding;
-            
-            lines.forEach((line) => {
+                // Typography calculation (increased font size to fill space better)
+                const fontSize = Math.max(32, Math.floor(img.width * 0.045)); 
                 ctx.font = `${fontSize}px sans-serif`;
-                if (line.includes(student.phone)) {
-                    ctx.fillStyle = '#4CB07D'; // WhatsApp green link color
-                } else {
-                    ctx.fillStyle = '#E9EDEF';
-                }
-                ctx.fillText(line, padding, currentY);
-                currentY += lineHeight;
-            });
+                const padding = fontSize * 1.0;
+                const lineHeight = fontSize * 1.4;
+                const maxWidth = img.width - (padding * 2);
 
-            canvas.toBlob(async (blob) => {
-                if (!blob) return;
-                const watermarkedFile = new File([blob], 'visit_report.jpg', { type: 'image/jpeg' });
+                // Text wrapping logic
+                const lines: string[] = [];
+                const paragraphs = fullText.split('\n');
                 
-                if (navigator.share) {
-                    try {
-                        await navigator.share({ files: [watermarkedFile] });
-                        closeVisitModal();
-                    } catch (error) {
-                        console.error('Error sharing', error);
+                paragraphs.forEach(paragraph => {
+                    if (!paragraph.trim()) return;
+                    let words = paragraph.split(' ');
+                    let currentLine = words[0] || '';
+                    
+                    for (let i = 1; i < words.length; i++) {
+                        let word = words[i];
+                        let width = ctx.measureText(currentLine + " " + word).width;
+                        if (width < maxWidth) {
+                            currentLine += " " + word;
+                        } else {
+                            lines.push(currentLine);
+                            currentLine = word;
+                        }
                     }
+                    lines.push(currentLine);
+                });
+
+                // Calculate height of the new extension area
+                const extensionHeight = padding * 2.0 + (lines.length * lineHeight);
+
+                // New canvas size
+                canvas.width = img.width;
+                canvas.height = img.height + extensionHeight;
+
+                // Draw original image at top
+                ctx.drawImage(img, 0, 0);
+
+                // Draw extension background
+                ctx.fillStyle = '#202C33';
+                ctx.fillRect(0, img.height, canvas.width, extensionHeight);
+
+                // Draw text
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                
+                let currentY = img.height + padding;
+                
+                lines.forEach((line) => {
+                    ctx.font = `${fontSize}px sans-serif`;
+                    if (line.includes(student.phone)) {
+                        ctx.fillStyle = '#4CB07D'; // WhatsApp green link color
+                    } else {
+                        ctx.fillStyle = '#E9EDEF';
+                    }
+                    ctx.fillText(line, padding, currentY);
+                    currentY += lineHeight;
+                });
+
+                canvas.toBlob((b) => {
+                    if (b) resolve(b);
+                    else reject(new Error('toBlob failed'));
+                }, 'image/jpeg', 0.9);
+            };
+            img.onerror = reject;
+            img.src = objectUrl;
+        });
+
+        URL.revokeObjectURL(objectUrl);
+        
+        if (Capacitor.isNativePlatform()) {
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64data = (reader.result as string).split(',')[1];
+                const filename = `visit_report_${Date.now()}.jpg`;
+                
+                try {
+                    const fileResult = await Filesystem.writeFile({
+                        path: filename,
+                        data: base64data,
+                        directory: Directory.Cache
+                    });
+                    
+                    await Share.share({
+                        title: 'Visit Report',
+                        url: fileResult.uri,
+                        dialogTitle: 'Share to WhatsApp'
+                    });
+                    closeVisitModal();
+                } catch (err) {
+                    console.error('Capacitor Share Error:', err);
+                    alert('Sharing failed.');
                 }
-                URL.revokeObjectURL(objectUrl);
-            }, 'image/jpeg', 0.9);
-        };
-        img.src = objectUrl;
+            };
+        } else {
+            const watermarkedFile = new File([blob], 'visit_report.jpg', { type: 'image/jpeg' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [watermarkedFile] })) {
+                try {
+                    await navigator.share({ files: [watermarkedFile] });
+                    closeVisitModal();
+                } catch (error) {
+                    console.error('Error sharing', error);
+                }
+            } else {
+                alert('Sharing files is not supported on this device/browser.');
+            }
+        }
     } catch (e) {
         console.error(e);
         alert("Error processing image");
