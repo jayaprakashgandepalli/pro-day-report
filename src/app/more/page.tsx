@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, Shield, Info, X, BarChart2, ChevronRight } from 'lucide-react';
+import { LogOut, User, Shield, Info, X, BarChart2, ChevronRight, Key } from 'lucide-react';
 
 export default function MorePage() {
   const router = useRouter();
@@ -133,6 +133,17 @@ export default function MorePage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
                 <Info size={20} color="#64748b" strokeWidth={1.9} />
                 <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>About App</span>
+              </div>
+              <ChevronRight size={16} color="#94a3b8" />
+            </div>
+
+            <div 
+              onClick={() => router.push('/employee/key-persons')}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+                <Key size={20} color="#d97706" strokeWidth={1.9} />
+                <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#334155' }}>Imp Persons</span>
               </div>
               <ChevronRight size={16} color="#94a3b8" />
             </div>

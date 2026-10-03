@@ -26,6 +26,24 @@ export default function GeneratePDFPage() {
   const [filterSchool, setFilterSchool] = useState('');
   const [stats, setStats] = useState<{ mandals: any[], villages: any[], schools: any[] }>({ mandals: [], villages: [], schools: [] });
 
+  const availableColumns = [
+    { id: 'sno', label: 'S.No.' },
+    { id: 'studentName', label: 'Student Name' },
+    { id: 'fatherName', label: "Father's Name" },
+    { id: 'occupation', label: 'Occupation' },
+    { id: 'address', label: 'Address' },
+    { id: 'phone', label: 'Phone' },
+    { id: 'whatsapp', label: 'WhatsApp' },
+    { id: 'group', label: 'Group' },
+    { id: 'visitNumber', label: 'Visit No.' },
+    { id: 'schoolName', label: 'School Name' },
+    { id: 'doorstep', label: 'Doorstep' },
+    { id: 'remarks', label: 'Remarks' }
+  ];
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(
+    ['sno', 'studentName', 'fatherName', 'phone', 'group', 'schoolName', 'doorstep', 'remarks']
+  );
+
   const router = useRouter();
 
   useEffect(() => {
@@ -108,6 +126,10 @@ export default function GeneratePDFPage() {
       alert("No students found in the selected date range.");
       return;
     }
+    if (selectedColumns.length === 0) {
+      alert("Please select at least one column to download.");
+      return;
+    }
 
     setGenerating(action);
 
@@ -170,7 +192,8 @@ export default function GeneratePDFPage() {
 
       doc.text(rightText, doc.internal.pageSize.getWidth() - 14, currentY + 6, { align: 'right' });
 
-      // Table
+      const tableHeader = availableColumns.filter(c => selectedColumns.includes(c.id)).map(c => c.label);
+
       const tableData = data.students.map((s: any, index: number) => {
         const addressParts = [getConfigName(s.village), getConfigName(s.mandal), getConfigName(s.district)].filter(Boolean).join(', ');
         let finalAddress = addressParts;
@@ -184,30 +207,34 @@ export default function GeneratePDFPage() {
         if (s.ableToBearFee) extraRemarks += ` | Fee: ${getConfigName(s.ableToBearFee)}`;
         if (s.leadStatus) extraRemarks += ` | Status: ${s.leadStatus}`;
 
-        return [
-          index + 1,
-          s.studentName,
-          s.fatherName || '-',
-          s.occupation || '-',
-          finalAddress,
-          s.phone,
-          s.whatsapp || '-',
-          s.group,
-          s.visitNumber || '-',
-          s.schoolName ? getConfigName(s.schoolName) : '-',
-          s.doorstepCompleted ? 'Yes' : 'No',
-          extraRemarks || '-'
-        ];
+        const rowData: any[] = [];
+        availableColumns.forEach(c => {
+          if (selectedColumns.includes(c.id)) {
+            if (c.id === 'sno') rowData.push(index + 1);
+            else if (c.id === 'studentName') rowData.push(s.studentName);
+            else if (c.id === 'fatherName') rowData.push(s.fatherName || '-');
+            else if (c.id === 'occupation') rowData.push(s.occupation || '-');
+            else if (c.id === 'address') rowData.push(finalAddress);
+            else if (c.id === 'phone') rowData.push(s.phone);
+            else if (c.id === 'whatsapp') rowData.push(s.whatsapp || '-');
+            else if (c.id === 'group') rowData.push(s.group);
+            else if (c.id === 'visitNumber') rowData.push(s.visitNumber || '-');
+            else if (c.id === 'schoolName') rowData.push(s.schoolName ? getConfigName(s.schoolName) : '-');
+            else if (c.id === 'doorstep') rowData.push(s.doorstepCompleted ? 'Yes' : 'No');
+            else if (c.id === 'remarks') rowData.push(extraRemarks || '-');
+          }
+        });
+        return rowData;
       });
 
       // Pad rows so each page looks uniform and has space for data collection (>= 10 rows)
       while (tableData.length < 10 || tableData.length % 10 !== 0) {
-        tableData.push(['', '', '', '', '', '', '', '', '', '', '', '']);
+        tableData.push(Array(selectedColumns.length).fill(''));
       }
 
       autoTable(doc, {
         startY: tableStartY,
-        head: [['S.No.', 'Student Name', "Father's Name", 'Occupation', 'Address', 'Phone', 'WhatsApp', 'Group', 'Visit No.', 'School Name', 'Doorstep', 'Remarks']],
+        head: [tableHeader],
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2 },
@@ -402,6 +429,28 @@ export default function GeneratePDFPage() {
           {loading ? 'Fetching Data...' : 'Preview Report Data'}
         </button>
       </div>
+
+      {data && (
+        <div className="card" style={{ marginBottom: '2rem' }}>
+          <h2 style={{ fontSize: '1.1rem', margin: '0 0 1rem 0' }}>Select Columns to Download</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+            {availableColumns.map(col => (
+              <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedColumns.includes(col.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedColumns([...selectedColumns, col.id]);
+                    else setSelectedColumns(selectedColumns.filter(id => id !== col.id));
+                  }}
+                  style={{ width: '1.125rem', height: '1.125rem', accentColor: 'var(--primary-color)' }}
+                />
+                {col.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data && (
         <div className="card" style={{ textAlign: 'center', padding: '2rem 1rem' }}>

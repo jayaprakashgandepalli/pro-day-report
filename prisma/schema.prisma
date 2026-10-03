@@ -28,6 +28,7 @@ model User {
   students         Student[]
   visitsCreated    Visit[]   @relation("UserVisits")
   admittedStudents Student[] @relation("CollegeAdmissions")
+  keyPersons       KeyPerson[] @relation("EmployeeKeyPersons")
 }
 
 model ConfigValue {
@@ -41,6 +42,8 @@ model ConfigValue {
   grade     String?       // Used for school grade (e.g., A+, A, B)
   headmasterName  String? // Used for school headmaster name
   headmasterPhone String? // Used for school headmaster phone
+  keyPersonName   String? // Used for school key person name
+  keyPersonPhone  String? // Used for school key person phone
   createdAt DateTime      @default(now())
 
   @@index([type])
@@ -207,5 +210,26 @@ model Video {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model KeyPerson {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  designation String?
+  
+  district    String?
+  mandal      String?
+  village     String?
+  address     String?
+  
+  employeeId  String
+  employee    User     @relation("EmployeeKeyPersons", fields: [employeeId], references: [employeeId])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([mandal])
 }
 

@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json();
-    const { type, value, parentId, strength, grade, headmasterName, headmasterPhone } = data;
+    const { type, value, parentId, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone } = data;
 
     if (!type || !value) {
       return NextResponse.json({ error: 'Type and Value are required' }, { status: 400 });
@@ -45,6 +45,8 @@ export async function POST(req: Request) {
         grade: grade || null,
         headmasterName: headmasterName || null,
         headmasterPhone: headmasterPhone || null,
+        keyPersonName: keyPersonName || null,
+        keyPersonPhone: keyPersonPhone || null,
       }
     });
 

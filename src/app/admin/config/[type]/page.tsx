@@ -16,6 +16,8 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
   const [editGrade, setEditGrade] = useState('');
   const [editHeadmasterName, setEditHeadmasterName] = useState('');
   const [editHeadmasterPhone, setEditHeadmasterPhone] = useState('');
+  const [editKeyPersonName, setEditKeyPersonName] = useState('');
+  const [editKeyPersonPhone, setEditKeyPersonPhone] = useState('');
   
   // For Schools
   const [district, setDistrict] = useState('');
@@ -25,6 +27,8 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
   const [grade, setGrade] = useState('');
   const [headmasterName, setHeadmasterName] = useState('');
   const [headmasterPhone, setHeadmasterPhone] = useState('');
+  const [keyPersonName, setKeyPersonName] = useState('');
+  const [keyPersonPhone, setKeyPersonPhone] = useState('');
 
   let filteredItems = items;
   if (type === 'SCHOOL') {
@@ -53,12 +57,14 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
   const currentItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
 
   const onAddClick = () => {
-    handleAdd(type, valueState, setValueState, type === 'SCHOOL' ? village : undefined, strength, grade, headmasterName, headmasterPhone);
+    handleAdd(type, valueState, setValueState, type === 'SCHOOL' ? village : undefined, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone);
     if (type === 'SCHOOL') {
       setStrength('');
       setGrade('');
       setHeadmasterName('');
       setHeadmasterPhone('');
+      setKeyPersonName('');
+      setKeyPersonPhone('');
     }
   };
 
@@ -69,6 +75,8 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
     setEditGrade(item.grade || '');
     setEditHeadmasterName(item.headmasterName || '');
     setEditHeadmasterPhone(item.headmasterPhone || '');
+    setEditKeyPersonName(item.keyPersonName || '');
+    setEditKeyPersonPhone(item.keyPersonPhone || '');
   };
 
   const cancelEdit = () => {
@@ -77,7 +85,7 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
 
   const saveEdit = () => {
     if (!editValue) return;
-    handleEdit(editingId, editValue, editStrength, editGrade, editHeadmasterName, editHeadmasterPhone);
+    handleEdit(editingId, editValue, editStrength, editGrade, editHeadmasterName, editHeadmasterPhone, editKeyPersonName, editKeyPersonPhone);
     setEditingId(null);
   };
 
@@ -150,6 +158,24 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
                   style={{ flex: 1 }}
                 />
               </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Key Person Name" 
+                  value={keyPersonName}
+                  onChange={(e) => setKeyPersonName(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Key Person Phone" 
+                  value={keyPersonPhone}
+                  onChange={(e) => setKeyPersonPhone(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -198,6 +224,10 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
                       <input type="text" className="form-control" placeholder="Headmaster Name" value={editHeadmasterName} onChange={e => setEditHeadmasterName(e.target.value)} style={{ flex: 1 }} />
                       <input type="text" className="form-control" placeholder="Headmaster Phone" value={editHeadmasterPhone} onChange={e => setEditHeadmasterPhone(e.target.value)} style={{ flex: 1 }} />
                     </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input type="text" className="form-control" placeholder="Key Person Name" value={editKeyPersonName} onChange={e => setEditKeyPersonName(e.target.value)} style={{ flex: 1 }} />
+                      <input type="text" className="form-control" placeholder="Key Person Phone" value={editKeyPersonPhone} onChange={e => setEditKeyPersonPhone(e.target.value)} style={{ flex: 1 }} />
+                    </div>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -219,6 +249,11 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
                 {type === 'SCHOOL' && (item.headmasterName || item.headmasterPhone) && (
                   <span style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.25rem' }}>
                     HM: {item.headmasterName || 'N/A'} {item.headmasterPhone ? `(${item.headmasterPhone})` : ''}
+                  </span>
+                )}
+                {type === 'SCHOOL' && (item.keyPersonName || item.keyPersonPhone) && (
+                  <span style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.15rem' }}>
+                    Key Person: {item.keyPersonName || 'N/A'} {item.keyPersonPhone ? `(${item.keyPersonPhone})` : ''}
                   </span>
                 )}
                 {parentVillage && <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>Village: {parentVillage.value}</span>}
@@ -299,7 +334,7 @@ export default function ConfigPage() {
   const getByType = (t: string) => configs.filter(c => c.type === t);
   const getByParent = (t: string, pid: string) => configs.filter(c => c.type === t && c.parentId === pid);
 
-  const handleAdd = async (type: string, value: string, setter: any, parentId?: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string) => {
+  const handleAdd = async (type: string, value: string, setter: any, parentId?: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string, keyPersonName?: string, keyPersonPhone?: string) => {
     if (!value) return;
     if (type === 'SCHOOL' && !parentId) {
       alert("Please select a Village first to add a School.");
@@ -310,7 +345,7 @@ export default function ConfigPage() {
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, value, parentId, strength, grade, headmasterName, headmasterPhone })
+        body: JSON.stringify({ type, value, parentId, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone })
       });
       if (res.ok) {
         setter('');
@@ -333,12 +368,12 @@ export default function ConfigPage() {
     }
   };
 
-  const handleEdit = async (id: string, value: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string) => {
+  const handleEdit = async (id: string, value: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string, keyPersonName?: string, keyPersonPhone?: string) => {
     try {
       const res = await fetch(`/api/config/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value, strength, grade, headmasterName, headmasterPhone })
+        body: JSON.stringify({ value, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone })
       });
       if (res.ok) {
         fetchConfigs();

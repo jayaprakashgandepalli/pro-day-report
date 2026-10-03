@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Home, UserPlus, Users, CalendarDays, MapPin, Star, FileText, LogOut, BarChart2 } from 'lucide-react';
+import { Home, UserPlus, Users, CalendarDays, MapPin, Star, FileText, LogOut, BarChart2, Key } from 'lucide-react';
 import { Suspense } from 'react';
 
 function SidebarContent() {
@@ -25,6 +25,7 @@ function SidebarContent() {
     { name: 'Star Leads', path: '/employee/students?preset=prime', icon: Star, matchPreset: 'prime' },
     { name: 'Follow-ups', path: '/employee/followups', icon: CalendarDays },
     { name: 'Village Visits', path: '/employee/village-visits', icon: MapPin },
+    { name: 'Imp Persons', path: '/employee/key-persons', icon: Key },
     { name: 'Day Report (PDF)', path: '/reports/generate', icon: FileText },
   ];
 
