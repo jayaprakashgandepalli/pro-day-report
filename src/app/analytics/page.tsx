@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, BarChart2, Loader2, AlertCircle, TrendingUp, Target, CheckCircle2, School, X } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
+import SpecificMandalReportModal from '@/components/SpecificMandalReportModal';
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -232,7 +233,6 @@ export default function AnalyticsPage() {
           </div>
         </div>
       )}
-
       {!loading && selectedMandal && reportData.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.5rem' }}>
@@ -242,8 +242,17 @@ export default function AnalyticsPage() {
             >
               <ArrowLeft size={16} /> Back
             </button>
-            <div className="badge badge-neutral" style={{ background: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <School size={12} /> {reportData[0]?.mandal} ({reportData.length})
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div className="badge badge-neutral" style={{ background: '#e0e7ff', color: '#4338ca', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <School size={12} /> {reportData[0]?.mandal} ({reportData.length})
+              </div>
+              <SpecificMandalReportModal 
+                mandalId={selectedMandal} 
+                mandalName={reportData[0]?.mandal} 
+                buttonLabel="PDF"
+                buttonClassName="badge badge-neutral"
+                buttonStyle={{ background: '#3b82f6', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', border: 'none' }}
+              />
             </div>
           </div>
 

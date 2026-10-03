@@ -160,10 +160,6 @@ export default function EditStudent() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.studentName || !formData.phone || !formData.group) {
-      alert('Please fill all required fields');
-      return;
-    }
 
     setSaving(true);
     const submitData = {
@@ -207,8 +203,8 @@ export default function EditStudent() {
       ) : (
         <form className="card" onSubmit={handleSave}>
           <div className="form-group">
-            <label className="form-label" htmlFor="studentName">Student Name *</label>
-            <input required type="text" id="studentName" name="studentName" className="form-control" value={formData.studentName} onChange={handleChange} />
+            <label className="form-label" htmlFor="studentName">Student Name</label>
+            <input type="text" id="studentName" name="studentName" className="form-control" value={formData.studentName} onChange={handleChange} />
           </div>
 
           <div className="form-group">
@@ -236,8 +232,8 @@ export default function EditStudent() {
 
 
           <div className="form-group">
-            <label className="form-label" htmlFor="phone">Phone Number *</label>
-            <input required type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} />
+            <label className="form-label" htmlFor="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} />
           </div>
 
           <div className="form-group">
@@ -261,8 +257,8 @@ export default function EditStudent() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="group">Group Opting *</label>
-            <select required id="group" name="group" className="form-control" value={formData.group} onChange={handleChange}>
+            <label className="form-label" htmlFor="group">Group Opting</label>
+            <select id="group" name="group" className="form-control" value={formData.group} onChange={handleChange}>
               <option value="">Select Group</option>
               {getByType('GROUP').map(g => (
                 <option key={g.id} value={g.value}>{g.value}</option>
@@ -311,7 +307,7 @@ export default function EditStudent() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">School Area (District) *</label>
+            <label className="form-label">School Area (District)</label>
             <select id="schoolDistrict" name="schoolDistrict" className="form-control" value={formData.schoolDistrict} onChange={(e) => setFormData({...formData, schoolDistrict: e.target.value, schoolMandal: '', schoolVillage: '', schoolName: ''})}>
               <option value="">Select School District</option>
               {getByType('DISTRICT').map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
@@ -320,7 +316,7 @@ export default function EditStudent() {
 
           {formData.schoolDistrict && (
             <div className="form-group">
-              <label className="form-label">School Area (Mandal) *</label>
+              <label className="form-label">School Area (Mandal)</label>
               <select id="schoolMandal" name="schoolMandal" className="form-control" value={formData.schoolMandal} onChange={(e) => setFormData({...formData, schoolMandal: e.target.value, schoolVillage: '', schoolName: ''})}>
                 <option value="">Select School Mandal</option>
                 {getByParent('MANDAL', formData.schoolDistrict).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
@@ -330,7 +326,7 @@ export default function EditStudent() {
 
           {formData.schoolMandal && (
             <div className="form-group">
-              <label className="form-label">School Area (Village) *</label>
+              <label className="form-label">School Area (Village)</label>
               <select id="schoolVillage" name="schoolVillage" className="form-control" value={formData.schoolVillage} onChange={(e) => setFormData({...formData, schoolVillage: e.target.value, schoolName: ''})}>
                 <option value="">Select School Village</option>
                 {getByParent('VILLAGE', formData.schoolMandal).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}

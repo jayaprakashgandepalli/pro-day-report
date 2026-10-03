@@ -45,7 +45,7 @@ export default function CareerTestPage() {
       try {
         const res = await fetch('/api/student/test/questions');
         const data = await res.json();
-        
+
         if (data.profileIncomplete) {
           setProfileIncomplete(true);
           setIsLoading(false);
@@ -77,7 +77,7 @@ export default function CareerTestPage() {
 
   const handleSelectOption = (questionId: string, optionId: string) => {
     setAnswers({ ...answers, [questionId]: optionId });
-    
+
     if (currentIndex < questions.length - 1) {
       setTimeout(() => {
         setCurrentIndex(prev => prev + 1);
@@ -127,7 +127,7 @@ export default function CareerTestPage() {
         <p style={{ color: '#64748b', marginBottom: '2rem', lineHeight: '1.6' }}>
           Before taking the career assessment, we need a few more details about you (like your District and School Name) to give you the most accurate recommendations.
         </p>
-        <Link 
+        <Link
           href="/student/dashboard/profile"
           style={{ display: 'inline-flex', background: 'linear-gradient(135deg, #6366f1, #a855f7)', color: 'white', padding: '1rem 2rem', borderRadius: '12px', textDecoration: 'none', fontWeight: 600, boxShadow: '0 4px 10px rgba(99, 102, 241, 0.3)' }}
         >
@@ -146,13 +146,13 @@ export default function CareerTestPage() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', minHeight: '80vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      
+
       {/* Full-screen Loading Overlay */}
       {isSubmitting && (
-        <div style={{ 
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-          background: 'rgba(255,255,255,0.95)', zIndex: 9999, 
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' 
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(255,255,255,0.95)', zIndex: 9999,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
         }}>
           <div style={{ width: '400px', height: '400px', maxWidth: '90%' }}>
             <Player src="/assets/animations/loading-result.json" loop={false} autoplay={true} style={{ width: '100%', height: '100%' }} />
@@ -190,7 +190,7 @@ export default function CareerTestPage() {
       {/* Question Card */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         {error && <div style={{ background: '#fef2f2', color: '#ef4444', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'center' }}>{error}</div>}
-        
+
         <h2 style={{ fontSize: '2rem', color: '#0f172a', fontWeight: 700, lineHeight: '1.4', marginBottom: '2.5rem' }}>
           {currentQ.text}
         </h2>
@@ -220,11 +220,11 @@ export default function CareerTestPage() {
                 }}
                 className="quiz-option"
               >
-                <div style={{ 
-                  width: '32px', height: '32px', borderRadius: '8px', 
-                  background: isSelected ? moduleInfo.color : '#f1f5f9', 
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  background: isSelected ? moduleInfo.color : '#f1f5f9',
                   color: isSelected ? 'white' : '#64748b',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.9rem' 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: '0.9rem'
                 }}>
                   {String.fromCharCode(65 + index)}
                 </div>
@@ -238,7 +238,7 @@ export default function CareerTestPage() {
 
       {/* Navigation Footer */}
       <footer style={{ marginTop: '3rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
-        <button 
+        <button
           onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
           disabled={currentIndex === 0}
           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: 'none', color: currentIndex === 0 ? '#cbd5e1' : '#64748b', cursor: currentIndex === 0 ? 'not-allowed' : 'pointer', fontWeight: 600, padding: '0.5rem' }}
@@ -247,7 +247,7 @@ export default function CareerTestPage() {
         </button>
 
         {currentIndex === questions.length - 1 ? (
-          <button 
+          <button
             onClick={handleSubmit}
             disabled={isSubmitting || !answers[currentQ.id]}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: (!answers[currentQ.id] || isSubmitting) ? '#cbd5e1' : moduleInfo.color, color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 600, cursor: (!answers[currentQ.id] || isSubmitting) ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
@@ -255,7 +255,7 @@ export default function CareerTestPage() {
             {isSubmitting ? 'Submitting...' : 'Submit Test'} <Check size={20} />
           </button>
         ) : (
-          <button 
+          <button
             onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
             disabled={!answers[currentQ.id]}
             style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: !answers[currentQ.id] ? '#f1f5f9' : moduleInfo.color, color: !answers[currentQ.id] ? '#94a3b8' : 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 600, cursor: !answers[currentQ.id] ? 'not-allowed' : 'pointer', transition: 'all 0.2s' }}
@@ -265,7 +265,8 @@ export default function CareerTestPage() {
         )}
       </footer>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .quiz-option:hover {
           border-color: #cbd5e1;
           transform: translateY(-2px);

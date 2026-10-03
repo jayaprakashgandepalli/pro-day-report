@@ -58,11 +58,18 @@ export async function GET(req: Request) {
     // Since we group by schoolName in the Student table, we can fetch group by
     const schoolNames = schools.map(s => s.value);
     
+    const studentWhereClause: any = {
+      schoolName: { in: schoolNames }
+    };
+    
+    // Only count students added by this user if they aren't admin (or if we explicitly want their own)
+    if (payload.role !== 'ADMIN') {
+      studentWhereClause.employeeId = (payload as any).employeeId;
+    }
+
     const studentCounts = await prisma.student.groupBy({
       by: ['schoolName'],
-      where: {
-        schoolName: { in: schoolNames }
-      },
+      where: studentWhereClause,
       _count: {
         id: true
       }
@@ -88,7 +95,9 @@ export async function GET(req: Request) {
         target,
         collected,
         remaining: Math.max(0, target - collected),
-        percentage: target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : 0
+        percentage: target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : 0,
+        headmasterName: school.headmasterName || 'N/A',
+        headmasterPhone: school.headmasterPhone || 'N/A'
       };
     });
 
