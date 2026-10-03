@@ -46,7 +46,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const data = await req.json();
-    const { value, strength, grade } = data;
+    const { value, strength, grade, headmasterName, headmasterPhone } = data;
 
     if (!value) {
       return NextResponse.json({ error: 'Value is required' }, { status: 400 });
@@ -58,6 +58,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         value,
         strength: strength !== undefined ? parseInt(strength, 10) : undefined,
         grade: grade !== undefined ? grade : undefined,
+        headmasterName: headmasterName !== undefined ? headmasterName : undefined,
+        headmasterPhone: headmasterPhone !== undefined ? headmasterPhone : undefined,
       }
     });
 

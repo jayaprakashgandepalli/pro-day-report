@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Cache for 1 hour
 
 // GET all config values, grouped by type
 export async function GET() {
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const data = await req.json();
-    const { type, value, parentId, strength, grade } = data;
+    const { type, value, parentId, strength, grade, headmasterName, headmasterPhone } = data;
 
     if (!type || !value) {
       return NextResponse.json({ error: 'Type and Value are required' }, { status: 400 });
@@ -43,6 +43,8 @@ export async function POST(req: Request) {
         parentId: parentId || null,
         strength: strength ? parseInt(strength, 10) : 0,
         grade: grade || null,
+        headmasterName: headmasterName || null,
+        headmasterPhone: headmasterPhone || null,
       }
     });
 

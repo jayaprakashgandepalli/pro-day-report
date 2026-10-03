@@ -39,6 +39,8 @@ model ConfigValue {
   children  ConfigValue[] @relation("ConfigHierarchy")
   strength  Int?          @default(0) // Used for school strength
   grade     String?       // Used for school grade (e.g., A+, A, B)
+  headmasterName  String? // Used for school headmaster name
+  headmasterPhone String? // Used for school headmaster phone
   createdAt DateTime      @default(now())
 
   @@index([type])
@@ -100,6 +102,12 @@ model Student {
   @@index([schoolName])
   @@index([mandal])
   @@index([employeeId])
+  @@index([village])
+  @@index([district])
+  @@index([leadStatus])
+  @@index([studyInterestedAt])
+  @@index([ableToBearFee])
+  @@index([createdAt])
 }
 
 model Visit {

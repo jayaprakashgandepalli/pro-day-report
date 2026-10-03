@@ -99,7 +99,11 @@ export default function AllStudents() {
 
   const fetchConfigs = async () => {
     try {
-      const res = await fetch('/api/config');
+      const [res, colRes] = await Promise.all([
+        fetch('/api/config'),
+        fetch('/api/colleges/list')
+      ]);
+
       if (res.ok) {
         const data = await res.json();
         const map: Record<string, string> = {};
@@ -112,8 +116,6 @@ export default function AllStudents() {
         setConfigParentMap(parentMap);
       }
       
-      // Fetch colleges
-      const colRes = await fetch('/api/colleges/list');
       if (colRes.ok) {
         const colData = await colRes.json();
         setColleges(colData.colleges || []);
@@ -188,10 +190,18 @@ export default function AllStudents() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this student?')) return;
     
-    // In a real app, you'd call a DELETE API endpoint here.
-    // For now, we'll just remove from state to simulate.
-    // const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
-    setStudents(students.filter(s => s.id !== id));
+    try {
+      const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setStudents(students.filter(s => s.id !== id));
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error || 'Failed to delete student');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Failed to delete student');
+    }
   };
 
   const handleAddVisit = async () => {

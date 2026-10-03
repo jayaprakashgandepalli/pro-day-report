@@ -118,8 +118,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
-    if (!payload || payload.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'Forbidden. Only admins can delete students.' }, { status: 403 });
+    if (!payload) {
+      return NextResponse.json({ error: 'Forbidden. Only authorized users can delete students.' }, { status: 403 });
     }
 
     await prisma.student.delete({
