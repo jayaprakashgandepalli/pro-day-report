@@ -56,7 +56,7 @@ async function performBackup() {
       const writeStream = fs.createWriteStream(gzipPath);
       const gzip = zlib.createGzip();
       
-      writeStream.on('close', resolve);
+      writeStream.on('close', () => resolve(null));
       writeStream.on('error', reject);
       
       readStream.pipe(gzip).pipe(writeStream);
