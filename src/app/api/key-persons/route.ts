@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     if (mandal) where.mandal = mandal;
     if (village) where.village = village;
 
-    const [keyPersons, total] = await Promise.all([
+    const [keyPersons, total, currentUser] = await Promise.all([
       prisma.keyPerson.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -48,10 +48,14 @@ export async function GET(req: Request) {
           }
         }
       }),
-      prisma.keyPerson.count({ where })
+      prisma.keyPerson.count({ where }),
+      prisma.user.findUnique({
+        where: { employeeId: payload.employeeId },
+        select: { name: true, employeeId: true }
+      })
     ]);
 
-    return NextResponse.json({ keyPersons, total }, { status: 200 });
+    return NextResponse.json({ keyPersons, total, currentUser }, { status: 200 });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

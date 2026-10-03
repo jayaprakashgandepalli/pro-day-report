@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Phone, PlusCircle, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Phone, PlusCircle, Trash2, Edit, Download } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
+import ImpPersonReportModal from '@/components/ImpPersonReportModal';
 
 type KeyPerson = {
   id: string;
@@ -21,6 +22,8 @@ export default function KeyPersonsPage() {
   const [keyPersons, setKeyPersons] = useState<KeyPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [configs, setConfigs] = useState<any[]>([]);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{name: string, employeeId: string} | null>(null);
 
   useEffect(() => {
     fetchConfigs();
@@ -46,6 +49,7 @@ export default function KeyPersonsPage() {
       if (res.ok) {
         const data = await res.json();
         setKeyPersons(data.keyPersons || []);
+        setCurrentUser(data.currentUser || null);
       }
     } catch (e) {
       console.error(e);
@@ -84,9 +88,17 @@ export default function KeyPersonsPage() {
             <p style={{ margin: 0, fontSize: '0.65rem', color: '#bfdbfe', textTransform: 'uppercase' }}>Private Admissions Contacts</p>
           </div>
         </div>
-        <Link href="/employee/key-persons/add" style={{ display: 'inline-flex', alignItems: 'center', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', gap: '0.25rem' }}>
-          <PlusCircle size={14} /> Add
-        </Link>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button 
+            onClick={() => setIsReportModalOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', gap: '0.25rem', border: 'none', cursor: 'pointer' }}
+          >
+            <Download size={14} /> PDF
+          </button>
+          <Link href="/employee/key-persons/add" style={{ display: 'inline-flex', alignItems: 'center', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.1)', color: '#ffffff', gap: '0.25rem' }}>
+            <PlusCircle size={14} /> Add
+          </Link>
+        </div>
       </header>
 
       <div style={{ padding: '1rem' }}>
@@ -139,6 +151,14 @@ export default function KeyPersonsPage() {
       </div>
 
       <BottomNav />
+      
+      <ImpPersonReportModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+        keyPersons={keyPersons}
+        configs={configs}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

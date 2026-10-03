@@ -97,7 +97,9 @@ export async function GET(req: Request) {
         remaining: Math.max(0, target - collected),
         percentage: target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : 0,
         headmasterName: school.headmasterName || 'N/A',
-        headmasterPhone: school.headmasterPhone || 'N/A'
+        headmasterPhone: school.headmasterPhone || 'N/A',
+        keyPersonName: school.keyPersonName || '-',
+        keyPersonPhone: school.keyPersonPhone || '-'
       };
     });
 
