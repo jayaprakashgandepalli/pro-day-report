@@ -6,7 +6,8 @@ import {
   ArrowLeft, Search, Plus, Phone, MessageCircle, 
   MapPin, Briefcase, HeartHandshake, Trash2, Edit2, 
   X, Filter, Check, User, Building2, ChevronLeft, ChevronRight,
-  ChevronsLeft, ChevronsRight, Loader2, Users, Map
+  ChevronsLeft, ChevronsRight, Loader2, Users, Map,
+  ChevronDown, ChevronUp, SlidersHorizontal
 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 
@@ -22,14 +23,46 @@ interface RelativeContact {
   createdAt: string;
 }
 
+const STANDARD_RELATIONS = [
+  'Uncle',
+  'Aunt',
+  'Brother',
+  'Sister',
+  'Cousin',
+  'In-Law',
+  'Family Friend',
+  'Relative',
+  'Village Leader / Sarpanch'
+];
+
+const STANDARD_OCCUPATIONS = [
+  'Agriculture / Farmer',
+  'Business',
+  'Govt Employee',
+  'Private Employee',
+  'Teacher',
+  'Driver',
+  'Daily Wage Worker / Coolie',
+  'Housewife',
+  'Student',
+  'Self Employed',
+  'Retired'
+];
+
 export default function VillageRelativesPage() {
   const [relatives, setRelatives] = useState<RelativeContact[]>([]);
   const [configs, setConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Hierarchical Filters: Mandal & Village
+  // Hierarchical Filters: Mandal, Village & Occupation
   const [selectedMandal, setSelectedMandal] = useState('ALL');
   const [selectedVillage, setSelectedVillage] = useState('ALL');
+  const [selectedOccupation, setSelectedOccupation] = useState('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const activeFilterCount = (selectedMandal !== 'ALL' ? 1 : 0) + 
+                            (selectedVillage !== 'ALL' ? 1 : 0) + 
+                            (selectedOccupation !== 'ALL' ? 1 : 0);
   
   // Search & Debounce Optimization
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,10 +74,49 @@ export default function VillageRelativesPage() {
   const [pageSize, setPageSize] = useState(10);
   const listTopRef = useRef<HTMLDivElement>(null);
 
+  // Expandable Contact State (Phone contact list style)
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const toggleExpand = (id: string) => {
+    setExpandedId(prev => (prev === id ? null : id));
+  };
+
+  const getAvatarStyle = (name: string) => {
+    const palettes = [
+      { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' }, // Blue
+      { bg: '#fef3c7', color: '#b45309', border: '#fde68a' }, // Amber
+      { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' }, // Green
+      { bg: '#f3e8ff', color: '#7e22ce', border: '#e9d5ff' }, // Purple
+      { bg: '#ffe4e6', color: '#be123c', border: '#fecdd3' }, // Rose
+      { bg: '#ffedd5', color: '#c2410c', border: '#fed7aa' }, // Orange
+      { bg: '#e0e7ff', color: '#4338ca', border: '#c7d2fe' }, // Indigo
+      { bg: '#ccfbf1', color: '#0f766e', border: '#99f6e4' }, // Teal
+    ];
+    const charCode = (name && name.length > 0) ? name.charCodeAt(0) : 0;
+    return palettes[charCode % palettes.length];
+  };
+
+  // Helper to parse composite occupation: "Teacher (Anakapalle)" -> { role: 'Teacher', workLocation: 'Anakapalle' }
+  const parseOccupation = (raw: string | null | undefined) => {
+    if (!raw) return { role: '', workLocation: '' };
+    const parenMatch = raw.match(/^(.*?)\s*\((.*?)\)$/);
+    if (parenMatch) {
+      return { role: parenMatch[1].trim(), workLocation: parenMatch[2].trim() };
+    }
+    const dashMatch = raw.match(/^(.*?)\s*[-•]\s*(.*)$/);
+    if (dashMatch) {
+      return { role: dashMatch[1].trim(), workLocation: dashMatch[2].trim() };
+    }
+    return { role: raw.trim(), workLocation: '' };
+  };
+
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<RelativeContact | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isCustomOccupation, setIsCustomOccupation] = useState(false);
+  const [isCustomRelation, setIsCustomRelation] = useState(false);
+  const [formWorkLocation, setFormWorkLocation] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -73,7 +145,7 @@ export default function VillageRelativesPage() {
   // Reset to page 1 whenever filters or search change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchQuery, selectedMandal, selectedVillage, pageSize]);
+  }, [debouncedSearchQuery, selectedMandal, selectedVillage, selectedOccupation, pageSize]);
 
   useEffect(() => {
     fetchConfigs();
@@ -205,6 +277,33 @@ export default function VillageRelativesPage() {
     }
   };
 
+  // Distinct occupations from existing contacts with counts
+  const occupationCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    relatives.forEach(r => {
+      if (r.occupation && r.occupation.trim()) {
+        const { role } = parseOccupation(r.occupation);
+        if (role) {
+          counts[role] = (counts[role] || 0) + 1;
+        }
+      }
+    });
+    return counts;
+  }, [relatives]);
+
+  // Combined options for occupation filter
+  const filterOccupationOptions = useMemo(() => {
+    const occSet = new Set<string>();
+    relatives.forEach(r => {
+      if (r.occupation && r.occupation.trim()) {
+        const { role } = parseOccupation(r.occupation);
+        if (role) occSet.add(role);
+      }
+    });
+    STANDARD_OCCUPATIONS.forEach(o => occSet.add(o));
+    return Array.from(occSet).sort((a, b) => a.localeCompare(b));
+  }, [relatives]);
+
   // Dropdown list helpers for Add/Edit Modal
   const getByType = (type: string) => configs.filter(c => c.type === type);
   const getByParent = (type: string, parentId: string) => configs.filter(c => c.type === type && c.parentId === parentId);
@@ -285,7 +384,21 @@ export default function VillageRelativesPage() {
         }
       }
 
-      // 3. Debounced Search filter
+      // 3. Occupation filter
+      if (selectedOccupation !== 'ALL') {
+        const { role } = parseOccupation(r.occupation);
+        const contactOcc = (role || '').trim().toLowerCase();
+        const targetOcc = selectedOccupation.trim().toLowerCase();
+        if (contactOcc !== targetOcc) {
+          const isFuzzyMatch = (contactOcc.includes('agriculture') && targetOcc.includes('agriculture')) ||
+                               (contactOcc.includes('farmer') && targetOcc.includes('farmer'));
+          if (!isFuzzyMatch) {
+            return false;
+          }
+        }
+      }
+
+      // 4. Debounced Search filter
       if (debouncedSearchQuery.trim()) {
         const q = debouncedSearchQuery.toLowerCase();
         const nameMatch = r.name.toLowerCase().includes(q);
@@ -299,7 +412,7 @@ export default function VillageRelativesPage() {
 
       return true;
     });
-  }, [relatives, selectedMandal, selectedVillage, debouncedSearchQuery, configs, configMap]);
+  }, [relatives, selectedMandal, selectedVillage, selectedOccupation, debouncedSearchQuery, configs, configMap]);
 
   // Pagination Calculations
   const totalPages = Math.max(1, Math.ceil(filteredRelatives.length / pageSize));
@@ -320,14 +433,25 @@ export default function VillageRelativesPage() {
   const handleClearFilters = () => {
     setSelectedMandal('ALL');
     setSelectedVillage('ALL');
+    setSelectedOccupation('ALL');
     setSearchQuery('');
     setDebouncedSearchQuery('');
+    setCurrentPage(1);
+  };
+
+  const handleResetDropdownFilters = () => {
+    setSelectedMandal('ALL');
+    setSelectedVillage('ALL');
+    setSelectedOccupation('ALL');
     setCurrentPage(1);
   };
 
   // Modal open helpers
   const handleOpenAddModal = () => {
     setEditingContact(null);
+    setIsCustomOccupation(false);
+    setIsCustomRelation(false);
+    setFormWorkLocation('');
     setFormData({
       name: '',
       phone: '',
@@ -342,21 +466,54 @@ export default function VillageRelativesPage() {
 
   const handleOpenEditModal = (contact: RelativeContact) => {
     setEditingContact(contact);
+    const { role, workLocation } = parseOccupation(contact.occupation);
+    setFormWorkLocation(workLocation);
+
+    const occIsStd = STANDARD_OCCUPATIONS.includes(role) || availableOccupations.includes(role) || role === 'Agriculture';
+    setIsCustomOccupation(Boolean(role) && !occIsStd);
+
+    const rel = contact.relation || '';
+    const relIsStd = STANDARD_RELATIONS.includes(rel);
+    setIsCustomRelation(Boolean(rel) && !relIsStd);
+
     setFormData({
       name: contact.name,
       phone: contact.phone,
-      occupation: contact.occupation || '',
+      occupation: role,
       district: contact.district || '',
       mandal: contact.mandal || '',
       village: contact.village || '',
-      relation: contact.relation || ''
+      relation: rel
     });
     setIsModalOpen(true);
+  };
+
+  const handleOccupationSelectChange = (val: string) => {
+    if (val === 'OTHER') {
+      setIsCustomOccupation(true);
+      setFormData(prev => ({ ...prev, occupation: '' }));
+    } else {
+      setIsCustomOccupation(false);
+      setFormData(prev => ({ ...prev, occupation: val }));
+    }
+  };
+
+  const handleRelationSelectChange = (val: string) => {
+    if (val === 'OTHER') {
+      setIsCustomRelation(true);
+      setFormData(prev => ({ ...prev, relation: '' }));
+    } else {
+      setIsCustomRelation(false);
+      setFormData(prev => ({ ...prev, relation: val }));
+    }
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingContact(null);
+    setIsCustomOccupation(false);
+    setIsCustomRelation(false);
+    setFormWorkLocation('');
   };
 
   const handleSaveContact = async (e: React.FormEvent) => {
@@ -371,10 +528,21 @@ export default function VillageRelativesPage() {
       const url = editingContact ? `/api/relatives/${editingContact.id}` : '/api/relatives';
       const method = editingContact ? 'PUT' : 'POST';
 
+      const finalOccupation = formWorkLocation.trim()
+        ? (formData.occupation.trim() 
+            ? `${formData.occupation.trim()} (${formWorkLocation.trim()})` 
+            : formWorkLocation.trim())
+        : (formData.occupation.trim() || null);
+
+      const payload = {
+        ...formData,
+        occupation: finalOccupation
+      };
+
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
@@ -415,16 +583,34 @@ export default function VillageRelativesPage() {
   return (
     <div className="container" style={{ paddingBottom: '100px', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       {/* Header */}
-      <header className="app-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          <Link href="/employee" className="btn-icon" style={{ color: '#fff' }}>
+      <header className="app-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff', padding: '0.85rem 1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Link 
+            href="/employee" 
+            title="Back to Dashboard"
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              backgroundColor: '#f1f5f9',
+              color: '#0f172a',
+              border: '1px solid #cbd5e1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+            }}
+          >
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <HeartHandshake size={20} color="#38bdf8" /> Village Relatives
+            <h1 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#0f172a' }}>
+              <HeartHandshake size={20} color="#2563eb" /> Village Relatives
             </h1>
-            <p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.85 }}>
+            <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
               Contacts & relatives in your assigned villages
             </p>
           </div>
@@ -454,42 +640,29 @@ export default function VillageRelativesPage() {
       {/* Main Content Area */}
       <div style={{ padding: '1rem' }}>
 
-        {/* Quick Metrics Overview Bar */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '0.65rem 0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>{relatives.length}</div>
-            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Total Contacts</div>
-          </div>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '0.65rem 0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#2563eb' }}>{Object.keys(mandalCounts).length}</div>
-            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Mandals</div>
-          </div>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '12px', padding: '0.65rem 0.75rem', border: '1px solid #e2e8f0', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#059669' }}>{Object.keys(contactVillages).length}</div>
-            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Villages</div>
-          </div>
-        </div>
+
         
-        {/* Filter & Search Bar */}
-        <div className="card" style={{ padding: '1rem', marginBottom: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
-            
-            {/* Debounced Search Input */}
-            <div style={{ position: 'relative' }}>
+        {/* Search Bar & Filter Action Row */}
+        <div style={{ marginBottom: '1.1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            {/* Search Input Box */}
+            <div style={{ position: 'relative', flex: 1 }}>
               <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input
                 type="text"
-                placeholder="Search name, phone, occupation, relation, village..."
+                placeholder="Search name, phone, occupation, village..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '0.65rem 2.4rem 0.65rem 2.4rem',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '0.875rem',
+                  borderRadius: '12px',
+                  border: '1.5px solid #cbd5e1',
+                  fontSize: '0.88rem',
                   outline: 'none',
-                  backgroundColor: '#ffffff'
+                  backgroundColor: '#ffffff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  transition: 'border-color 0.15s ease'
                 }}
               />
               {isSearching ? (
@@ -498,105 +671,183 @@ export default function VillageRelativesPage() {
                 </div>
               ) : searchQuery ? (
                 <button
+                  type="button"
                   onClick={() => { setSearchQuery(''); setDebouncedSearchQuery(''); }}
-                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                  style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
                 >
                   <X size={16} />
                 </button>
               ) : null}
             </div>
 
-            {/* Hierarchical Filters: Mandal & Village */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-              
-              {/* Step 1: Mandal Filter */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#334155', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  <Building2 size={14} color="#2563eb" /> 1. Filter Mandal:
-                </label>
-                <select
-                  value={selectedMandal}
-                  onChange={(e) => handleMandalFilterChange(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.75rem',
-                    borderRadius: '10px',
-                    border: selectedMandal !== 'ALL' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    fontSize: '0.85rem',
-                    backgroundColor: selectedMandal !== 'ALL' ? '#eff6ff' : '#ffffff',
-                    fontWeight: 600,
-                    color: selectedMandal !== 'ALL' ? '#1d4ed8' : '#0f172a'
-                  }}
-                >
-                  <option value="ALL">All Mandals ({relatives.length})</option>
-                  {configs
-                    .filter(c => c.type === 'MANDAL')
-                    .sort((a, b) => a.value.localeCompare(b.value))
-                    .map(m => {
-                      const count = mandalCounts[m.id] || mandalCounts[m.value] || 0;
-                      return (
-                        <option key={m.id} value={m.id}>
-                          {m.value} {count > 0 ? `(${count})` : ''}
-                        </option>
-                      );
-                    })}
-                </select>
-              </div>
-
-              {/* Step 2: Village Filter (hierarchically cascaded by selected Mandal) */}
-              <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#334155', fontWeight: 700, marginBottom: '0.3rem' }}>
-                  <MapPin size={14} color="#059669" /> 2. Filter Village:
-                </label>
-                <select
-                  value={selectedVillage}
-                  onChange={(e) => handleVillageFilterChange(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.6rem 0.75rem',
-                    borderRadius: '10px',
-                    border: selectedVillage !== 'ALL' ? '2px solid #059669' : '1px solid #cbd5e1',
-                    fontSize: '0.85rem',
-                    backgroundColor: selectedVillage !== 'ALL' ? '#f0fdf4' : '#ffffff',
-                    fontWeight: 600,
-                    color: selectedVillage !== 'ALL' ? '#15803d' : '#0f172a'
-                  }}
-                >
-                  <option value="ALL">
-                    {selectedMandal !== 'ALL' ? `All Villages in ${resolveName(selectedMandal)}` : `All Villages (${relatives.length})`}
-                  </option>
-                  {filterVillageOptions.map(v => {
-                    const count = contactVillages[v.id] || contactVillages[v.value] || 0;
-                    return (
-                      <option key={v.id} value={v.id}>
-                        {v.value} {count > 0 ? `(${count})` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-            </div>
-
+            {/* Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsFilterModalOpen(true)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.65rem 1rem',
+                borderRadius: '12px',
+                border: activeFilterCount > 0 ? '1.5px solid #2563eb' : '1.5px solid #cbd5e1',
+                backgroundColor: activeFilterCount > 0 ? '#2563eb' : '#ffffff',
+                color: activeFilterCount > 0 ? '#ffffff' : '#334155',
+                fontSize: '0.88rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: activeFilterCount > 0 ? '0 4px 12px rgba(37,99,235,0.25)' : '0 1px 3px rgba(0,0,0,0.03)',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <SlidersHorizontal size={17} color={activeFilterCount > 0 ? '#ffffff' : '#475569'} />
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <span style={{
+                  backgroundColor: '#ffffff',
+                  color: '#2563eb',
+                  borderRadius: '999px',
+                  minWidth: '20px',
+                  height: '20px',
+                  padding: '0 5px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginLeft: '2px'
+                }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
           </div>
 
-          {/* Active Filter Pill & Count */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', paddingTop: '0.6rem', borderTop: '1px solid #f1f5f9', fontSize: '0.8rem', color: '#64748b' }}>
-            <span>
-              Showing <strong>{filteredRelatives.length}</strong> {filteredRelatives.length === 1 ? 'relative' : 'relatives'}
+          {/* Active Filter Tags (if any selected) */}
+          {activeFilterCount > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              flexWrap: 'wrap',
+              marginTop: '0.55rem',
+              paddingLeft: '0.2rem'
+            }}>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Active:</span>
+
               {selectedMandal !== 'ALL' && (
-                <> in <strong style={{ color: '#1d4ed8' }}>{resolveName(selectedMandal)}</strong> Mandal</>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '999px',
+                  backgroundColor: '#eff6ff',
+                  color: '#1d4ed8',
+                  border: '1px solid #bfdbfe',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}>
+                  🏢 {resolveName(selectedMandal)}
+                  <button
+                    type="button"
+                    onClick={() => handleMandalFilterChange('ALL')}
+                    style={{ background: 'none', border: 'none', color: '#1d4ed8', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
               )}
+
               {selectedVillage !== 'ALL' && (
-                <> ➔ <strong style={{ color: '#15803d' }}>{resolveName(selectedVillage)}</strong> Village</>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '999px',
+                  backgroundColor: '#f0fdf4',
+                  color: '#15803d',
+                  border: '1px solid #bbf7d0',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}>
+                  📍 {resolveName(selectedVillage)}
+                  <button
+                    type="button"
+                    onClick={() => handleVillageFilterChange('ALL')}
+                    style={{ background: 'none', border: 'none', color: '#15803d', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
               )}
-            </span>
-            {(selectedMandal !== 'ALL' || selectedVillage !== 'ALL' || searchQuery || debouncedSearchQuery) && (
+
+              {selectedOccupation !== 'ALL' && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  padding: '0.25rem 0.6rem',
+                  borderRadius: '999px',
+                  backgroundColor: '#fffbeb',
+                  color: '#b45309',
+                  border: '1px solid #fde68a',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}>
+                  💼 {selectedOccupation}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOccupation('ALL')}
+                    style={{ background: 'none', border: 'none', color: '#b45309', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <X size={13} />
+                  </button>
+                </span>
+              )}
+
               <button
-                onClick={handleClearFilters}
-                style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                type="button"
+                onClick={handleResetDropdownFilters}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '0.2rem 0.4rem',
+                  textDecoration: 'underline'
+                }}
               >
-                <X size={13} /> Clear filters
+                Clear all
+              </button>
+            </div>
+          )}
+
+          {/* Result Count Status Bar */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '0.5rem',
+            padding: '0 0.2rem',
+            fontSize: '0.78rem',
+            color: '#64748b'
+          }}>
+            <span>
+              Showing <strong style={{ color: '#0f172a' }}>{filteredRelatives.length}</strong> {filteredRelatives.length === 1 ? 'contact' : 'contacts'}
+              {searchQuery && <> for &quot;<strong>{searchQuery}</strong>&quot;</>}
+            </span>
+            {(searchQuery || activeFilterCount > 0) && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Reset all
               </button>
             )}
           </div>
@@ -605,35 +856,32 @@ export default function VillageRelativesPage() {
         {/* Anchor for Smooth Pagination Scroll */}
         <div ref={listTopRef} />
 
-        {/* Contacts Grid */}
+        {/* Contacts List (Phone Contact Style) */}
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            {[1, 2, 3].map(i => (
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            overflow: 'hidden',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            {[1, 2, 3, 4].map(i => (
               <div 
                 key={i} 
-                className="card"
                 style={{
-                  padding: '1.25rem',
-                  borderRadius: '16px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e2e8f0',
+                  padding: '0.85rem 1rem',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.85rem'
+                  alignItems: 'center',
+                  gap: '0.85rem',
+                  borderBottom: i !== 4 ? '1px solid #f1f5f9' : 'none'
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#e2e8f0', opacity: 0.6 }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
-                    <div style={{ width: '35%', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
-                    <div style={{ width: '20%', height: '10px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
-                  </div>
+                <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#e2e8f0', flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{ width: '40%', height: '14px', backgroundColor: '#e2e8f0', borderRadius: '4px' }} />
+                  <div style={{ width: '60%', height: '11px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
                 </div>
-                <div style={{ width: '60%', height: '12px', backgroundColor: '#f1f5f9', borderRadius: '4px' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-                  <div style={{ height: '36px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }} />
-                  <div style={{ height: '36px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }} />
-                </div>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#f1f5f9' }} />
               </div>
             ))}
           </div>
@@ -668,174 +916,343 @@ export default function VillageRelativesPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-            {paginatedRelatives.map((contact) => (
-              <div 
-                key={contact.id}
-                className="card"
-                style={{
-                  padding: '1.1rem 1.25rem',
-                  borderRadius: '16px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                  transition: 'transform 0.15s ease'
-                }}
-              >
-                {/* Top Row: Name, Relation, Edit/Delete */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{
-                      width: '42px',
-                      height: '42px',
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)',
-                      color: '#0369a1',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: '1.1rem'
-                    }}>
-                      {contact.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
-                          {contact.name}
-                        </h3>
-                        {contact.relation && (
-                          <span style={{
-                            fontSize: '0.68rem',
-                            backgroundColor: '#fef3c7',
-                            color: '#92400e',
-                            padding: '0.15rem 0.5rem',
-                            borderRadius: '6px',
-                            fontWeight: 600,
-                            letterSpacing: '0.3px'
-                          }}>
-                            {contact.relation}
-                          </span>
-                        )}
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+            }}>
+              {paginatedRelatives.map((contact, index) => {
+                const isExpanded = expandedId === contact.id;
+                const avatarStyle = getAvatarStyle(contact.name);
+                const isLast = index === paginatedRelatives.length - 1;
+
+                return (
+                  <div 
+                    key={contact.id}
+                    style={{
+                      borderBottom: !isLast ? '1px solid #f1f5f9' : 'none',
+                      transition: 'background-color 0.15s ease',
+                      backgroundColor: isExpanded ? '#f8fafc' : '#ffffff'
+                    }}
+                  >
+                    {/* Phone Contact Row (Click anywhere to expand/collapse) */}
+                    <div
+                      onClick={() => toggleExpand(contact.id)}
+                      style={{
+                        padding: '0.85rem 1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.85rem',
+                        cursor: 'pointer',
+                        userSelect: 'none'
+                      }}
+                    >
+                      {/* Circle Avatar with Initial */}
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        borderRadius: '50%',
+                        backgroundColor: avatarStyle.bg,
+                        color: avatarStyle.color,
+                        border: `1.5px solid ${avatarStyle.border}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 700,
+                        fontSize: '1.1rem',
+                        flexShrink: 0
+                      }}>
+                        {contact.name.charAt(0).toUpperCase()}
                       </div>
-                      
-                      {contact.occupation && (
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
-                          <Briefcase size={12} color="#64748b" /> {contact.occupation}
+
+                      {/* Main Name & Subtitle */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'nowrap' }}>
+                          <span style={{
+                            fontWeight: 700,
+                            fontSize: '0.98rem',
+                            color: '#0f172a',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {contact.name}
+                          </span>
+                          {contact.relation && (
+                            <span style={{
+                              fontSize: '0.68rem',
+                              backgroundColor: '#fef3c7',
+                              color: '#92400e',
+                              padding: '0.1rem 0.45rem',
+                              borderRadius: '4px',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {contact.relation}
+                            </span>
+                          )}
                         </div>
-                      )}
+
+                        {/* Phone & Occupation subtitle */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontSize: '0.8rem',
+                          color: '#64748b',
+                          marginTop: '0.15rem',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          <span style={{ color: '#334155', fontWeight: 500 }}>
+                            {contact.phone}
+                          </span>
+                          {contact.occupation && (() => {
+                            const { role, workLocation } = parseOccupation(contact.occupation);
+                            return (
+                              <>
+                                <span style={{ color: '#cbd5e1' }}>•</span>
+                                <span style={{ color: '#475569', fontWeight: 500 }}>{role}</span>
+                                {workLocation && (
+                                  <span style={{
+                                    fontSize: '0.72rem',
+                                    color: '#0369a1',
+                                    backgroundColor: '#e0f2fe',
+                                    padding: '0.08rem 0.4rem',
+                                    borderRadius: '4px',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    📍 {workLocation}
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Right Action Icons: Quick Call & Expand Chevron */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                        <a
+                          href={`tel:${contact.phone}`}
+                          onClick={(e) => e.stopPropagation()}
+                          title={`Call ${contact.name}`}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            backgroundColor: '#ecfdf5',
+                            color: '#059669',
+                            border: '1px solid #a7f3d0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textDecoration: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Phone size={15} />
+                        </a>
+
+                        <div
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: isExpanded ? '#2563eb' : '#94a3b8'
+                          }}
+                        >
+                          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Expanded Contact Card (Shows all details on click) */}
+                    {isExpanded && (
+                      <div style={{
+                        padding: '0.9rem 1rem 1.1rem 1rem',
+                        backgroundColor: '#f8fafc',
+                        borderTop: '1px solid #edf2f7',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.75rem'
+                      }}>
+                        {/* Location & Meta Information Card */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                          gap: '0.6rem',
+                          backgroundColor: '#ffffff',
+                          padding: '0.75rem 0.85rem',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '0.8rem'
+                        }}>
+                          {/* Mandal */}
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <Building2 size={12} color="#2563eb" /> Mandal
+                            </div>
+                            <div style={{ color: '#0f172a', fontWeight: 600, marginTop: '0.15rem' }}>
+                              {resolveName(contact.mandal) || 'Not Specified'}
+                            </div>
+                          </div>
+
+                          {/* Village */}
+                          <div>
+                            <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <MapPin size={12} color="#059669" /> Native Village
+                            </div>
+                            <div style={{ color: '#0f172a', fontWeight: 600, marginTop: '0.15rem' }}>
+                              {resolveName(contact.village)}
+                            </div>
+                          </div>
+
+                          {/* Occupation & Workplace */}
+                          {contact.occupation && (() => {
+                            const { role, workLocation } = parseOccupation(contact.occupation);
+                            return (
+                              <>
+                                <div>
+                                  <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                    <Briefcase size={12} color="#64748b" /> Occupation
+                                  </div>
+                                  <div style={{ color: '#0f172a', fontWeight: 600, marginTop: '0.15rem' }}>
+                                    {role}
+                                  </div>
+                                </div>
+
+                                {workLocation && (
+                                  <div>
+                                    <div style={{ fontSize: '0.7rem', color: '#0284c7', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                      <Building2 size={12} color="#0284c7" /> Workplace / Location
+                                    </div>
+                                    <div style={{ color: '#0369a1', fontWeight: 600, marginTop: '0.15rem' }}>
+                                      📍 {workLocation}
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+
+                          {/* Relation */}
+                          {contact.relation && (
+                            <div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <HeartHandshake size={12} color="#d97706" /> Relation
+                              </div>
+                              <div style={{ color: '#0f172a', fontWeight: 600, marginTop: '0.15rem' }}>
+                                {contact.relation}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Full Actions: Call, WhatsApp, Edit, Delete */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                          <a
+                            href={`tel:${contact.phone}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              padding: '0.55rem',
+                              borderRadius: '10px',
+                              backgroundColor: '#ecfdf5',
+                              color: '#059669',
+                              border: '1px solid #a7f3d0',
+                              fontWeight: 600,
+                              fontSize: '0.82rem',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            <Phone size={14} /> Call ({contact.phone})
+                          </a>
+
+                          <a
+                            href={`https://wa.me/91${contact.phone.replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.4rem',
+                              padding: '0.55rem',
+                              borderRadius: '10px',
+                              backgroundColor: '#f0fdf4',
+                              color: '#15803d',
+                              border: '1px solid #bbf7d0',
+                              fontWeight: 600,
+                              fontSize: '0.82rem',
+                              textDecoration: 'none'
+                            }}
+                          >
+                            <MessageCircle size={14} /> WhatsApp
+                          </a>
+                        </div>
+
+                        {/* Edit and Delete Buttons */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: '0.15rem' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditModal(contact);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '8px',
+                              padding: '0.4rem 0.85rem',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              color: '#334155',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Edit2 size={13} /> Edit
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteContact(contact.id, contact.name);
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              backgroundColor: '#fef2f2',
+                              border: '1px solid #fecaca',
+                              borderRadius: '8px',
+                              padding: '0.4rem 0.85rem',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              color: '#ef4444',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Trash2 size={13} /> Delete
+                          </button>
+                        </div>
+
+                      </div>
+                    )}
+
                   </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      onClick={() => handleOpenEditModal(contact)}
-                      title="Edit Contact"
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        padding: '0.4rem',
-                        cursor: 'pointer',
-                        color: '#475569'
-                      }}
-                    >
-                      <Edit2 size={15} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteContact(contact.id, contact.name)}
-                      title="Delete Contact"
-                      style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        borderRadius: '8px',
-                        padding: '0.4rem',
-                        cursor: 'pointer',
-                        color: '#ef4444'
-                      }}
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Village / Location Row with Hierarchy */}
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  flexWrap: 'wrap',
-                  gap: '0.4rem', 
-                  fontSize: '0.8rem', 
-                  color: '#475569', 
-                  backgroundColor: '#f8fafc', 
-                  padding: '0.45rem 0.75rem', 
-                  borderRadius: '8px', 
-                  border: '1px solid #f1f5f9' 
-                }}>
-                  <MapPin size={14} color="#0284c7" />
-                  {contact.mandal && (
-                    <>
-                      <span style={{ color: '#2563eb', fontWeight: 600 }}>
-                        {resolveName(contact.mandal)}
-                      </span>
-                      <span style={{ color: '#94a3b8' }}>➔</span>
-                    </>
-                  )}
-                  <span>
-                    Village: <strong style={{ color: '#0f172a' }}>{resolveName(contact.village)}</strong>
-                  </span>
-                </div>
-
-                {/* Bottom Row: Call and WhatsApp buttons */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', paddingTop: '0.25rem' }}>
-                  <a
-                    href={`tel:${contact.phone}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem',
-                      borderRadius: '10px',
-                      backgroundColor: '#ecfdf5',
-                      color: '#059669',
-                      border: '1px solid #a7f3d0',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      textDecoration: 'none'
-                    }}
-                  >
-                    <Phone size={15} /> Call ({contact.phone})
-                  </a>
-
-                  <a
-                    href={`https://wa.me/91${contact.phone.replace(/[^0-9]/g, '')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      padding: '0.55rem',
-                      borderRadius: '10px',
-                      backgroundColor: '#f0fdf4',
-                      color: '#15803d',
-                      border: '1px solid #bbf7d0',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      textDecoration: 'none'
-                    }}
-                  >
-                    <MessageCircle size={15} /> WhatsApp
-                  </a>
-                </div>
-
-              </div>
-            ))}
+                );
+              })}
+            </div>
 
             {/* Pagination Controls (Limit 10 default) */}
             {filteredRelatives.length > 0 && (
@@ -970,6 +1387,267 @@ export default function VillageRelativesPage() {
 
       </div>
 
+      {/* FILTER BOTTOM SHEET / MODAL */}
+      {isFilterModalOpen && (
+        <div 
+          onClick={() => setIsFilterModalOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 9998,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            animation: 'fadeIn 0.15s ease'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '480px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.1rem 1.35rem',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+              color: '#ffffff'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(37,99,235,0.25)',
+                  border: '1px solid rgba(56,189,248,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <SlidersHorizontal size={18} color="#38bdf8" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#ffffff' }}>
+                    Filter Contacts
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.74rem', color: '#94a3b8' }}>
+                    Filter by Mandal, Village or Occupation
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  border: 'none',
+                  color: '#ffffff',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Filter Controls Body */}
+            <div style={{
+              padding: '1.3rem',
+              overflowY: 'auto',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.15rem'
+            }}>
+              {/* 1. Mandal */}
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.84rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.45rem' }}>
+                  <Building2 size={16} color="#2563eb" /> 1. Mandal:
+                </label>
+                <select
+                  value={selectedMandal}
+                  onChange={(e) => handleMandalFilterChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.68rem 0.85rem',
+                    borderRadius: '10px',
+                    border: selectedMandal !== 'ALL' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    backgroundColor: selectedMandal !== 'ALL' ? '#eff6ff' : '#ffffff',
+                    color: selectedMandal !== 'ALL' ? '#1d4ed8' : '#0f172a',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">🏢 All Mandals ({relatives.length})</option>
+                  {configs
+                    .filter(c => c.type === 'MANDAL')
+                    .sort((a, b) => a.value.localeCompare(b.value))
+                    .map(m => {
+                      const count = mandalCounts[m.id] || mandalCounts[m.value] || 0;
+                      return (
+                        <option key={m.id} value={m.id}>
+                          🏢 {m.value} {count > 0 ? `(${count})` : ''}
+                        </option>
+                      );
+                    })}
+                </select>
+              </div>
+
+              {/* 2. Village */}
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.84rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.45rem' }}>
+                  <MapPin size={16} color="#059669" /> 2. Village:
+                  {selectedMandal !== 'ALL' && (
+                    <span style={{ fontSize: '0.74rem', color: '#2563eb', fontWeight: 600 }}>
+                      (in {resolveName(selectedMandal)})
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={selectedVillage}
+                  onChange={(e) => handleVillageFilterChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.68rem 0.85rem',
+                    borderRadius: '10px',
+                    border: selectedVillage !== 'ALL' ? '2px solid #059669' : '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    backgroundColor: selectedVillage !== 'ALL' ? '#f0fdf4' : '#ffffff',
+                    color: selectedVillage !== 'ALL' ? '#15803d' : '#0f172a',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">
+                    📍 {selectedMandal !== 'ALL' ? `All Villages in ${resolveName(selectedMandal)}` : 'All Villages'}
+                  </option>
+                  {filterVillageOptions.map(v => {
+                    const count = contactVillages[v.id] || contactVillages[v.value] || 0;
+                    return (
+                      <option key={v.id} value={v.id}>
+                        📍 {v.value} {count > 0 ? `(${count})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* 3. Occupation */}
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.84rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.45rem' }}>
+                  <Briefcase size={16} color="#d97706" /> 3. Occupation:
+                </label>
+                <select
+                  value={selectedOccupation}
+                  onChange={(e) => setSelectedOccupation(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.68rem 0.85rem',
+                    borderRadius: '10px',
+                    border: selectedOccupation !== 'ALL' ? '2px solid #d97706' : '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 600,
+                    backgroundColor: selectedOccupation !== 'ALL' ? '#fffbeb' : '#ffffff',
+                    color: selectedOccupation !== 'ALL' ? '#b45309' : '#0f172a',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">💼 All Occupations ({relatives.length})</option>
+                  {filterOccupationOptions.map(occ => {
+                    const count = occupationCounts[occ] || 0;
+                    return (
+                      <option key={occ} value={occ}>
+                        💼 {occ} {count > 0 ? `(${count})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{
+              padding: '1rem 1.3rem',
+              borderTop: '1px solid #e2e8f0',
+              backgroundColor: '#f8fafc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem'
+            }}>
+              <button
+                type="button"
+                onClick={handleResetDropdownFilters}
+                disabled={activeFilterCount === 0}
+                style={{
+                  padding: '0.65rem 1.1rem',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: activeFilterCount === 0 ? '#94a3b8' : '#ef4444',
+                  fontWeight: 600,
+                  fontSize: '0.86rem',
+                  cursor: activeFilterCount === 0 ? 'not-allowed' : 'pointer',
+                  opacity: activeFilterCount === 0 ? 0.6 : 1
+                }}
+              >
+                Reset All
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsFilterModalOpen(false)}
+                style={{
+                  flex: 1,
+                  padding: '0.7rem 1.25rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: '#2563eb',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.45rem'
+                }}
+              >
+                <Check size={16} /> Show Results ({filteredRelatives.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ADD / EDIT RELATIVE MODAL */}
       {isModalOpen && (
         <div style={{
@@ -1060,55 +1738,118 @@ export default function VillageRelativesPage() {
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
                   Relation (Optional)
                 </label>
-                <input
-                  type="text"
-                  list="relation-options"
-                  placeholder="e.g. Uncle, Cousin, Brother, Friend, Sarpanch"
-                  value={formData.relation}
-                  onChange={(e) => setFormData({ ...formData, relation: e.target.value })}
-                  style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-                />
-                <datalist id="relation-options">
-                  <option value="Uncle" />
-                  <option value="Aunt" />
-                  <option value="Brother" />
-                  <option value="Cousin" />
-                  <option value="In-Law" />
-                  <option value="Family Friend" />
-                  <option value="Relative" />
-                </datalist>
+                <select
+                  value={isCustomRelation ? 'OTHER' : (formData.relation || '')}
+                  onChange={(e) => handleRelationSelectChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.9rem',
+                    backgroundColor: '#ffffff',
+                    color: '#0f172a'
+                  }}
+                >
+                  <option value="">Select Relation (Optional)</option>
+                  {STANDARD_RELATIONS.map(rel => (
+                    <option key={rel} value={rel}>{rel}</option>
+                  ))}
+                  <option value="OTHER">Other (Type custom)</option>
+                </select>
+                {isCustomRelation && (
+                  <input
+                    type="text"
+                    placeholder="Enter custom relation (e.g. Sarpanch, Neighbor)"
+                    value={formData.relation}
+                    onChange={(e) => setFormData({ ...formData, relation: e.target.value })}
+                    style={{
+                      width: '100%',
+                      marginTop: '0.45rem',
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                )}
               </div>
 
               {/* Occupation */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
-                  Occupation
+                  Occupation (Optional)
+                </label>
+                <select
+                  value={isCustomOccupation ? 'OTHER' : (formData.occupation || '')}
+                  onChange={(e) => handleOccupationSelectChange(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.9rem',
+                    backgroundColor: '#ffffff',
+                    color: '#0f172a'
+                  }}
+                >
+                  <option value="">Select Occupation (Optional)</option>
+                  {STANDARD_OCCUPATIONS.map(occ => (
+                    <option key={occ} value={occ}>{occ}</option>
+                  ))}
+                  {availableOccupations
+                    .filter(o => !STANDARD_OCCUPATIONS.includes(o))
+                    .map(occ => (
+                      <option key={occ} value={occ}>{occ}</option>
+                    ))}
+                  <option value="OTHER">Other (Type custom)</option>
+                </select>
+                {isCustomOccupation && (
+                  <input
+                    type="text"
+                    placeholder="Enter custom occupation"
+                    value={formData.occupation}
+                    onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
+                    style={{
+                      width: '100%',
+                      marginTop: '0.45rem',
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.85rem'
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Workplace / Job Location (Optional) */}
+              <div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
+                  <Building2 size={15} color="#0284c7" /> Workplace / Job Location (Optional)
                 </label>
                 <input
                   type="text"
-                  list="occupation-options"
-                  placeholder="Select or type occupation (e.g. Farmer, Business, Teacher)"
-                  value={formData.occupation}
-                  onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-                  style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  placeholder="e.g. Anakapalle, Visakhapatnam, Hyderabad, Steel Plant..."
+                  value={formWorkLocation}
+                  onChange={(e) => setFormWorkLocation(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.9rem',
+                    backgroundColor: '#ffffff'
+                  }}
                 />
-                <datalist id="occupation-options">
-                  {availableOccupations.map(occ => (
-                    <option key={occ} value={occ} />
-                  ))}
-                  <option value="Farmer / Agriculture" />
-                  <option value="Business" />
-                  <option value="Govt Employee" />
-                  <option value="Private Employee" />
-                  <option value="Teacher" />
-                  <option value="Driver" />
-                </datalist>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+                  ఉద్యోగం / వ్యాపారం చేసే ఊరు లేదా ఆఫీస్ (సొంతూరు కాకుండా వేరే ప్రదేశమైతే రాయండి)
+                </span>
               </div>
 
               {/* Location Cascade */}
               <div style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-                  Village Location
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <MapPin size={14} color="#059669" /> Residential / Native Village (నివాస గ్రామం)
                 </span>
 
                 {/* Mandal optional filter */}
