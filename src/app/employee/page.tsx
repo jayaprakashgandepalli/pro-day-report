@@ -2,7 +2,7 @@ import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { getAllConfigsCached } from '@/lib/cache';
 import Link from 'next/link';
-import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu, Bell } from 'lucide-react';
+import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu, Bell, HeartHandshake } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +20,8 @@ export default async function Home() {
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
-  // Parallel batch 1: Fetch students, user details, cached configs, and pending followups concurrently
-  const [allStudents, user, allConfigs, pendingFollowupsCount] = await Promise.all([
+  // Parallel batch 1: Fetch students, user details, cached configs, pending followups, and relatives concurrently
+  const [allStudents, user, allConfigs, pendingFollowupsCount, relativesCount] = await Promise.all([
     prisma.student.findMany({
       where: { employeeId: session.employeeId },
       select: {
@@ -50,6 +50,9 @@ export default async function Home() {
           }
         ]
       }
+    }),
+    prisma.relativeContact.count({
+      where: { employeeId: session.employeeId }
     })
   ]);
 
@@ -193,6 +196,18 @@ export default async function Home() {
             <img width="36" height="36" src="https://img.icons8.com/3d-fluency/750/order-delivered.png" alt="Village Visits" style={{ objectFit: 'contain' }} />
           </div>
           <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Village Visits</span>
+        </Link>
+
+        <Link href="/employee/relatives" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(3,105,161,0.3)', position: 'relative' }}>
+            <HeartHandshake size={36} color="#fff" style={{ opacity: 0.95 }} />
+            {relativesCount > 0 && (
+              <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#fff', color: '#0369a1', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', zIndex: 2 }}>
+                {relativesCount}
+              </span>
+            )}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Village<br/>Relatives</span>
         </Link>
 
         <Link href="/employee/students?preset=prime" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>

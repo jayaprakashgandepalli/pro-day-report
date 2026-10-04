@@ -30,6 +30,7 @@ model User {
   visitsCreated    Visit[]   @relation("UserVisits")
   admittedStudents Student[] @relation("CollegeAdmissions")
   keyPersons       KeyPerson[] @relation("EmployeeKeyPersons")
+  relativeContacts RelativeContact[] @relation("EmployeeRelatives")
 }
 
 model ConfigValue {
@@ -240,6 +241,27 @@ model KeyPerson {
   updatedAt   DateTime @updatedAt
 
   @@index([employeeId])
+  @@index([mandal])
+}
+
+model RelativeContact {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String
+  occupation  String?
+  village     String   // Village ConfigValue id or name
+  mandal      String?  // Optional Mandal ConfigValue id or name
+  district    String?  // Optional District ConfigValue id or name
+  relation    String?  // Optional relation e.g. Uncle, Brother
+  
+  employeeId  String
+  employee    User     @relation("EmployeeRelatives", fields: [employeeId], references: [employeeId], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([village])
   @@index([mandal])
 }
 
