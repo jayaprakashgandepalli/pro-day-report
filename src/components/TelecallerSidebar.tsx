@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { LayoutDashboard, Users, CalendarDays, LogOut, Menu, X, Star } from 'lucide-react';
+import { LayoutDashboard, Users, CalendarDays, LogOut, Menu, X, Star, Building2, Contact } from 'lucide-react';
 
 function SidebarContent() {
   const pathname = usePathname();
@@ -23,6 +23,8 @@ function SidebarContent() {
     { name: 'Star Leads', path: '/telecaller/students?preset=prime', icon: Star, matchPreset: 'prime' },
     { name: 'All Students', path: '/telecaller/students', icon: Users, matchPreset: null },
     { name: 'Follow-ups', path: '/telecaller/followups', icon: CalendarDays },
+    { name: 'Schools', path: '/telecaller/schools', icon: Building2 },
+    { name: 'Imp Persons', path: '/telecaller/imp-persons', icon: Contact },
   ];
 
   return (

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Home, UserPlus, Users, CalendarDays, MapPin, Star, FileText, LogOut, BarChart2, Key } from 'lucide-react';
+import { Home, UserPlus, Users, CalendarDays, MapPin, Star, FileText, LogOut, BarChart2, Key, Bell } from 'lucide-react';
 import { Suspense } from 'react';
 
 function SidebarContent() {
@@ -19,6 +19,7 @@ function SidebarContent() {
 
   const menuItems = [
     { name: 'Dashboard', path: '/employee', icon: Home },
+    { name: 'Telecaller Updates', path: '/employee/telecaller-updates', icon: Bell },
     { name: 'Analytics', path: '/analytics', icon: BarChart2 },
     { name: 'Add Student', path: '/employee/add', icon: UserPlus },
     { name: 'All Students', path: '/employee/students', icon: Users, matchPreset: null },

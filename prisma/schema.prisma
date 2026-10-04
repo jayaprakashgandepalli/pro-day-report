@@ -23,6 +23,7 @@ model User {
   // Field for TELECALLER role to restrict visibility to specific employees
   assignedEmployees String[] @default([])
   
+  lastViewedTelecallerUpdatesAt DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   students         Student[]
@@ -44,6 +45,9 @@ model ConfigValue {
   headmasterPhone String? // Used for school headmaster phone
   keyPersonName   String? // Used for school key person name
   keyPersonPhone  String? // Used for school key person phone
+  remarks         Json?   // To store telecaller remarks
+  telecallerUpdateAt DateTime?
+  telecallerUpdateDetails String?
   createdAt DateTime      @default(now())
 
   @@index([type])
@@ -83,6 +87,9 @@ model Student {
   nextFollowUpType  String?
   doorstepCompleted Boolean  @default(false)
   
+  telecallerUpdateAt DateTime?
+  telecallerUpdateDetails String?
+
   // Admission Tracking
   joinedCollegeId   String?
   joinedCollege     User?    @relation("CollegeAdmissions", fields: [joinedCollegeId], references: [employeeId])
@@ -225,6 +232,9 @@ model KeyPerson {
   
   employeeId  String
   employee    User     @relation("EmployeeKeyPersons", fields: [employeeId], references: [employeeId])
+  remarks     Json?    // To store telecaller remarks
+  telecallerUpdateAt DateTime?
+  telecallerUpdateDetails String?
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

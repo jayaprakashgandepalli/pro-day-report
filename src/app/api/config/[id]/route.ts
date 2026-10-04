@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
+import { invalidateConfigCache } from '@/lib/cache';
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -25,6 +26,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       where: { id }
     });
 
+    invalidateConfigCache();
+
     return NextResponse.json({ message: 'Config deleted' }, { status: 200 });
   } catch (error) {
     console.error(error);
@@ -41,7 +44,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { role: string } | null;
     
-    if (!payload || payload.role !== 'ADMIN') {
+    if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'TELECALLER')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -52,18 +55,33 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Value is required' }, { status: 400 });
     }
 
+    const updateData: any = {
+      value,
+      strength: strength !== undefined ? parseInt(strength, 10) : undefined,
+      grade: grade !== undefined ? grade : undefined,
+      headmasterName: headmasterName !== undefined ? headmasterName : undefined,
+      headmasterPhone: headmasterPhone !== undefined ? headmasterPhone : undefined,
+      keyPersonName: keyPersonName !== undefined ? keyPersonName : undefined,
+      keyPersonPhone: keyPersonPhone !== undefined ? keyPersonPhone : undefined,
+      remarks: data.remarks !== undefined ? data.remarks : undefined,
+    };
+
+    if (payload.role === 'TELECALLER') {
+      updateData.telecallerUpdateAt = new Date();
+      if (Array.isArray(data.remarks) && data.remarks.length > 0) {
+        const lastRemark = data.remarks[data.remarks.length - 1];
+        updateData.telecallerUpdateDetails = lastRemark.text || 'Added remarks';
+      } else {
+        updateData.telecallerUpdateDetails = 'Updated school details';
+      }
+    }
+
     const updated = await prisma.configValue.update({
       where: { id },
-      data: {
-        value,
-        strength: strength !== undefined ? parseInt(strength, 10) : undefined,
-        grade: grade !== undefined ? grade : undefined,
-        headmasterName: headmasterName !== undefined ? headmasterName : undefined,
-        headmasterPhone: headmasterPhone !== undefined ? headmasterPhone : undefined,
-        keyPersonName: keyPersonName !== undefined ? keyPersonName : undefined,
-        keyPersonPhone: keyPersonPhone !== undefined ? keyPersonPhone : undefined,
-      }
+      data: updateData
     });
+
+    invalidateConfigCache();
 
     return NextResponse.json({ message: 'Config updated', config: updated }, { status: 200 });
   } catch (error) {

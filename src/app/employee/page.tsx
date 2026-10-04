@@ -1,7 +1,8 @@
 import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
+import { getAllConfigsCached } from '@/lib/cache';
 import Link from 'next/link';
-import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu } from 'lucide-react';
+import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu, Bell } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -16,15 +17,63 @@ export default async function Home() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Fetch all students for the employee
-  const allStudents = await prisma.student.findMany({
-    where: {
-      employeeId: session.employeeId,
-    },
-  });
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
 
-  // Fetch all configs to resolve names
-  const allConfigs = await prisma.configValue.findMany();
+  // Parallel batch 1: Fetch students, user details, cached configs, and pending followups concurrently
+  const [allStudents, user, allConfigs, pendingFollowupsCount] = await Promise.all([
+    prisma.student.findMany({
+      where: { employeeId: session.employeeId },
+      select: {
+        id: true,
+        group: true,
+        studyInterestedAt: true,
+        ableToBearFee: true,
+        doorstepCompleted: true,
+        leadStatus: true,
+      }
+    }),
+    prisma.user.findUnique({
+      where: { employeeId: session.employeeId },
+      select: { lastViewedTelecallerUpdatesAt: true }
+    }),
+    getAllConfigsCached(),
+    prisma.student.count({
+      where: {
+        employeeId: session.employeeId,
+        AND: [
+          {
+            OR: [
+              { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
+              { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
+            ]
+          }
+        ]
+      }
+    })
+  ]);
+
+  const lastViewed = user?.lastViewedTelecallerUpdatesAt || new Date(0);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const schoolThreshold = lastViewed < sevenDaysAgo ? sevenDaysAgo : lastViewed;
+
+  // Parallel batch 2: Unread telecaller updates counts
+  const [unreadStudents, unreadKeyPersons, unreadSchools] = await Promise.all([
+    prisma.student.count({
+      where: { employeeId: session.employeeId, telecallerUpdateAt: { gt: lastViewed } }
+    }),
+    prisma.keyPerson.count({
+      where: { employeeId: session.employeeId, telecallerUpdateAt: { gt: lastViewed } }
+    }),
+    prisma.configValue.count({
+      where: { type: 'SCHOOL', telecallerUpdateAt: { gt: schoolThreshold } }
+    })
+  ]);
+
+  const unreadUpdatesCount = unreadStudents + unreadKeyPersons + unreadSchools;
+
+  // Resolve config names instantly from memory
   const configMap = allConfigs.reduce((acc, c) => ({ ...acc, [c.id]: c.value }), {} as Record<string, string>);
   const resolveName = (id: string | null) => id ? (configMap[id] || id) : '';
 
@@ -41,11 +90,8 @@ export default async function Home() {
     return isVizag && isBearable && isTargetGroup;
   }).length;
 
-  // Fetch configured groups
-  const groupConfigs = await prisma.configValue.findMany({
-    where: { type: 'GROUP' },
-    orderBy: { value: 'asc' }
-  });
+  // Fetch configured groups from cached configs without extra DB query
+  const groupConfigs = allConfigs.filter(c => c.type === 'GROUP');
 
   // Groups to hide from individual rows and merge into "Other"
   const hiddenGroups = ['CEC', 'HEC', 'DEFENCE ACADEMY', 'ITI ACADEMY', 'POLYTECHNIC'];
@@ -56,7 +102,6 @@ export default async function Home() {
   );
 
   const groupStats = visibleGroupConfigs.map(config => {
-    // We check both config.id and config.value because Add Student form might have saved either depending on when it was added
     const count = allStudents.filter(s => s.group === config.id || s.group === config.value).length;
     return { name: config.value, count };
   });
@@ -65,23 +110,6 @@ export default async function Home() {
   const otherCount = allStudents.length - matchedStudents;
   const doorstepsNotCompletedCount = allStudents.filter(s => !s.doorstepCompleted).length;
   const admittedCount = allStudents.filter(s => s.leadStatus === 'Admitted').length;
-
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
-
-  const pendingFollowupsCount = await prisma.student.count({
-    where: {
-      employeeId: session.employeeId,
-      AND: [
-        {
-          OR: [
-            { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
-            { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
-          ]
-        }
-      ]
-    }
-  });
 
   // Colorful text colors for the stat cards
   const textColors = [
@@ -121,6 +149,18 @@ export default async function Home() {
       {/* Main Actions */}
       <div className="mobile-only" style={{ marginBottom: '2.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.75rem' }}>
+
+        <Link href="/employee/telecaller-updates" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(225,29,72,0.3)', position: 'relative' }}>
+            <Bell size={36} color="#fff" style={{ opacity: 0.9 }} />
+            {unreadUpdatesCount > 0 && (
+              <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#fff', color: '#e11d48', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', zIndex: 2 }}>
+                {unreadUpdatesCount}
+              </span>
+            )}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>Telecaller<br/>Updates</span>
+        </Link>
 
         <Link href="/employee/add" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
           <div style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(37,99,235,0.3)' }}>

@@ -22,8 +22,19 @@ export async function GET(req: Request) {
     const limit = parseInt(searchParams.get('limit') || '20');
 
     const where: any = {};
-    if (payload.role !== 'ADMIN') {
+    if (payload.role === 'EMPLOYEE') {
       where.employeeId = payload.employeeId;
+    } else if (payload.role === 'TELECALLER') {
+      const user = await prisma.user.findUnique({
+        where: { employeeId: payload.employeeId },
+        select: { assignedEmployees: true }
+      });
+      if (user && user.assignedEmployees.length > 0) {
+        where.employeeId = { in: user.assignedEmployees };
+      } else {
+        // If no employees assigned, return nothing
+        where.employeeId = 'NONE';
+      }
     }
 
     if (search) {

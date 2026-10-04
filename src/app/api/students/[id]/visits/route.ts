@@ -88,6 +88,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           updateData.admissionDate = new Date();
         }
       }
+      if (payload.role === 'TELECALLER') {
+        updateData.telecallerUpdateAt = new Date();
+        updateData.telecallerUpdateDetails = data.remarks || 'Added a visit record';
+      }
+
       updateStudentPromise = prisma.student.update({
         where: { id },
         data: updateData

@@ -16,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const data = await req.json();
 
-    const updateData = {
+    const updateData: any = {
       name: data.name !== undefined ? data.name : undefined,
       phone: data.phone !== undefined ? data.phone : undefined,
       designation: data.designation !== undefined ? data.designation : undefined,
@@ -24,7 +24,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       mandal: data.mandal !== undefined ? data.mandal : undefined,
       village: data.village !== undefined ? data.village : undefined,
       address: data.address !== undefined ? data.address : undefined,
+      remarks: data.remarks !== undefined ? data.remarks : undefined,
     };
+
+    if (payload.role === 'TELECALLER') {
+      updateData.telecallerUpdateAt = new Date();
+      if (Array.isArray(data.remarks) && data.remarks.length > 0) {
+        const lastRemark = data.remarks[data.remarks.length - 1];
+        updateData.telecallerUpdateDetails = lastRemark.text || 'Added remarks';
+      } else {
+        updateData.telecallerUpdateDetails = 'Updated imp person details';
+      }
+    }
 
     const updated = await prisma.keyPerson.update({
       where: { id },

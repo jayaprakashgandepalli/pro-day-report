@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getConfigMapCached } from '@/lib/cache';
 
 export async function GET() {
   try {
@@ -12,10 +13,8 @@ export async function GET() {
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
     if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Fetch all configs to resolve IDs to names
-    const configs = await prisma.configValue.findMany({ select: { id: true, value: true, type: true } });
-    const configMap: Record<string, string> = {};
-    configs.forEach(c => { configMap[c.id] = c.value; });
+    // Fetch all configs from static cache to resolve IDs to names instantly
+    const configMap = await getConfigMapCached();
 
     const resolveName = (id: string | null) => {
       if (!id) return 'Unknown';

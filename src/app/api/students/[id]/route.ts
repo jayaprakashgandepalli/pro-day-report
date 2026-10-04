@@ -32,7 +32,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const nextFollowUpDate = data.nextFollowUpType === 'Date' && data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : (data.nextFollowUpType && data.nextFollowUpType !== 'Date' ? null : undefined);
 
-    const updateData = {
+    const updateData: any = {
       studentName: data.studentName !== undefined ? data.studentName : undefined,
       gender: data.gender !== undefined ? data.gender : undefined,
       fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
@@ -57,6 +57,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : undefined,
       nextFollowUpDate,
     };
+
+    if (payload.role === 'TELECALLER') {
+      updateData.telecallerUpdateAt = new Date();
+      
+      let details = 'Updated details';
+      if (data.remarks) {
+        details = data.remarks;
+      } else if (data.nextFollowUpDate || data.nextFollowUpType) {
+        const dateStr = data.nextFollowUpDate ? new Date(data.nextFollowUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+        details = `Follow-up set${dateStr ? `: ${dateStr}` : ''} (${data.nextFollowUpType || 'Date'})`;
+      } else if (data.leadStatus) {
+        details = `Status changed to ${data.leadStatus}`;
+      }
+      
+      updateData.telecallerUpdateDetails = details;
+    }
 
     const transactionTasks = [];
     

@@ -126,6 +126,31 @@ export default function TelecallerDashboard() {
             </Link>
           </div>
 
+          {/* Quick Directories - Focused Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+            <Link href="/telecaller/schools" className="card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderLeft: '4px solid #3b82f6', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <div style={{ backgroundColor: '#eff6ff', padding: '1rem', borderRadius: '12px', color: '#3b82f6' }}>
+                <FileText size={28} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>School Directory</h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#64748b' }}>Search HM & Key Persons contacts</p>
+              </div>
+              <div style={{ color: '#94a3b8' }}>→</div>
+            </Link>
+
+            <Link href="/telecaller/imp-persons" className="card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderLeft: '4px solid #8b5cf6', textDecoration: 'none', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+              <div style={{ backgroundColor: '#f3e8ff', padding: '1rem', borderRadius: '12px', color: '#8b5cf6' }}>
+                <Phone size={28} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>Imp Persons</h3>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem', color: '#64748b' }}>Private contacts and VIPs</p>
+              </div>
+              <div style={{ color: '#94a3b8' }}>→</div>
+            </Link>
+          </div>
+
           {/* Today's Follow-ups Table */}
           <div className="card" style={{ padding: '1.5rem', marginTop: '2rem', backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>

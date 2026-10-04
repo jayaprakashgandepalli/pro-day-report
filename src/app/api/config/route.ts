@@ -2,16 +2,26 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
+import { getAllConfigsCached, invalidateConfigCache } from '@/lib/cache';
 
-export const revalidate = 3600; // Cache for 1 hour
+export const revalidate = 300; // Next.js ISR cache for 5 minutes
 
-// GET all config values, grouped by type
+// GET all config values, grouped by type (using in-memory cache and HTTP caching)
 export async function GET() {
   try {
-    const configs = await prisma.configValue.findMany();
+    const configs = await getAllConfigsCached();
     
-    return NextResponse.json({ configs }, { status: 200 });
+    return NextResponse.json(
+      { configs }, 
+      { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        }
+      }
+    );
   } catch (error) {
+    console.error('Error fetching configs:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -49,6 +59,9 @@ export async function POST(req: Request) {
         keyPersonPhone: keyPersonPhone || null,
       }
     });
+
+    // Invalidate static cache so subsequent requests get fresh data
+    invalidateConfigCache();
 
     return NextResponse.json({ message: 'Config added', config }, { status: 201 });
   } catch (error) {
