@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, BarChart2, Loader2, AlertCircle, TrendingUp, Target, CheckCircle2, School, X } from 'lucide-react';
+import { ArrowLeft, BarChart2, Loader2, AlertCircle, TrendingUp, Target, CheckCircle2, School, X, Clock } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import SpecificMandalReportModal from '@/components/SpecificMandalReportModal';
 
@@ -15,21 +15,6 @@ export default function AnalyticsPage() {
   const [reportData, setReportData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Fetch Mandals on load
-  useEffect(() => {
-    fetchMandals();
-    fetchMandalsSummary();
-  }, []);
-
-  // Fetch report data when a specific mandal is clicked to view schools
-  useEffect(() => {
-    if (selectedMandal) {
-      fetchReportData(selectedMandal);
-    } else {
-      setReportData([]);
-    }
-  }, [selectedMandal]);
 
   const fetchMandals = async () => {
     try {
@@ -79,9 +64,293 @@ export default function AnalyticsPage() {
     }
   };
 
+  // Fetch Mandals on load
+  useEffect(() => {
+    fetchMandals();
+    fetchMandalsSummary();
+  }, []);
+
+  // Fetch report data when a specific mandal is clicked to view schools
+  useEffect(() => {
+    if (selectedMandal) {
+      fetchReportData(selectedMandal);
+    } else {
+      setReportData([]);
+    }
+  }, [selectedMandal]);
+
   const visibleMandals = dropdownMandal 
     ? mandalsSummary.filter(m => m.mandalId === dropdownMandal) 
     : mandalsSummary;
+
+  // Calculate overall summary stats across visible mandals
+  const overallStats = useMemo(() => {
+    let totalSchools = 0;
+    let totalTarget = 0;
+    let totalCollected = 0;
+
+    visibleMandals.forEach((m) => {
+      totalSchools += Number(m.totalSchools) || 0;
+      totalTarget += Number(m.totalTarget) || 0;
+      totalCollected += Number(m.totalCollected) || 0;
+    });
+
+    const totalRemaining = Math.max(0, totalTarget - totalCollected);
+
+    return {
+      totalSchools,
+      totalTarget,
+      totalCollected,
+      totalRemaining,
+    };
+  }, [visibleMandals]);
+
+  // Calculate stats for drilled-down mandal schools
+  const mandalSchoolsStats = useMemo(() => {
+    const totalSchools = reportData.length;
+    let totalTarget = 0;
+    let totalCollected = 0;
+
+    reportData.forEach((s) => {
+      totalTarget += Number(s.target) || 0;
+      totalCollected += Number(s.collected) || 0;
+    });
+
+    const totalRemaining = Math.max(0, totalTarget - totalCollected);
+
+    return {
+      totalSchools,
+      totalTarget,
+      totalCollected,
+      totalRemaining,
+    };
+  }, [reportData]);
+
+  // Render 4 summary KPI cards in a single row for mobile
+  const renderStatsRow = (stats: { totalSchools: number; totalTarget: number; totalCollected: number; totalRemaining: number }) => (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+      gap: '0.45rem',
+      marginBottom: '1rem',
+    }}>
+      {/* 1. Total Schools */}
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        borderRadius: '10px',
+        padding: '0.65rem 0.2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        minWidth: 0,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          background: '#f1f5f9',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '0.25rem',
+          color: '#475569'
+        }}>
+          <School size={13} />
+        </div>
+        <div style={{
+          fontSize: 'clamp(0.9rem, 3.2vw, 1.2rem)',
+          fontWeight: 800,
+          color: '#0f172a',
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+        }}>
+          {stats.totalSchools.toLocaleString()}
+        </div>
+        <div style={{
+          fontSize: '0.62rem',
+          fontWeight: 600,
+          color: '#64748b',
+          marginTop: '0.2rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+          lineHeight: 1.1,
+        }} title="Total Schools">
+          Total Schools
+        </div>
+      </div>
+
+      {/* 2. Target */}
+      <div style={{
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: '10px',
+        padding: '0.65rem 0.2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        minWidth: 0,
+        boxShadow: '0 1px 3px rgba(37,99,235,0.06)',
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          background: '#dbeafe',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '0.25rem',
+          color: '#2563eb'
+        }}>
+          <Target size={13} />
+        </div>
+        <div style={{
+          fontSize: 'clamp(0.9rem, 3.2vw, 1.2rem)',
+          fontWeight: 800,
+          color: '#1d4ed8',
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+        }}>
+          {stats.totalTarget.toLocaleString()}
+        </div>
+        <div style={{
+          fontSize: '0.62rem',
+          fontWeight: 600,
+          color: '#2563eb',
+          marginTop: '0.2rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+          lineHeight: 1.1,
+        }} title="Target">
+          Target
+        </div>
+      </div>
+
+      {/* 3. Collected */}
+      <div style={{
+        background: '#f0fdf4',
+        border: '1px solid #bbf7d0',
+        borderRadius: '10px',
+        padding: '0.65rem 0.2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        minWidth: 0,
+        boxShadow: '0 1px 3px rgba(22,163,74,0.06)',
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          background: '#dcfce7',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '0.25rem',
+          color: '#16a34a'
+        }}>
+          <CheckCircle2 size={13} />
+        </div>
+        <div style={{
+          fontSize: 'clamp(0.9rem, 3.2vw, 1.2rem)',
+          fontWeight: 800,
+          color: '#15803d',
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+        }}>
+          {stats.totalCollected.toLocaleString()}
+        </div>
+        <div style={{
+          fontSize: '0.62rem',
+          fontWeight: 600,
+          color: '#16a34a',
+          marginTop: '0.2rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+          lineHeight: 1.1,
+        }} title="Collected">
+          Collected
+        </div>
+      </div>
+
+      {/* 4. Remaining */}
+      <div style={{
+        background: '#fff7ed',
+        border: '1px solid #fed7aa',
+        borderRadius: '10px',
+        padding: '0.65rem 0.2rem',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        textAlign: 'center',
+        minWidth: 0,
+        boxShadow: '0 1px 3px rgba(234,88,12,0.06)',
+      }}>
+        <div style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '6px',
+          background: '#ffedd5',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '0.25rem',
+          color: '#ea580c'
+        }}>
+          <Clock size={13} />
+        </div>
+        <div style={{
+          fontSize: 'clamp(0.9rem, 3.2vw, 1.2rem)',
+          fontWeight: 800,
+          color: '#c2410c',
+          lineHeight: 1.1,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+        }}>
+          {stats.totalRemaining.toLocaleString()}
+        </div>
+        <div style={{
+          fontSize: '0.62rem',
+          fontWeight: 600,
+          color: '#ea580c',
+          marginTop: '0.2rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: '100%',
+          lineHeight: 1.1,
+        }} title="Remaining">
+          Remaining
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="container" style={{ paddingBottom: '80px' }}>
@@ -104,14 +373,17 @@ export default function AnalyticsPage() {
         </h1>
       </header>
 
+      {/* OVERVIEW STATS CARDS AT TOP */}
+      {!selectedMandal && mandalsSummary.length > 0 && renderStatsRow(overallStats)}
+
       {!selectedMandal && (
-        <div className="card" style={{ marginBottom: '1.5rem', padding: '1rem' }}>
-          <label className="form-label" style={{ fontWeight: 600, color: 'var(--primary-color)' }}>Select Mandal for Analytics</label>
+        <div className="card" style={{ marginBottom: '1.25rem', padding: '0.85rem' }}>
+          <label className="form-label" style={{ fontWeight: 600, color: 'var(--primary-color)', fontSize: '0.85rem', marginBottom: '0.35rem' }}>Select Mandal for Analytics</label>
           <select 
             className="form-control" 
             value={dropdownMandal} 
             onChange={(e) => setDropdownMandal(e.target.value)}
-            style={{ fontSize: '1rem', padding: '0.75rem', borderColor: 'var(--primary-color)' }}
+            style={{ fontSize: '0.95rem', padding: '0.65rem', borderColor: 'var(--primary-color)' }}
           >
             <option value="">-- All Mandals --</option>
             {mandals.map(m => (
@@ -255,6 +527,9 @@ export default function AnalyticsPage() {
               />
             </div>
           </div>
+
+          {/* MANDAL SCHOOLS SUMMARY STATS CARDS */}
+          {renderStatsRow(mandalSchoolsStats)}
 
           {reportData.map((school, index) => {
             const percentage = school.percentage;
