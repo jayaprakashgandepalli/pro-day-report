@@ -152,31 +152,40 @@ export default function LocationsConfigPage() {
   }, []);
 
   const fetchConfigs = async () => {
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    if (data.configs) setConfigs(data.configs);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/config?t=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.configs) setConfigs(data.configs);
+    } catch (err) {
+      console.error('Failed to fetch configs:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getByType = (t: string) => configs.filter(c => c.type === t);
 
   const handleAdd = async (type: string, parentId: string | null = null) => {
     const value = addValues[type];
-    if (!value) return;
+    if (!value || !value.trim()) return;
 
     try {
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, value, parentId })
+        body: JSON.stringify({ type, value: value.trim(), parentId })
       });
+      const data = await res.json();
 
       if (res.ok) {
         setAddValues(prev => ({ ...prev, [type]: '' }));
-        fetchConfigs();
+        await fetchConfigs();
+      } else {
+        alert(data.error || 'Failed to add location');
       }
     } catch (err) {
       console.error(err);
+      alert('Error adding location');
     }
   };
 
@@ -186,24 +195,33 @@ export default function LocationsConfigPage() {
       const res = await fetch(`/api/config/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setConfigs(configs.filter(c => c.id !== id));
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete');
       }
     } catch (err) {
       console.error(err);
+      alert('Error deleting location');
     }
   };
 
   const handleEdit = async (id: string, value: string) => {
+    if (!value || !value.trim()) return;
     try {
       const res = await fetch(`/api/config/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value })
+        body: JSON.stringify({ value: value.trim() })
       });
+      const data = await res.json();
       if (res.ok) {
-        fetchConfigs();
+        await fetchConfigs();
+      } else {
+        alert(data.error || 'Failed to update location');
       }
     } catch (err) {
       console.error(err);
+      alert('Error updating location');
     }
   };
 

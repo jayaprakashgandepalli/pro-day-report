@@ -49,21 +49,32 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const data = await req.json();
-    const { value, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone } = data;
+    const { value, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone, parentId } = data;
 
     if (!value) {
       return NextResponse.json({ error: 'Value is required' }, { status: 400 });
     }
 
+    let parsedStrength: number | null | undefined = undefined;
+    if (strength !== undefined) {
+      if (strength === '' || strength === null) {
+        parsedStrength = 0;
+      } else {
+        const num = parseInt(strength, 10);
+        parsedStrength = isNaN(num) ? 0 : num;
+      }
+    }
+
     const updateData: any = {
       value,
-      strength: strength !== undefined ? parseInt(strength, 10) : undefined,
-      grade: grade !== undefined ? grade : undefined,
-      headmasterName: headmasterName !== undefined ? headmasterName : undefined,
-      headmasterPhone: headmasterPhone !== undefined ? headmasterPhone : undefined,
-      keyPersonName: keyPersonName !== undefined ? keyPersonName : undefined,
-      keyPersonPhone: keyPersonPhone !== undefined ? keyPersonPhone : undefined,
-      remarks: data.remarks !== undefined ? data.remarks : undefined,
+      ...(parsedStrength !== undefined && { strength: parsedStrength }),
+      ...(grade !== undefined && { grade: grade || null }),
+      ...(headmasterName !== undefined && { headmasterName: headmasterName || null }),
+      ...(headmasterPhone !== undefined && { headmasterPhone: headmasterPhone || null }),
+      ...(keyPersonName !== undefined && { keyPersonName: keyPersonName || null }),
+      ...(keyPersonPhone !== undefined && { keyPersonPhone: keyPersonPhone || null }),
+      ...(parentId !== undefined && { parentId: parentId || null }),
+      ...(data.remarks !== undefined && { remarks: data.remarks }),
     };
 
     if (payload.role === 'TELECALLER') {
@@ -85,7 +96,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     return NextResponse.json({ message: 'Config updated', config: updated }, { status: 200 });
   } catch (error) {
-    console.error(error);
+    console.error('Error updating config:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

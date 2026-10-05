@@ -56,9 +56,30 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
 
-  const onAddClick = () => {
-    handleAdd(type, valueState, setValueState, type === 'SCHOOL' ? village : undefined, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone);
-    if (type === 'SCHOOL') {
+  const onAddClick = async () => {
+    if (!valueState.trim()) {
+      alert(type === 'SCHOOL' ? 'Please enter a School Name.' : 'Please enter a value.');
+      return;
+    }
+    if (type === 'SCHOOL' && !village) {
+      alert('Please select a Village first to add a School.');
+      return;
+    }
+
+    const success = await handleAdd(
+      type, 
+      valueState, 
+      setValueState, 
+      type === 'SCHOOL' ? village : undefined, 
+      strength, 
+      grade, 
+      headmasterName, 
+      headmasterPhone, 
+      keyPersonName, 
+      keyPersonPhone
+    );
+
+    if (success && type === 'SCHOOL') {
       setStrength('');
       setGrade('');
       setHeadmasterName('');
@@ -71,7 +92,7 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
   const startEdit = (item: any) => {
     setEditingId(item.id);
     setEditValue(item.value);
-    setEditStrength(item.strength?.toString() || '');
+    setEditStrength(item.strength !== undefined && item.strength !== null ? item.strength.toString() : '');
     setEditGrade(item.grade || '');
     setEditHeadmasterName(item.headmasterName || '');
     setEditHeadmasterPhone(item.headmasterPhone || '');
@@ -83,10 +104,24 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
     setEditingId(null);
   };
 
-  const saveEdit = () => {
-    if (!editValue) return;
-    handleEdit(editingId, editValue, editStrength, editGrade, editHeadmasterName, editHeadmasterPhone, editKeyPersonName, editKeyPersonPhone);
-    setEditingId(null);
+  const saveEdit = async () => {
+    if (!editValue || !editValue.trim()) {
+      alert('Name cannot be empty.');
+      return;
+    }
+    const success = await handleEdit(
+      editingId, 
+      editValue, 
+      editStrength, 
+      editGrade, 
+      editHeadmasterName, 
+      editHeadmasterPhone, 
+      editKeyPersonName, 
+      editKeyPersonPhone
+    );
+    if (success) {
+      setEditingId(null);
+    }
   };
 
   return (
@@ -121,8 +156,15 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
             </select>
           )}
 
+          {mandal && !village && (
+            <div style={{ padding: '0.75rem', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', color: '#1e40af', fontSize: '0.85rem' }}>
+              💡 <strong>గమనిక:</strong> కొత్త స్కూల్ మరియు వివరాలు (HM Name, Phone, Strength మొదలైనవి) యాడ్ చేయడానికి దయచేసి పైన ఉన్న <strong>"Select Village"</strong> నుండి గ్రామాన్ని ఎంచుకోండి.
+            </div>
+          )}
+
           {village && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>Add New School Details:</span>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input 
                   type="number" 
@@ -176,17 +218,31 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
                   style={{ flex: 1 }}
                 />
               </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Add School Name..." 
+                  value={valueState}
+                  onChange={(e) => setValueState(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && onAddClick()}
+                  style={{ flex: 1 }}
+                />
+                <button className="btn btn-primary" onClick={onAddClick} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <Plus size={18} /> Add School
+                </button>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {(type !== 'SCHOOL' || village) && (
+      {type !== 'SCHOOL' && (
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
           <input 
             type="text" 
             className="form-control" 
-            placeholder={type === 'SCHOOL' ? "Add School Name..." : "Add new..."} 
+            placeholder="Add new..." 
             value={valueState}
             onChange={(e) => setValueState(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onAddClick()}
@@ -311,10 +367,15 @@ export default function ConfigPage() {
   }, []);
 
   const fetchConfigs = async () => {
-    const res = await fetch('/api/config');
-    const data = await res.json();
-    if (data.configs) setConfigs(data.configs);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/config?t=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.configs) setConfigs(data.configs);
+    } catch (err) {
+      console.error('Failed to fetch configs:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getDbTypes = (): string[] => {
@@ -334,25 +395,32 @@ export default function ConfigPage() {
   const getByType = (t: string) => configs.filter(c => c.type === t);
   const getByParent = (t: string, pid: string) => configs.filter(c => c.type === t && c.parentId === pid);
 
-  const handleAdd = async (type: string, value: string, setter: any, parentId?: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string, keyPersonName?: string, keyPersonPhone?: string) => {
-    if (!value) return;
+  const handleAdd = async (type: string, value: string, setter: any, parentId?: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string, keyPersonName?: string, keyPersonPhone?: string): Promise<boolean> => {
+    if (!value || !value.trim()) return false;
     if (type === 'SCHOOL' && !parentId) {
       alert("Please select a Village first to add a School.");
-      return;
+      return false;
     }
     
     try {
       const res = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, value, parentId, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone })
+        body: JSON.stringify({ type, value: value.trim(), parentId, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone })
       });
+      const data = await res.json();
       if (res.ok) {
         setter('');
-        fetchConfigs();
+        await fetchConfigs();
+        return true;
+      } else {
+        alert(data.error || 'Failed to add item.');
+        return false;
       }
     } catch (err) {
       console.error(err);
+      alert('Network or server error while adding.');
+      return false;
     }
   };
 
@@ -362,24 +430,35 @@ export default function ConfigPage() {
       const res = await fetch(`/api/config/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setConfigs(configs.filter(c => c.id !== id));
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to delete');
       }
     } catch (err) {
       console.error(err);
+      alert('Error deleting item');
     }
   };
 
-  const handleEdit = async (id: string, value: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string, keyPersonName?: string, keyPersonPhone?: string) => {
+  const handleEdit = async (id: string, value: string, strength?: string, grade?: string, headmasterName?: string, headmasterPhone?: string, keyPersonName?: string, keyPersonPhone?: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/config/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value, strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone })
+        body: JSON.stringify({ value: value.trim(), strength, grade, headmasterName, headmasterPhone, keyPersonName, keyPersonPhone })
       });
+      const data = await res.json();
       if (res.ok) {
-        fetchConfigs();
+        await fetchConfigs();
+        return true;
+      } else {
+        alert(data.error || 'Failed to update item.');
+        return false;
       }
     } catch (err) {
       console.error(err);
+      alert('Network or server error while updating.');
+      return false;
     }
   };
 

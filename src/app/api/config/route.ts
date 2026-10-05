@@ -4,9 +4,9 @@ import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
 import { getAllConfigsCached, invalidateConfigCache } from '@/lib/cache';
 
-export const revalidate = 300; // Next.js ISR cache for 5 minutes
+export const dynamic = 'force-dynamic';
 
-// GET all config values, grouped by type (using in-memory cache and HTTP caching)
+// GET all config values, grouped by type (using in-memory cache with instant invalidation)
 export async function GET() {
   try {
     const configs = await getAllConfigsCached();
@@ -16,7 +16,7 @@ export async function GET() {
       { 
         status: 200,
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         }
       }
     );
@@ -46,12 +46,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Type and Value are required' }, { status: 400 });
     }
 
+    let parsedStrength = 0;
+    if (strength !== undefined && strength !== null && strength !== '') {
+      const num = parseInt(strength, 10);
+      parsedStrength = isNaN(num) ? 0 : num;
+    }
+
     const config = await prisma.configValue.create({
       data: {
         type,
         value,
         parentId: parentId || null,
-        strength: strength ? parseInt(strength, 10) : 0,
+        strength: parsedStrength,
         grade: grade || null,
         headmasterName: headmasterName || null,
         headmasterPhone: headmasterPhone || null,
@@ -65,7 +71,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: 'Config added', config }, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error('Error adding config:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
