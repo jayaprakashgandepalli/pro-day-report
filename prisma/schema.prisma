@@ -31,6 +31,7 @@ model User {
   admittedStudents Student[] @relation("CollegeAdmissions")
   keyPersons       KeyPerson[] @relation("EmployeeKeyPersons")
   relativeContacts RelativeContact[] @relation("EmployeeRelatives")
+  tasks            EmployeeTask[] @relation("EmployeeTasks")
 }
 
 model ConfigValue {
@@ -263,5 +264,32 @@ model RelativeContact {
   @@index([employeeId])
   @@index([village])
   @@index([mandal])
+}
+
+model EmployeeTask {
+  id              String    @id @default(cuid())
+  employeeId      String
+  employee        User      @relation("EmployeeTasks", fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  
+  title           String
+  description     String?   @db.Text
+  category        String?   // 'SCHOOL_VISIT', 'STUDENT_FOLLOWUP', 'DOCUMENT_VERIFICATION', 'OFFICE_WORK', 'COLLEGE_DUTY', 'OTHER'
+  assignedBy      String?   // e.g. "Principal", "Director", "Admin", etc.
+  
+  startDate       DateTime  @default(now())
+  endDate         DateTime  // Target completion / due date
+  
+  priority        String    @default("MEDIUM") // 'LOW', 'MEDIUM', 'HIGH', 'URGENT'
+  status          String    @default("PENDING") // 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
+  
+  completedAt     DateTime?
+  completionNotes String?   @db.Text
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([endDate])
 }
 

@@ -2,7 +2,7 @@ import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 import { getAllConfigsCached } from '@/lib/cache';
 import Link from 'next/link';
-import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu, Bell, HeartHandshake } from 'lucide-react';
+import { UserPlus, FileText, CalendarDays, Archive, Briefcase, GraduationCap, Users, MapPin, Menu, Bell, HeartHandshake, CheckSquare } from 'lucide-react';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +20,8 @@ export default async function Home() {
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
 
-  // Parallel batch 1: Fetch students, user details, cached configs, pending followups, and relatives concurrently
-  const [allStudents, user, allConfigs, pendingFollowupsCount, relativesCount] = await Promise.all([
+  // Parallel batch 1: Fetch students, user details, cached configs, pending followups, relatives, and tasks concurrently
+  const [allStudents, user, allConfigs, pendingFollowupsCount, relativesCount, pendingTasksCount] = await Promise.all([
     prisma.student.findMany({
       where: { employeeId: session.employeeId },
       select: {
@@ -53,6 +53,9 @@ export default async function Home() {
     }),
     prisma.relativeContact.count({
       where: { employeeId: session.employeeId }
+    }),
+    prisma.employeeTask.count({
+      where: { employeeId: session.employeeId, status: { not: 'COMPLETED' } }
     })
   ]);
 
@@ -152,6 +155,18 @@ export default async function Home() {
       {/* Main Actions */}
       <div className="mobile-only" style={{ marginBottom: '2.5rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.75rem' }}>
+
+        <Link href="/employee/tasks" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
+          <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(99,102,241,0.3)', position: 'relative' }}>
+            <CheckSquare size={36} color="#fff" style={{ opacity: 0.95 }} />
+            {pendingTasksCount > 0 && (
+              <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: '#fff', width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.75rem', boxShadow: '0 2px 5px rgba(239,68,68,0.35)', zIndex: 2 }}>
+                {pendingTasksCount}
+              </span>
+            )}
+          </div>
+          <span style={{ fontWeight: 600, fontSize: '0.75rem', textAlign: 'center', lineHeight: 1.2 }}>My<br/>Tasks</span>
+        </Link>
 
         <Link href="/employee/telecaller-updates" prefetch={false} className="btn flex-col gap-2" style={{ padding: '0.5rem', height: '105px', borderRadius: '20px', background: 'transparent', color: '#334155', border: 'none', transition: 'transform 0.2s' }}>
           <div style={{ background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', padding: '12px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 15px -3px rgba(225,29,72,0.3)', position: 'relative' }}>
