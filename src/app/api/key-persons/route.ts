@@ -29,12 +29,10 @@ export async function GET(req: Request) {
         where: { employeeId: payload.employeeId },
         select: { assignedEmployees: true }
       });
-      if (user && user.assignedEmployees.length > 0) {
+      if (user && user.assignedEmployees && user.assignedEmployees.length > 0) {
         where.employeeId = { in: user.assignedEmployees };
-      } else {
-        // If no employees assigned, return nothing
-        where.employeeId = 'NONE';
       }
+      // If no specific employees assigned, telecaller sees all key persons
     }
 
     if (search) {
@@ -55,7 +53,7 @@ export async function GET(req: Request) {
         take: limit,
         include: {
           employee: {
-            select: { name: true }
+            select: { name: true, employeeId: true }
           }
         }
       }),

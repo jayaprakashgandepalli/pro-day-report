@@ -16,9 +16,20 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const schoolName = searchParams.get('schoolName');
+    const all = searchParams.get('all');
 
-    if (!schoolName) {
-      return NextResponse.json({ error: 'School name is required' }, { status: 400 });
+    if (all === 'true' || !schoolName) {
+      const studentCounts = await prisma.student.groupBy({
+        by: ['schoolName'],
+        _count: { id: true }
+      });
+      const counts: Record<string, number> = {};
+      for (const item of studentCounts) {
+        if (item.schoolName) {
+          counts[item.schoolName] = item._count.id;
+        }
+      }
+      return NextResponse.json({ counts }, { status: 200 });
     }
 
     const count = await prisma.student.count({
