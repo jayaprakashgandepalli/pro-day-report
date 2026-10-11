@@ -46,13 +46,14 @@ export default function AddStudentPage() {
   // Check if phone number already exists
   useEffect(() => {
     const checkPhone = async () => {
-      if (formData.phone && formData.phone.length >= 10) {
+      const clean = formData.phone ? formData.phone.replace(/\D/g, '') : '';
+      if (clean.length === 10) {
         setIsCheckingPhone(true);
         try {
-          const res = await fetch(`/api/students/check-phone?phone=${encodeURIComponent(formData.phone)}`);
+          const res = await fetch(`/api/students/check-phone?phone=${encodeURIComponent(clean)}`);
           const data = await res.json();
           if (data.exists) {
-            setPhoneExistsError('This number is already registered.');
+            setPhoneExistsError('This mobile number is already registered.');
           } else {
             setPhoneExistsError('');
           }
@@ -69,7 +70,7 @@ export default function AddStudentPage() {
     // Add a small debounce
     const timeoutId = setTimeout(() => {
       checkPhone();
-    }, 500);
+    }, 400);
     
     return () => clearTimeout(timeoutId);
   }, [formData.phone]);
@@ -100,7 +101,22 @@ export default function AddStudentPage() {
   const getByParent = (t: string, parentId: string) => configs.filter(c => c.type === t && c.parentId === parentId);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'phone' || name === 'whatsapp') {
+      // Clean phone numbers: remove all non-digits
+      let cleaned = value.replace(/\D/g, '');
+      // If user pasted starting with 91 (12 digits) or 0 (11 digits), keep 10 digits
+      if (cleaned.length === 12 && cleaned.startsWith('91')) {
+        cleaned = cleaned.slice(2);
+      } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+        cleaned = cleaned.slice(1);
+      } else if (cleaned.length > 10) {
+        cleaned = cleaned.slice(-10);
+      }
+      setFormData({ ...formData, [name]: cleaned });
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSave = async (e: React.FormEvent, addAnother = false) => {
@@ -108,6 +124,14 @@ export default function AddStudentPage() {
     if (phoneExistsError) {
       setError('Cannot save. ' + phoneExistsError);
       return;
+    }
+
+    if (formData.phone) {
+      const clean = formData.phone.replace(/\D/g, '');
+      if (clean.length > 0 && clean.length < 10) {
+        setError('Please enter a valid 10-digit mobile number.');
+        return;
+      }
     }
     
     setIsLoading(true);
@@ -272,9 +296,46 @@ export default function AddStudentPage() {
 
             <div className="form-group" style={{ position: 'relative' }}>
               <label className="form-label" htmlFor="phone">Phone Number</label>
-              <input type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} style={{ borderColor: phoneExistsError ? 'var(--danger)' : '' }} />
-              {isCheckingPhone && <span style={{ position: 'absolute', right: '10px', top: '38px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Checking...</span>}
-              {phoneExistsError && <span className="form-error">{phoneExistsError}</span>}
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{
+                  padding: '0.625rem 0.85rem',
+                  backgroundColor: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRight: 'none',
+                  borderRadius: '8px 0 0 8px',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  userSelect: 'none'
+                }}>
+                  +91
+                </span>
+                <input 
+                  type="tel" 
+                  id="phone" 
+                  name="phone" 
+                  className="form-control" 
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
+                  value={formData.phone} 
+                  onChange={handleChange} 
+                  style={{ 
+                    borderRadius: '0 8px 8px 0',
+                    borderColor: phoneExistsError ? 'var(--danger)' : '' 
+                  }} 
+                />
+              </div>
+              {isCheckingPhone && (
+                <span style={{ position: 'absolute', right: '12px', top: '38px', fontSize: '0.75rem', color: '#2563eb', fontWeight: 600 }}>
+                  Checking...
+                </span>
+              )}
+              {phoneExistsError && <span className="form-error" style={{ display: 'block', marginTop: '4px' }}>{phoneExistsError}</span>}
+              {!phoneExistsError && formData.phone && formData.phone.length > 0 && formData.phone.length < 10 && (
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                  {10 - formData.phone.length} more digit{10 - formData.phone.length > 1 ? 's' : ''} needed
+                </span>
+              )}
             </div>
 
             <div className="form-group">
@@ -285,16 +346,36 @@ export default function AddStudentPage() {
                   Same as Phone
                 </label>
               </label>
-              <input 
-                type="tel" 
-                id="whatsapp" 
-                name="whatsapp" 
-                className="form-control" 
-                value={sameAsPhone ? formData.phone : formData.whatsapp} 
-                onChange={handleChange} 
-                disabled={sameAsPhone}
-                style={sameAsPhone ? { backgroundColor: '#f1f5f9', color: '#94a3b8' } : {}}
-              />
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <span style={{
+                  padding: '0.625rem 0.85rem',
+                  backgroundColor: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRight: 'none',
+                  borderRadius: '8px 0 0 8px',
+                  color: '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  userSelect: 'none'
+                }}>
+                  +91
+                </span>
+                <input 
+                  type="tel" 
+                  id="whatsapp" 
+                  name="whatsapp" 
+                  className="form-control" 
+                  placeholder="10-digit WhatsApp number"
+                  maxLength={10}
+                  value={sameAsPhone ? formData.phone : formData.whatsapp} 
+                  onChange={handleChange} 
+                  disabled={sameAsPhone}
+                  style={{
+                    borderRadius: '0 8px 8px 0',
+                    ...(sameAsPhone ? { backgroundColor: '#f1f5f9', color: '#94a3b8' } : {})
+                  }}
+                />
+              </div>
             </div>
           </div>
 

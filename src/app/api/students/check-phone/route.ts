@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,14 +19,26 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const phone = searchParams.get('phone');
+    const rawPhone = searchParams.get('phone');
 
-    if (!phone) {
+    if (!rawPhone) {
       return NextResponse.json({ error: 'Phone number is required' }, { status: 400 });
     }
 
+    const cleanPhone = normalizePhoneNumber(rawPhone);
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return NextResponse.json({ exists: false }, { status: 200 });
+    }
+
     const student = await prisma.student.findFirst({
-      where: { phone }
+      where: {
+        OR: [
+          { phone: cleanPhone },
+          { phone: `+91 ${cleanPhone}` },
+          { phone: `+91${cleanPhone}` },
+          { phone: { contains: cleanPhone } }
+        ]
+      }
     });
 
     return NextResponse.json({ exists: !!student }, { status: 200 });

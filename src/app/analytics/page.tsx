@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, BarChart2, Loader2, AlertCircle, TrendingUp, Target, CheckCircle2, School, X, Clock } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
 import SpecificMandalReportModal from '@/components/SpecificMandalReportModal';
+import MandalSummaryReportModal from '@/components/MandalSummaryReportModal';
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -374,7 +375,30 @@ export default function AnalyticsPage() {
       </header>
 
       {/* OVERVIEW STATS CARDS AT TOP */}
-      {!selectedMandal && mandalsSummary.length > 0 && renderStatsRow(overallStats)}
+      {!selectedMandal && mandalsSummary.length > 0 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', padding: '0 0.2rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>Overview Progress Summary</span>
+            <MandalSummaryReportModal 
+              buttonLabel="Export Summary PDF" 
+              buttonStyle={{
+                padding: '0.35rem 0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: '6px',
+                backgroundColor: '#0f2b47',
+                color: '#ffffff',
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+          {renderStatsRow(overallStats)}
+        </div>
+      )}
 
       {!selectedMandal && (
         <div className="card" style={{ marginBottom: '1.25rem', padding: '0.85rem' }}>

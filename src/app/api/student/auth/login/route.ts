@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { signToken } from '@/lib/auth';
 import { cookies } from 'next/headers';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 export async function POST(req: Request) {
   try {
@@ -12,8 +13,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Phone number and Password are required.' }, { status: 400 });
     }
 
+    const cleanPhone = normalizePhoneNumber(phone);
+
     const student = await prisma.student.findFirst({
-      where: { phone },
+      where: {
+        OR: [
+          { phone: cleanPhone },
+          { phone: phone },
+          { phone: `+91 ${cleanPhone}` },
+          { phone: `+91${cleanPhone}` },
+          { phone: { contains: cleanPhone } }
+        ]
+      },
     });
 
     if (!student) {

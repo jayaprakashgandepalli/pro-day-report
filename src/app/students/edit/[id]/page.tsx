@@ -155,11 +155,32 @@ export default function EditStudent() {
   const getByParent = (type: string, parentId: string) => configs.filter(c => c.type === type && c.parentId === parentId);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'phone' || name === 'whatsapp') {
+      let cleaned = value.replace(/\D/g, '');
+      if (cleaned.length === 12 && cleaned.startsWith('91')) {
+        cleaned = cleaned.slice(2);
+      } else if (cleaned.length === 11 && cleaned.startsWith('0')) {
+        cleaned = cleaned.slice(1);
+      } else if (cleaned.length > 10) {
+        cleaned = cleaned.slice(-10);
+      }
+      setFormData({ ...formData, [name]: cleaned });
+      return;
+    }
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.phone) {
+      const clean = formData.phone.replace(/\D/g, '');
+      if (clean.length > 0 && clean.length < 10) {
+        alert('Please enter a valid 10-digit mobile number.');
+        return;
+      }
+    }
 
     setSaving(true);
     const submitData = {
@@ -233,7 +254,37 @@ export default function EditStudent() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="phone">Phone Number</label>
-            <input type="tel" id="phone" name="phone" className="form-control" value={formData.phone} onChange={handleChange} />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{
+                padding: '0.625rem 0.85rem',
+                backgroundColor: '#f1f5f9',
+                border: '1px solid #cbd5e1',
+                borderRight: 'none',
+                borderRadius: '8px 0 0 8px',
+                color: '#475569',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                userSelect: 'none'
+              }}>
+                +91
+              </span>
+              <input 
+                type="tel" 
+                id="phone" 
+                name="phone" 
+                className="form-control" 
+                placeholder="10-digit mobile number"
+                maxLength={10}
+                value={formData.phone} 
+                onChange={handleChange} 
+                style={{ borderRadius: '0 8px 8px 0' }}
+              />
+            </div>
+            {formData.phone && formData.phone.length > 0 && formData.phone.length < 10 && (
+              <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                {10 - formData.phone.length} more digit{10 - formData.phone.length > 1 ? 's' : ''} needed
+              </span>
+            )}
           </div>
 
           <div className="form-group">
@@ -244,16 +295,36 @@ export default function EditStudent() {
                 Same as Phone
               </label>
             </label>
-            <input 
-              type="tel" 
-              id="whatsapp" 
-              name="whatsapp" 
-              className="form-control" 
-              value={sameAsPhone ? formData.phone : formData.whatsapp} 
-              onChange={handleChange} 
-              disabled={sameAsPhone}
-              style={sameAsPhone ? { backgroundColor: 'var(--bg-color)', color: 'var(--text-muted)' } : {}}
-            />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{
+                padding: '0.625rem 0.85rem',
+                backgroundColor: '#f1f5f9',
+                border: '1px solid #cbd5e1',
+                borderRight: 'none',
+                borderRadius: '8px 0 0 8px',
+                color: '#475569',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                userSelect: 'none'
+              }}>
+                +91
+              </span>
+              <input 
+                type="tel" 
+                id="whatsapp" 
+                name="whatsapp" 
+                className="form-control" 
+                placeholder="10-digit WhatsApp number"
+                maxLength={10}
+                value={sameAsPhone ? formData.phone : formData.whatsapp} 
+                onChange={handleChange} 
+                disabled={sameAsPhone}
+                style={{
+                  borderRadius: '0 8px 8px 0',
+                  ...(sameAsPhone ? { backgroundColor: 'var(--bg-color)', color: 'var(--text-muted)' } : {})
+                }}
+              />
+            </div>
           </div>
 
           <div className="form-group">

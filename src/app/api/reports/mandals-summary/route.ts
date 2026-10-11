@@ -17,9 +17,20 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // 1. Get all Mandals
+    const { searchParams } = new URL(req.url);
+    const mandalId = searchParams.get('mandalId');
+    const districtId = searchParams.get('districtId');
+
+    const mandalWhere: any = { type: 'MANDAL' };
+    if (mandalId) {
+      mandalWhere.id = mandalId;
+    } else if (districtId) {
+      mandalWhere.parentId = districtId;
+    }
+
+    // 1. Get Mandals
     const mandals = await prisma.configValue.findMany({
-      where: { type: 'MANDAL' }
+      where: mandalWhere
     });
 
     if (!mandals || mandals.length === 0) {
@@ -86,6 +97,8 @@ export async function GET(req: Request) {
          percentage = 100;
       }
 
+      const remaining = Math.max(0, totalTarget - totalCollected);
+
       summaries.push({
         mandalId: mandal.id,
         mandalName: mandal.value,
@@ -93,6 +106,7 @@ export async function GET(req: Request) {
         gradeCounts,
         totalTarget,
         totalCollected,
+        remaining,
         percentage
       });
     }

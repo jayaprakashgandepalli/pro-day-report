@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 export async function POST(req: Request) {
   try {
@@ -10,9 +11,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'All fields are required.' }, { status: 400 });
     }
 
+    const cleanPhone = normalizePhoneNumber(phone);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return NextResponse.json({ error: 'Please enter a valid 10-digit mobile number.' }, { status: 400 });
+    }
+
     // Check if phone already exists
     const existingStudent = await prisma.student.findFirst({
-      where: { phone },
+      where: {
+        OR: [
+          { phone: cleanPhone },
+          { phone: `+91 ${cleanPhone}` },
+          { phone: `+91${cleanPhone}` },
+          { phone: { contains: cleanPhone } }
+        ]
+      },
     });
 
     if (existingStudent) {
@@ -22,6 +35,7 @@ export async function POST(req: Request) {
         await prisma.student.update({
           where: { id: existingStudent.id },
           data: {
+            phone: cleanPhone,
             password: hashedPassword,
             studentName: existingStudent.studentName || studentName,
             schoolName: existingStudent.schoolName || schoolName,
@@ -58,7 +72,7 @@ export async function POST(req: Request) {
     const newStudent = await prisma.student.create({
       data: {
         studentName,
-        phone,
+        phone: cleanPhone,
         schoolName,
         password: hashedPassword,
         group: 'Pending', // Default

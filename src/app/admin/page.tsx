@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Users, GraduationCap, TrendingUp, Calendar, Clock } from 'lucide-react';
+import MandalSummaryReportModal from '@/components/MandalSummaryReportModal';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -127,9 +128,14 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>Welcome, Admin 👋</h1>
-        <p style={{ color: '#64748b', marginTop: '0.25rem', fontSize: '0.9rem' }}>Here's a quick overview of your student data.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>Welcome, Admin 👋</h1>
+          <p style={{ color: '#64748b', marginTop: '0.25rem', fontSize: '0.9rem' }}>Here's a quick overview of your student data.</p>
+        </div>
+        <div>
+          <MandalSummaryReportModal buttonLabel="Download Schools & Strength Summary (PDF)" />
+        </div>
       </div>
 
       {loading ? (

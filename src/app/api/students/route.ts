@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 export async function POST(req: Request) {
   try {
@@ -20,10 +21,20 @@ export async function POST(req: Request) {
 
     const data = await req.json();
 
+    const cleanPhone = normalizePhoneNumber(data.phone);
+    const cleanWhatsapp = data.whatsapp ? normalizePhoneNumber(data.whatsapp) : null;
+
     // Check for existing phone number if provided
-    if (data.phone) {
+    if (cleanPhone) {
       const existingStudent = await prisma.student.findFirst({
-        where: { phone: data.phone }
+        where: {
+          OR: [
+            { phone: cleanPhone },
+            { phone: `+91 ${cleanPhone}` },
+            { phone: `+91${cleanPhone}` },
+            { phone: { contains: cleanPhone } }
+          ]
+        }
       });
 
       if (existingStudent) {
@@ -38,8 +49,8 @@ export async function POST(req: Request) {
         fatherName: data.fatherName || null,
         occupation: data.occupation || null,
         address: data.address || null,
-        phone: data.phone || "",
-        whatsapp: data.whatsapp || null,
+        phone: cleanPhone || "",
+        whatsapp: cleanWhatsapp || null,
         gender: data.gender || null,
         group: data.group || "",
         visitNumber: data.visitNumber || null,
@@ -169,6 +180,7 @@ export async function GET(req: Request) {
       });
     }
 
+    const reportType = searchParams.get('reportType') || 'all'; // 'all' | 'new_students' | 'visits'
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
@@ -177,22 +189,49 @@ export async function GET(req: Request) {
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(endDate);
       endOfDay.setHours(23, 59, 59, 999);
-      whereClause.AND.push({
-        OR: [
-          { createdAt: { gte: startOfDay, lte: endOfDay } },
-          { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
-        ]
-      });
+
+      if (reportType === 'new_students') {
+        whereClause.AND.push({
+          createdAt: { gte: startOfDay, lte: endOfDay }
+        });
+      } else if (reportType === 'visits') {
+        whereClause.AND.push({
+          visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } }
+        });
+      } else {
+        whereClause.AND.push({
+          OR: [
+            { createdAt: { gte: startOfDay, lte: endOfDay } },
+            { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
+          ]
+        });
+      }
     } else if (date) {
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
+
+      if (reportType === 'new_students') {
+        whereClause.AND.push({
+          createdAt: { gte: startOfDay, lte: endOfDay }
+        });
+      } else if (reportType === 'visits') {
+        whereClause.AND.push({
+          visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } }
+        });
+      } else {
+        whereClause.AND.push({
+          OR: [
+            { createdAt: { gte: startOfDay, lte: endOfDay } },
+            { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
+          ]
+        });
+      }
+    } else if (reportType === 'visits') {
+      // If all time but visits selected, only include students who had visits
       whereClause.AND.push({
-        OR: [
-          { createdAt: { gte: startOfDay, lte: endOfDay } },
-          { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
-        ]
+        visits: { some: {} }
       });
     }
 

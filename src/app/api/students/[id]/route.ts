@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth';
+import { normalizePhoneNumber } from '@/lib/phone';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,9 +22,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const currentStudent = await prisma.student.findUnique({ where: { id } });
 
-    if (data.phone && currentStudent && data.phone !== currentStudent.phone) {
+    const cleanPhone = data.phone !== undefined ? normalizePhoneNumber(data.phone) : undefined;
+    const cleanWhatsapp = data.whatsapp !== undefined ? (data.whatsapp ? normalizePhoneNumber(data.whatsapp) : null) : undefined;
+
+    if (cleanPhone && currentStudent && cleanPhone !== normalizePhoneNumber(currentStudent.phone)) {
       const existingStudent = await prisma.student.findFirst({
-        where: { phone: data.phone }
+        where: {
+          AND: [
+            { id: { not: id } },
+            {
+              OR: [
+                { phone: cleanPhone },
+                { phone: `+91 ${cleanPhone}` },
+                { phone: `+91${cleanPhone}` },
+                { phone: { contains: cleanPhone } }
+              ]
+            }
+          ]
+        }
       });
       if (existingStudent) {
         return NextResponse.json({ error: 'Student with this phone number already exists.' }, { status: 400 });
@@ -38,8 +54,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       fatherName: data.fatherName !== undefined ? data.fatherName : undefined,
       occupation: data.occupation !== undefined ? data.occupation : undefined,
       address: data.address !== undefined ? data.address : undefined,
-      phone: data.phone !== undefined ? data.phone : undefined,
-      whatsapp: data.whatsapp !== undefined ? data.whatsapp : undefined,
+      phone: cleanPhone !== undefined ? cleanPhone : undefined,
+      whatsapp: cleanWhatsapp !== undefined ? cleanWhatsapp : undefined,
       group: data.group !== undefined ? data.group : undefined,
       visitNumber: data.visitNumber !== undefined ? data.visitNumber : undefined,
       schoolName: data.schoolName !== undefined ? data.schoolName : undefined,
