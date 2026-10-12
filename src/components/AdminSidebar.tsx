@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Users, MapPin, Users2, Briefcase, GraduationCap, Activity, ClipboardList, LogOut, Menu, X, BookOpen, UserCheck, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Users, MapPin, Users2, Briefcase, GraduationCap, Activity, ClipboardList, LogOut, Menu, X, BookOpen, UserCheck, HelpCircle, Award } from 'lucide-react';
 
 export default function AdminSidebar() {
   const pathname = usePathname();
@@ -23,6 +23,7 @@ export default function AdminSidebar() {
     { name: 'Study Books', path: '/admin/books', icon: BookOpen },
     { name: 'Study Videos', path: '/admin/videos', icon: Activity },
     { name: 'Career Questions', path: '/admin/questions', icon: HelpCircle },
+    { name: 'Test Reports', path: '/admin/test-reports', icon: Award },
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'Locations', path: '/admin/config/locations', icon: MapPin },
     { name: 'Groups', path: '/admin/config/groups', icon: Users2 },

@@ -46,19 +46,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const data = await req.json();
 
-    if (!data.remarks) {
-      return NextResponse.json({ error: 'Remarks are required.' }, { status: 400 });
-    }
+    const remarks = (data.remarks || '').trim();
+
 
     const student = await prisma.student.findUnique({ where: { id } });
     if (!student) {
       return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
     }
-
-    // Determine the next visit number
-    let currentVisitNo = parseInt(student.visitNumber || '0');
-    if (isNaN(currentVisitNo)) currentVisitNo = 0;
-    const nextVisitNo = (currentVisitNo + 1).toString();
 
     const visitDate = data.visitDate ? new Date(data.visitDate) : new Date();
     
@@ -69,11 +63,48 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       nextFollowUpDate = new Date(data.nextFollowUpDate);
     }
 
+    // Check if an existing visit already exists for this date/visitId
+    const startOfDay = new Date(visitDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(visitDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    let existingVisit = null;
+    if (data.visitId) {
+      existingVisit = await prisma.visit.findUnique({
+        where: { id: data.visitId }
+      });
+    }
+
+    if (!existingVisit) {
+      const existingWhere: any = {
+        studentId: id,
+        visitDate: {
+          gte: startOfDay,
+          lte: endOfDay
+        }
+      };
+      if (payload.role === 'COLLEGE') {
+        existingWhere.addedById = payload.employeeId;
+      }
+      existingVisit = await prisma.visit.findFirst({
+        where: existingWhere,
+        orderBy: { visitDate: 'desc' }
+      });
+    }
+
+    const isUpdate = !!existingVisit;
+
+    // Determine the next visit number only if this is a brand new visit
+    let currentVisitNo = parseInt(student.visitNumber || '0');
+    if (isNaN(currentVisitNo)) currentVisitNo = 0;
+    const nextVisitNo = isUpdate ? (student.visitNumber || '1') : (currentVisitNo + 1).toString();
+
     let updateStudentPromise = null;
     if (payload.role !== 'COLLEGE') {
       const updateData: any = {
         visitNumber: nextVisitNo,
-        remarks: data.remarks,
+        remarks: remarks || student.remarks || null,
         nextFollowUpDate,
         nextFollowUpType,
         doorstepCompleted: true, // Automatically check doorstep completed when a visit is recorded
@@ -90,7 +121,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
       if (payload.role === 'TELECALLER') {
         updateData.telecallerUpdateAt = new Date();
-        updateData.telecallerUpdateDetails = data.remarks || 'Added a visit record';
+        updateData.telecallerUpdateDetails = remarks || (isUpdate ? 'Updated visit record' : 'Added a visit record');
       }
 
       updateStudentPromise = prisma.student.update({
@@ -111,18 +142,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
     }
 
-    transactionTasks.push(
-      prisma.visit.create({
-        data: {
-          studentId: id,
-          addedById: payload.employeeId,
-          visitDate,
-          remarks: data.remarks,
-          nextFollowUpDate,
-          nextFollowUpType
-        }
-      })
-    );
+    if (isUpdate && existingVisit) {
+      transactionTasks.push(
+        prisma.visit.update({
+          where: { id: existingVisit.id },
+          data: {
+            remarks: remarks,
+            nextFollowUpDate,
+            nextFollowUpType
+          }
+        })
+      );
+    } else {
+      transactionTasks.push(
+        prisma.visit.create({
+          data: {
+            studentId: id,
+            addedById: payload.employeeId,
+            visitDate,
+            remarks: remarks,
+            nextFollowUpDate,
+            nextFollowUpType
+          }
+        })
+      );
+    }
 
     if (updateStudentPromise) {
       transactionTasks.push(updateStudentPromise);
@@ -131,10 +175,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Use a transaction to ensure both records are updated together
     const results = await prisma.$transaction(transactionTasks);
     
-    const newVisit = results[0];
-    const updatedStudent = updateStudentPromise ? results[1] : student;
+    // If college, the first task was updateMany, so the visit is index 1. Otherwise index 0.
+    const savedVisit = payload.role === 'COLLEGE' ? results[1] : results[0];
+    const updatedStudent = updateStudentPromise ? results[results.length - 1] : student;
 
-    return NextResponse.json({ message: 'Visit added successfully', visit: newVisit, student: updatedStudent }, { status: 201 });
+    return NextResponse.json({ 
+      message: isUpdate ? 'Visit updated successfully' : 'Visit added successfully', 
+      visit: savedVisit, 
+      student: updatedStudent,
+      updated: isUpdate
+    }, { status: isUpdate ? 200 : 201 });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

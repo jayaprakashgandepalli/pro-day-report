@@ -28,6 +28,12 @@ type Student = {
   ableToBearFee?: string | null;
   leadStatus?: string | null;
   visits?: Visit[];
+  assessmentReport?: {
+    recommendedGroup?: string | null;
+    recommendedJobs?: string | null;
+    disciplineScore?: number | null;
+    careerClarityScore?: number | null;
+  } | null;
 };
 
 export default function VillageVisits() {
@@ -46,6 +52,8 @@ export default function VillageVisits() {
   // Visit Modal
   const [visitModalOpen, setVisitModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [isEditingVisit, setIsEditingVisit] = useState(false);
   const [visitRemarks, setVisitRemarks] = useState('');
   const [visitOutcome, setVisitOutcome] = useState('');
   const [nextFollowUpDate, setNextFollowUpDate] = useState('');
@@ -56,8 +64,39 @@ export default function VillageVisits() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSharing, setIsSharing] = useState(false);
 
+  const openVisitModal = (student: Student) => {
+    setSelectedStudentId(student.id);
+    const isMet = wasVisitedOnDate(student, selectedDate);
+    if (isMet && student.visits && student.visits.length > 0) {
+      const todayVisit = student.visits[0];
+      setEditingVisitId(todayVisit.id);
+      setIsEditingVisit(true);
+      setVisitRemarks(todayVisit.remarks || '');
+      
+      if (student.leadStatus === 'Joined Other College') setVisitOutcome('joined_other');
+      else if (student.leadStatus === 'Not Interested') setVisitOutcome('not_interested');
+      else if (student.leadStatus === 'Admitted') setVisitOutcome('admitted');
+      else if (student.leadStatus === 'Following Up') setVisitOutcome('following_up');
+      else setVisitOutcome('');
+    } else {
+      setEditingVisitId(null);
+      setIsEditingVisit(false);
+      setVisitRemarks('');
+      setVisitOutcome('');
+      setNextFollowUpDate('');
+      setJoinedCollegeId('');
+      setApplicationNumber('');
+    }
+    setVisitSavedSuccessfully(false);
+    setPhotoFile(null);
+    setVisitModalOpen(true);
+  };
+
   const closeVisitModal = () => {
     setVisitModalOpen(false);
+    setSelectedStudentId('');
+    setEditingVisitId(null);
+    setIsEditingVisit(false);
     setVisitRemarks('');
     setVisitOutcome('');
     setNextFollowUpDate('');
@@ -76,7 +115,10 @@ export default function VillageVisits() {
     setIsSharing(true);
 
     if (!photoFile) {
-        const text = `*Student Name:* ${student.studentName}\n*Father Name:* ${student.fatherName || 'N/A'}\n*Village:* ${resolveName(student.village) || 'N/A'}\n*Phone:* ${student.phone}\n*Remarks:* ${visitRemarks}`;
+        let text = `*Student Name:* ${student.studentName}\n*Father Name:* ${student.fatherName || 'N/A'}\n*Village:* ${resolveName(student.village) || 'N/A'}\n*Phone:* ${student.phone}`;
+        if (visitRemarks) {
+            text += `\n*Remarks:* ${visitRemarks}`;
+        }
         if (Capacitor.isNativePlatform()) {
             try {
                 await Share.share({
@@ -368,7 +410,6 @@ export default function VillageVisits() {
   }, [students, search, selectedMandalId, selectedVillageId, selectedDate, statusFilter, configParentMap]);
 
   const handleAddVisit = async () => {
-    if (!visitRemarks) return alert("Remarks are required");
     setSavingVisit(true);
     
     // We send the selectedDate to the API so the visit is recorded for that date if they chose a past date
@@ -394,6 +435,7 @@ export default function VillageVisits() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          visitId: editingVisitId || undefined,
           remarks: visitRemarks, 
           visitDate: new Date(selectedDate).toISOString(),
           nextFollowUpType: apiFollowUpType,
@@ -407,7 +449,7 @@ export default function VillageVisits() {
         setVisitSavedSuccessfully(true);
         fetchStudents(); // refresh the list to get new visit date
       } else {
-        alert("Failed to add visit");
+        alert(isEditingVisit ? "Failed to update visit" : "Failed to add visit");
       }
     } catch (e) {
       console.error(e);
@@ -612,11 +654,11 @@ export default function VillageVisits() {
                             </Link>
                             <button 
                               className={`ios-btn-icon ${isMet ? 'ios-btn-success' : 'ios-btn-primary'}`}
-                              onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.id); setVisitModalOpen(true); }}
-                              title={isMet ? "Add Another Visit" : "Add Visit"}
+                              onClick={(e) => { e.stopPropagation(); openVisitModal(s); }}
+                              title={isMet ? "Update Today's Visit" : "Add Visit"}
                             >
                               {isMet ? (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <Edit size={14} />
                               ) : (
                                 <PlusCircle size={16} />
                               )}
@@ -636,14 +678,20 @@ export default function VillageVisits() {
       {visitModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
           <div className="card" style={{ width: '100%', maxWidth: '400px', margin: 0 }}>
-            <h2 style={{ fontSize: '1.25rem', marginTop: 0 }}>Record Visit</h2>
-            <div style={{ background: '#eff6ff', color: '#1e3a8a', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
-              Recording visit for <strong>{selectedDate}</strong>
+            <h2 style={{ fontSize: '1.25rem', marginTop: 0 }}>
+              {isEditingVisit ? "Update Today's Visit" : "Record Visit"}
+            </h2>
+            <div style={{ background: isEditingVisit ? '#f0fdf4' : '#eff6ff', color: isEditingVisit ? '#166534' : '#1e3a8a', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem', border: isEditingVisit ? '1px solid #bbf7d0' : 'none' }}>
+              {isEditingVisit ? (
+                <>Updating visit for <strong>{selectedDate}</strong> (Will update existing visit)</>
+              ) : (
+                <>Recording visit for <strong>{selectedDate}</strong></>
+              )}
             </div>
             {visitSavedSuccessfully ? (
               <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                 <div style={{ color: '#10b981', marginBottom: '1rem', fontWeight: 600, fontSize: '1.1rem' }}>
-                  ✅ Visit saved successfully!
+                  ✅ {isEditingVisit ? "Visit updated successfully!" : "Visit saved successfully!"}
                 </div>
                 <div className="form-group" style={{ textAlign: 'left' }}>
                   <label className="form-label">Attach Photo (Optional)</label>
@@ -677,8 +725,8 @@ export default function VillageVisits() {
             ) : (
               <>
                 <div className="form-group">
-                  <label className="form-label">Remarks *</label>
-                  <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed?"></textarea>
+                  <label className="form-label">Remarks (Optional)</label>
+                  <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed? (Optional)"></textarea>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Visit Outcome / Next Action</label>
@@ -718,7 +766,9 @@ export default function VillageVisits() {
                 )}
                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={closeVisitModal} disabled={savingVisit}>Cancel</button>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>{savingVisit ? 'Saving...' : 'Save Visit'}</button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddVisit} disabled={savingVisit}>
+                    {savingVisit ? (isEditingVisit ? 'Updating...' : 'Saving...') : (isEditingVisit ? 'Update Visit' : 'Save Visit')}
+                  </button>
                 </div>
               </>
             )}
@@ -809,6 +859,25 @@ export default function VillageVisits() {
                   <span style={{ color: '#1e293b', fontWeight: 500 }}>{resolveName(viewStudent.ableToBearFee) || 'N/A'}</span>
                 </div>
               </section>
+              
+              {viewStudent.assessmentReport && (
+                <>
+                  <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
+                  <section style={{ backgroundColor: '#eff6ff', padding: '0.75rem 0.875rem', borderRadius: '0.625rem', border: '1px solid #bfdbfe' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1e40af', textTransform: 'uppercase' }}>🎓 75-Q Career Test Result</span>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1d4ed8', backgroundColor: '#dbeafe', padding: '0.125rem 0.5rem', borderRadius: '9999px' }}>
+                        {viewStudent.assessmentReport.recommendedGroup || 'Evaluated'}
+                      </span>
+                    </div>
+                    {viewStudent.assessmentReport.recommendedJobs && (
+                      <div style={{ fontSize: '0.75rem', color: '#1e3a8a', marginTop: '4px' }}>
+                        <strong>Ideal Careers:</strong> {viewStudent.assessmentReport.recommendedJobs}
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
               
               <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
               
