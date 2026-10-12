@@ -47,7 +47,7 @@ export default function VillageVisits() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMandalId, setSelectedMandalId] = useState('');
   const [selectedVillageId, setSelectedVillageId] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, met
+  const [statusFilter, setStatusFilter] = useState('all'); // all, pending, met, never
   
   // Visit Modal
   const [visitModalOpen, setVisitModalOpen] = useState(false);
@@ -63,15 +63,34 @@ export default function VillageVisits() {
   const [visitSavedSuccessfully, setVisitSavedSuccessfully] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [priorVisitInfo, setPriorVisitInfo] = useState<Visit | null>(null);
+
+  const getVisitForDate = (student: Student, dateStr: string) => {
+    if (!student.visits || student.visits.length === 0) return null;
+    return student.visits.find(v => {
+      const vDate = new Date(v.visitDate).toISOString().split('T')[0];
+      return vDate === dateStr;
+    }) || null;
+  };
+
+  const wasVisitedOnDate = (student: Student, dateStr: string) => {
+    return !!getVisitForDate(student, dateStr);
+  };
 
   const openVisitModal = (student: Student) => {
     setSelectedStudentId(student.id);
-    const isMet = wasVisitedOnDate(student, selectedDate);
-    if (isMet && student.visits && student.visits.length > 0) {
-      const todayVisit = student.visits[0];
-      setEditingVisitId(todayVisit.id);
+    const existingVisit = getVisitForDate(student, selectedDate);
+    
+    // Find prior visit (a visit that is not the one for selectedDate)
+    const prior = student.visits && student.visits.length > 0
+      ? (existingVisit ? student.visits.find(v => v.id !== existingVisit.id) : student.visits[0])
+      : null;
+    setPriorVisitInfo(prior || null);
+
+    if (existingVisit) {
+      setEditingVisitId(existingVisit.id);
       setIsEditingVisit(true);
-      setVisitRemarks(todayVisit.remarks || '');
+      setVisitRemarks(existingVisit.remarks || '');
       
       if (student.leadStatus === 'Joined Other College') setVisitOutcome('joined_other');
       else if (student.leadStatus === 'Not Interested') setVisitOutcome('not_interested');
@@ -97,6 +116,7 @@ export default function VillageVisits() {
     setSelectedStudentId('');
     setEditingVisitId(null);
     setIsEditingVisit(false);
+    setPriorVisitInfo(null);
     setVisitRemarks('');
     setVisitOutcome('');
     setNextFollowUpDate('');
@@ -369,45 +389,59 @@ export default function VillageVisits() {
     return Array.from(villagesMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [students, configMap, configParentMap, selectedMandalId]);
 
-  // Determine if a student was visited on the selected date
-  const wasVisitedOnDate = (student: Student, dateStr: string) => {
-    if (!student.visits || student.visits.length === 0) return false;
-    // Check if any visit matches the selected date
-    // Usually the API only returns the latest visit because of take: 1, 
-    // but in case it returns more or it's the latest, we check.
-    const latestVisit = student.visits[0];
-    const visitDate = new Date(latestVisit.visitDate).toISOString().split('T')[0];
-    return visitDate === dateStr;
+  const isStudentClosed = (s: Student) => {
+    if (s.leadStatus === 'Joined Other College' || s.leadStatus === 'Not Interested') return true;
+    if (s.ableToBearFee === 'Not Bearable') return true;
+    if (s.studyInterestedAt === 'Local College' || s.studyInterestedAt === 'Other') return true;
+    const dropGroups = ['CEC', 'HEC', 'ITI academy', 'Polytechnic', 'Defence academy'];
+    if (s.group && dropGroups.includes(s.group)) return true;
+    return false;
   };
 
-  const filteredStudents = useMemo(() => {
+  const baseFilteredStudents = useMemo(() => {
     return students.filter(s => {
-      const isStudentClosed = () => {
-        if (s.leadStatus === 'Joined Other College' || s.leadStatus === 'Not Interested') return true;
-        if (s.ableToBearFee === 'Not Bearable') return true;
-        if (s.studyInterestedAt === 'Local College' || s.studyInterestedAt === 'Other') return true;
-        const dropGroups = ['CEC', 'HEC', 'ITI academy', 'Polytechnic', 'Defence academy'];
-        if (s.group && dropGroups.includes(s.group)) return true;
-        return false;
-      };
-
-      if (isStudentClosed()) return false;
-
+      if (isStudentClosed(s)) return false;
       const matchesSearch = s.studentName.toLowerCase().includes(search.toLowerCase()) || s.phone.includes(search);
       const matchesMandal = selectedMandalId === '' || (s.village && configParentMap[s.village] === selectedMandalId);
       const matchesVillage = selectedVillageId === '' || s.village === selectedVillageId;
-      
-      const isMet = wasVisitedOnDate(s, selectedDate);
-      
-      let matchesStatus = true;
-      if (statusFilter === 'pending') {
-        matchesStatus = !isMet;
-      }
-      if (statusFilter === 'met') matchesStatus = isMet;
-      
-      return matchesSearch && matchesMandal && matchesVillage && matchesStatus;
+      return matchesSearch && matchesMandal && matchesVillage;
     });
-  }, [students, search, selectedMandalId, selectedVillageId, selectedDate, statusFilter, configParentMap]);
+  }, [students, search, selectedMandalId, selectedVillageId, configParentMap]);
+
+  const filterCounts = useMemo(() => {
+    let all = 0;
+    let pending = 0;
+    let met = 0;
+    let never = 0;
+
+    baseFilteredStudents.forEach(s => {
+      all++;
+      const isMet = wasVisitedOnDate(s, selectedDate);
+      const hasAnyVisit = s.visits && s.visits.length > 0;
+      if (isMet) {
+        met++;
+      } else {
+        pending++;
+      }
+      if (!hasAnyVisit) {
+        never++;
+      }
+    });
+
+    return { all, pending, met, never };
+  }, [baseFilteredStudents, selectedDate]);
+
+  const filteredStudents = useMemo(() => {
+    return baseFilteredStudents.filter(s => {
+      const isMet = wasVisitedOnDate(s, selectedDate);
+      const hasAnyVisit = s.visits && s.visits.length > 0;
+
+      if (statusFilter === 'pending') return !isMet;
+      if (statusFilter === 'met') return isMet;
+      if (statusFilter === 'never') return !hasAnyVisit;
+      return true; // 'all'
+    });
+  }, [baseFilteredStudents, statusFilter, selectedDate]);
 
   const handleAddVisit = async () => {
     setSavingVisit(true);
@@ -523,19 +557,35 @@ export default function VillageVisits() {
             </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '1px solid rgba(226, 232, 240, 0.7)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '10px', border: '1px solid rgba(226, 232, 240, 0.7)', gap: '4px' }}>
             <button 
-              style={{ padding: '0.375rem', fontSize: '0.75rem', fontWeight: statusFilter === 'all' ? 600 : 500, borderRadius: '6px', border: 'none', backgroundColor: statusFilter === 'all' ? '#ffffff' : 'transparent', color: statusFilter === 'all' ? '#0f172a' : '#475569', boxShadow: statusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+              style={{ padding: '0.45rem 0.2rem', fontSize: '0.6875rem', fontWeight: statusFilter === 'all' ? 700 : 500, borderRadius: '7px', border: 'none', backgroundColor: statusFilter === 'all' ? '#ffffff' : 'transparent', color: statusFilter === 'all' ? '#0f172a' : '#64748b', boxShadow: statusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer' }}
               onClick={() => setStatusFilter('all')}
-            >All</button>
+            >
+              <div>All</div>
+              <div style={{ fontSize: '0.625rem', opacity: 0.85, marginTop: '2px' }}>({filterCounts.all})</div>
+            </button>
             <button 
-              style={{ padding: '0.375rem', fontSize: '0.75rem', fontWeight: statusFilter === 'pending' ? 600 : 500, borderRadius: '6px', border: 'none', backgroundColor: statusFilter === 'pending' ? '#ffffff' : 'transparent', color: statusFilter === 'pending' ? '#0f172a' : '#475569', boxShadow: statusFilter === 'pending' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+              style={{ padding: '0.45rem 0.2rem', fontSize: '0.6875rem', fontWeight: statusFilter === 'pending' ? 700 : 500, borderRadius: '7px', border: 'none', backgroundColor: statusFilter === 'pending' ? '#ffffff' : 'transparent', color: statusFilter === 'pending' ? '#b45309' : '#64748b', boxShadow: statusFilter === 'pending' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer' }}
               onClick={() => setStatusFilter('pending')}
-            >Pending</button>
+            >
+              <div>Pending</div>
+              <div style={{ fontSize: '0.625rem', opacity: 0.85, marginTop: '2px' }}>({filterCounts.pending})</div>
+            </button>
             <button 
-              style={{ padding: '0.375rem', fontSize: '0.75rem', fontWeight: statusFilter === 'met' ? 600 : 500, borderRadius: '6px', border: 'none', backgroundColor: statusFilter === 'met' ? '#ffffff' : 'transparent', color: statusFilter === 'met' ? '#0f172a' : '#475569', boxShadow: statusFilter === 'met' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }}
+              style={{ padding: '0.45rem 0.2rem', fontSize: '0.6875rem', fontWeight: statusFilter === 'met' ? 700 : 500, borderRadius: '7px', border: 'none', backgroundColor: statusFilter === 'met' ? '#ffffff' : 'transparent', color: statusFilter === 'met' ? '#047857' : '#64748b', boxShadow: statusFilter === 'met' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer' }}
               onClick={() => setStatusFilter('met')}
-            >Met Today</button>
+            >
+              <div>Met Today</div>
+              <div style={{ fontSize: '0.625rem', opacity: 0.85, marginTop: '2px' }}>({filterCounts.met})</div>
+            </button>
+            <button 
+              style={{ padding: '0.45rem 0.2rem', fontSize: '0.6875rem', fontWeight: statusFilter === 'never' ? 700 : 500, borderRadius: '7px', border: 'none', backgroundColor: statusFilter === 'never' ? '#ffffff' : 'transparent', color: statusFilter === 'never' ? '#4338ca' : '#64748b', boxShadow: statusFilter === 'never' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer' }}
+              onClick={() => setStatusFilter('never')}
+            >
+              <div>Never Met</div>
+              <div style={{ fontSize: '0.625rem', opacity: 0.85, marginTop: '2px' }}>({filterCounts.never})</div>
+            </button>
           </div>
         </section>
 
@@ -572,26 +622,46 @@ export default function VillageVisits() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {filteredStudents.map((s, index) => {
-              const isMet = wasVisitedOnDate(s, selectedDate);
+              const isMetToday = wasVisitedOnDate(s, selectedDate);
+              const latestVisit = (s.visits && s.visits.length > 0) ? s.visits[0] : null;
+              const hasPastVisit = !isMetToday && !!latestVisit;
+              const isNeverVisited = !latestVisit;
               const isExpanded = expandedStudentId === s.id;
               
               return (
-                <article key={s.id} className={`student-card-ios ${isMet ? 'completed' : ''}`} onClick={(e) => toggleExpand(s.id, e)}>
-                  {isMet && <div style={{ height: '4px', backgroundColor: '#10b981', width: '100%' }}></div>}
+                <article 
+                  key={s.id} 
+                  className={`student-card-ios ${isMetToday ? 'completed' : ''}`} 
+                  style={hasPastVisit ? { borderColor: 'rgba(147, 197, 253, 0.9)' } : undefined}
+                  onClick={(e) => toggleExpand(s.id, e)}
+                >
+                  {isMetToday && <div style={{ height: '4px', backgroundColor: '#10b981', width: '100%' }}></div>}
+                  {hasPastVisit && <div style={{ height: '3px', backgroundColor: '#3b82f6', width: '100%' }}></div>}
                   
                   <div className="student-card-ios-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
                       <h3 style={{ flex: 1, minWidth: 0, fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {index + 1}. {s.studentName}
                       </h3>
-                      {isMet && (
+                      {isMetToday && (
                         <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '16px', height: '16px', backgroundColor: '#059669', color: '#ffffff', borderRadius: '50%' }}>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </span>
                       )}
-                      <span style={{ flexShrink: 0 }} className={`ios-badge ${isMet ? 'ios-badge-completed' : 'ios-badge-pending'}`}>
-                        {isMet ? 'Completed' : 'Pending'}
-                      </span>
+
+                      {isMetToday ? (
+                        <span style={{ flexShrink: 0 }} className="ios-badge ios-badge-completed">
+                          Met Today
+                        </span>
+                      ) : hasPastVisit ? (
+                        <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.45rem', borderRadius: '4px', fontSize: '0.625rem', fontWeight: 600, backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+                          Met on {new Date(latestVisit.visitDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        </span>
+                      ) : (
+                        <span style={{ flexShrink: 0 }} className="ios-badge ios-badge-pending">
+                          Never Met
+                        </span>
+                      )}
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
@@ -621,6 +691,20 @@ export default function VillageVisits() {
                             </span>
                           )}
                         </div>
+
+                        {/* Recent Visit remarks display if any visit exists */}
+                        {latestVisit && (
+                          <div style={{ marginTop: '0.5rem', padding: '0.375rem 0.5rem', borderRadius: '6px', backgroundColor: isMetToday ? '#ecfdf5' : '#f0f9ff', border: isMetToday ? '1px solid #a7f3d0' : '1px solid #bae6fd', fontSize: '0.6875rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                              <span style={{ fontWeight: 600, color: isMetToday ? '#065f46' : '#0369a1' }}>
+                                {isMetToday ? "Today's Visit Remarks:" : `Last Met (${new Date(latestVisit.visitDate).toLocaleDateString('en-GB')}):`}
+                              </span>
+                            </div>
+                            <p style={{ margin: 0, color: '#334155', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                              {latestVisit.remarks || 'No remarks recorded'}
+                            </p>
+                          </div>
+                        )}
                         
                         <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '0.625rem 0' }} />
                         
@@ -653,11 +737,12 @@ export default function VillageVisits() {
                               <Edit size={14} />
                             </Link>
                             <button 
-                              className={`ios-btn-icon ${isMet ? 'ios-btn-success' : 'ios-btn-primary'}`}
+                              className={`ios-btn-icon ${isMetToday ? 'ios-btn-success' : hasPastVisit ? 'ios-btn-primary' : 'ios-btn-primary'}`}
                               onClick={(e) => { e.stopPropagation(); openVisitModal(s); }}
-                              title={isMet ? "Update Today's Visit" : "Add Visit"}
+                              title={isMetToday ? "Update Today's Visit" : hasPastVisit ? "Add Visit (Previously Met)" : "Add Visit"}
+                              style={hasPastVisit ? { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' } : undefined}
                             >
-                              {isMet ? (
+                              {isMetToday ? (
                                 <Edit size={14} />
                               ) : (
                                 <PlusCircle size={16} />
@@ -681,13 +766,19 @@ export default function VillageVisits() {
             <h2 style={{ fontSize: '1.25rem', marginTop: 0 }}>
               {isEditingVisit ? "Update Today's Visit" : "Record Visit"}
             </h2>
-            <div style={{ background: isEditingVisit ? '#f0fdf4' : '#eff6ff', color: isEditingVisit ? '#166534' : '#1e3a8a', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem', border: isEditingVisit ? '1px solid #bbf7d0' : 'none' }}>
+            <div style={{ background: isEditingVisit ? '#f0fdf4' : '#eff6ff', color: isEditingVisit ? '#166534' : '#1e3a8a', padding: '0.5rem 1rem', borderRadius: '8px', marginBottom: '0.75rem', fontSize: '0.9rem', border: isEditingVisit ? '1px solid #bbf7d0' : 'none' }}>
               {isEditingVisit ? (
                 <>Updating visit for <strong>{selectedDate}</strong> (Will update existing visit)</>
               ) : (
                 <>Recording visit for <strong>{selectedDate}</strong></>
               )}
             </div>
+
+            {priorVisitInfo && !isEditingVisit && (
+              <div style={{ background: '#f8fafc', color: '#475569', padding: '0.5rem 0.75rem', borderRadius: '8px', marginBottom: '0.75rem', fontSize: '0.75rem', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontWeight: 600, color: '#0f172a' }}>Previous visit ({new Date(priorVisitInfo.visitDate).toLocaleDateString('en-GB')}):</span> {priorVisitInfo.remarks || 'No remarks recorded'}
+              </div>
+            )}
             {visitSavedSuccessfully ? (
               <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                 <div style={{ color: '#10b981', marginBottom: '1rem', fontWeight: 600, fontSize: '1.1rem' }}>

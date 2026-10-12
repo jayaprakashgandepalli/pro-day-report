@@ -413,7 +413,7 @@ export async function GET(req: Request) {
 
     let visitInclude: any = {
       orderBy: { visitDate: 'desc' as const },
-      take: 1
+      take: 5
     };
     
     if (payload.role === 'COLLEGE') {
