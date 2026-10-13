@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { message: 'Login successful', user: { name: user.name, role: user.role, employeeId: user.employeeId } },
+      { message: 'Login successful', token, user: { name: user.name, role: user.role, employeeId: user.employeeId } },
       { status: 200 }
     );
   } catch (error) {

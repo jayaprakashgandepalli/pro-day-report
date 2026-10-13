@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(
-      { message: 'Login successful', user: { name: student.studentName, role: 'STUDENT' } },
+      { message: 'Login successful', token, user: { name: student.studentName, role: 'STUDENT', id: student.id, phone: student.phone } },
       { status: 200 }
     );
   } catch (error) {

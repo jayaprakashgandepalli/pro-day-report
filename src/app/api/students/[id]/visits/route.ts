@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken, getAuthToken } from '@/lib/auth';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
+    const token = await getAuthToken(req, 'auth_token');
 
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -34,8 +32,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
+    const token = await getAuthToken(req, 'auth_token');
 
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
