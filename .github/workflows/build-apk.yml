@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Flutter Android APK
 
 on:
   push:
@@ -7,43 +7,65 @@ on:
       - master
   workflow_dispatch: # Allows manual triggering from GitHub UI
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build APK
+    name: Build Flutter APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
       - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '21'
+          distribution: 'temurin'
+          java-version: '17'
 
-      - name: Install NPM Dependencies
-        run: npm ci || npm install
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
 
-      - name: Sync Capacitor
-        run: npx cap sync android
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./android/gradlew
-
-      - name: Build Debug APK
+      - name: Install Flutter Dependencies
         run: |
-          cd android
-          ./gradlew assembleDebug
+          cd mobile_app
+          flutter pub get
+
+      - name: Build Android Release APK
+        run: |
+          cd mobile_app
+          flutter build apk --release
+
+      - name: Copy & Rename APK
+        run: |
+          cp mobile_app/build/app/outputs/flutter-apk/app-release.apk PRO_Day_Report.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PRO_Day_Report_App
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: PRO_Day_Report_Flutter_APK
+          path: PRO_Day_Report.apk
+          retention-days: 30
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest-apk
+          name: PRO Day Report - Latest Mobile App
+          body: |
+            ## 📱 PRO Day Report Mobile App (Flutter)
+            - ⚡ **Zero-latency offline caching** & Auto sync
+            - 💬 **Dynamic WhatsApp Templates** with custom names & Smart tags
+            - 📄 **4-Page College Pamphlet** instant sharing
+            - 🏫 **Employee Profile College Name Integration**
+            
+            👉 **డౌన్‌లోడ్:** కింద ఉన్న `PRO_Day_Report.apk` ఫైల్ పై క్లిక్ చేసి నేరుగా మీ ఆండ్రాయిడ్ మొబైల్ లో ఇన్‌స్టాల్ చేసుకోండి.
+          files: PRO_Day_Report.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
