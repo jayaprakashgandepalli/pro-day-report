@@ -15,7 +15,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isPublicPage = request.nextUrl.pathname === '/' || request.nextUrl.pathname === '/terms-and-conditions';
+  const isPublicPage = request.nextUrl.pathname === '/' || 
+                       request.nextUrl.pathname === '/terms-and-conditions' ||
+                       request.nextUrl.pathname.startsWith('/pamphlet');
 
   if (!token && !studentToken && !isAuthPage && !isPublicPage) {
     return NextResponse.redirect(new URL('/login', request.url));
