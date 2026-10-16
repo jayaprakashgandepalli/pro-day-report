@@ -125,7 +125,60 @@ export default function AgmDashboardPage() {
     : 0;
 
   return (
-    <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div className="agm-page-container">
+      <style dangerouslySetInnerHTML={{__html: `
+        .agm-page-container {
+          padding: 1.5rem 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+          max-width: 1440px;
+          margin: 0 auto;
+        }
+        .agm-hero-stats {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.25rem;
+        }
+        .agm-kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          gap: 1rem;
+        }
+        .agm-modal-card {
+          background-color: #ffffff;
+          border-radius: 18px;
+          width: 96%;
+          max-width: 1380px;
+          max-height: 94vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4);
+          overflow: hidden;
+        }
+        @media (max-width: 767px) {
+          .agm-page-container {
+            padding: 0.85rem 0.75rem !important;
+            gap: 1rem !important;
+          }
+          .agm-hero-stats {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+          .agm-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+          .agm-modal-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+          }
+        }
+      `}} />
       
       {/* 1. Header Banner */}
       <div style={{
@@ -271,7 +324,7 @@ export default function AgmDashboardPage() {
         </div>
 
         {/* 4 Hero Counters */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+        <div className="agm-hero-stats">
           <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
             <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
               10th Pool Strength
@@ -340,11 +393,7 @@ export default function AgmDashboardPage() {
       </div>
 
       {/* 3. Executive KPI Cards Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: '1rem',
-      }}>
+      <div className="agm-kpi-grid">
         {/* KPI 1: My Team */}
         <div style={{
           backgroundColor: '#ffffff',

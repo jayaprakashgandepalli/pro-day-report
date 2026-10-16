@@ -87,14 +87,24 @@ export default function AgmReportsPage() {
     : 0;
 
   return (
-    <div style={{ padding: '2rem 1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div className="agm-reports-container">
       <style dangerouslySetInnerHTML={{__html: `
+        .agm-reports-container {
+          padding: 2rem 1.5rem;
+          max-width: 1440px;
+          margin: 0 auto;
+        }
+        @media (max-width: 767px) {
+          .agm-reports-container {
+            padding: 0.85rem 0.75rem !important;
+          }
+        }
         @media print {
           body {
             background: #fff !important;
             color: #000 !important;
           }
-          .no-print, .agm-sidebar, .agm-mobile-header, nav, button {
+          .no-print, .agm-sidebar, .agm-mobile-header, .agm-bottom-nav, nav, button {
             display: none !important;
           }
           .print-only {

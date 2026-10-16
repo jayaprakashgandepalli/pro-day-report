@@ -66,7 +66,31 @@ function AgmStudentsContent() {
   };
 
   return (
-    <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div className="agm-page-container">
+      <style dangerouslySetInnerHTML={{__html: `
+        .agm-page-container {
+          padding: 1.5rem 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+          max-width: 1440px;
+          margin: 0 auto;
+        }
+        @media (max-width: 767px) {
+          .agm-page-container {
+            padding: 0.85rem 0.75rem !important;
+            gap: 1rem !important;
+          }
+          .agm-filter-box {
+            padding: 0.85rem 1rem !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+          .agm-filter-box > div {
+            min-width: 100% !important;
+          }
+        }
+      `}} />
       
       {/* Header Banner */}
       <div style={{

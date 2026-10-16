@@ -56,7 +56,36 @@ export default function AgmSchoolsPage() {
   const overallCoverage = totalStrength > 0 ? Math.round((totalCollected / totalStrength) * 100) : 0;
 
   return (
-    <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
+    <div className="agm-page-container">
+      <style dangerouslySetInnerHTML={{__html: `
+        .agm-page-container {
+          padding: 1.5rem 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+          max-width: 1440px;
+          margin: 0 auto;
+        }
+        .agm-schools-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+          gap: 1.25rem;
+        }
+        @media (max-width: 767px) {
+          .agm-page-container {
+            padding: 0.85rem 0.75rem !important;
+            gap: 1rem !important;
+          }
+          .agm-hero-counters {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+          .agm-schools-grid {
+            grid-template-columns: 1fr !important;
+            gap: 1rem !important;
+          }
+        }
+      `}} />
       
       {/* Header Banner */}
       <div style={{
@@ -117,11 +146,7 @@ export default function AgmSchoolsPage() {
       </div>
 
       {/* Aggregate KPI Strip */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '1rem',
-      }}>
+      <div className="agm-hero-counters">
         <div style={{ backgroundColor: '#fff', padding: '1.25rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B' }}>TOTAL ALLOCATED SCHOOLS</div>
           <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F2B47', marginTop: '0.25rem' }}>{catchmentSchools.length}</div>
@@ -162,11 +187,7 @@ export default function AgmSchoolsPage() {
       </div>
 
       {/* Schools Cards Grid */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '1.25rem',
-      }}>
+      <div className="agm-schools-grid">
         {filtered.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', padding: '3rem', backgroundColor: '#fff', borderRadius: '16px', textAlign: 'center', color: '#94A3B8' }}>
             No schools found matching your search.

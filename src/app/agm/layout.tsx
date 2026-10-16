@@ -1,4 +1,5 @@
 import AgmSidebar from './AgmSidebar';
+import AgmBottomNav from '@/components/AgmBottomNav';
 
 export const metadata = {
   title: 'AGM Portal | Operations & Team Oversight',
@@ -11,11 +12,36 @@ export default function AgmLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#F8FAFC' }}>
-      <AgmSidebar />
-      <main style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-        {children}
-      </main>
-    </div>
+    <>
+      <style dangerouslySetInnerHTML={{__html: `
+        .agm-layout-root {
+          display: flex;
+          min-height: 100vh;
+          background-color: #F8FAFC;
+        }
+        .agm-layout-main {
+          flex: 1;
+          min-width: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        @media (max-width: 767px) {
+          .agm-layout-root {
+            flex-direction: column;
+          }
+          .agm-layout-main {
+            padding-bottom: 74px !important;
+          }
+        }
+      `}} />
+
+      <div className="agm-layout-root">
+        <AgmSidebar />
+        <main className="agm-layout-main">
+          {children}
+        </main>
+        <AgmBottomNav />
+      </div>
+    </>
   );
 }
