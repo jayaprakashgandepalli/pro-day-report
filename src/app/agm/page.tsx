@@ -147,6 +147,11 @@ export default function AgmDashboardPage() {
           box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4);
           overflow: hidden;
         }
+        .agm-quick-tiles {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 0.75rem;
+        }
         @media (max-width: 1024px) {
           .agm-hero-stats {
             grid-template-columns: repeat(2, 1fr);
@@ -158,6 +163,10 @@ export default function AgmDashboardPage() {
             gap: 0.85rem !important;
           }
           .agm-hero-stats {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.65rem !important;
+          }
+          .agm-quick-tiles {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 0.65rem !important;
           }
@@ -272,94 +281,81 @@ export default function AgmDashboardPage() {
         </div>
       </div>
 
-      {/* Quick Action Navigation: My Team & Team Report */}
+      {/* Quick Action Single Icons: My Team & Team Report */}
       <div className="agm-quick-tiles" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '1rem',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '0.75rem',
+        marginTop: '0.25rem',
       }}>
-        {/* Tile 1: My Team */}
+        {/* Icon 1: My Team */}
         <Link
           href="/agm/team"
           style={{
             backgroundColor: '#ffffff',
-            borderRadius: '16px',
+            borderRadius: '14px',
             border: '1px solid #e2e8f0',
-            padding: '1.25rem',
+            padding: '0.85rem 1rem',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
+            gap: '0.65rem',
             textDecoration: 'none',
-            boxShadow: '0 4px 16px -2px rgba(15, 43, 71, 0.05)',
+            boxShadow: '0 2px 8px -1px rgba(15, 43, 71, 0.05)',
             transition: 'all 0.2s ease',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              width: '50px',
-              height: '50px',
-              borderRadius: '14px',
-              backgroundColor: '#EFF6FF',
-              color: '#2563EB',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <Users size={24} />
-            </div>
-            <div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F2B47' }}>
-                My Team
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '0.2rem' }}>
-                {kpis.teamCount} Members ({kpis.fieldStaffCount} Field, {kpis.telecallerCount} Telecallers)
-              </div>
-            </div>
+          <div style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            backgroundColor: '#EFF6FF',
+            color: '#2563EB',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <Users size={20} />
           </div>
-          <ChevronRight size={20} color="#94A3B8" />
+          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0F2B47' }}>
+            My Team
+          </span>
         </Link>
 
-        {/* Tile 2: Team Report */}
+        {/* Icon 2: Team Report */}
         <Link
           href="/agm/reports"
           style={{
             backgroundColor: '#ffffff',
-            borderRadius: '16px',
+            borderRadius: '14px',
             border: '1px solid #e2e8f0',
-            padding: '1.25rem',
+            padding: '0.85rem 1rem',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'center',
+            gap: '0.65rem',
             textDecoration: 'none',
-            boxShadow: '0 4px 16px -2px rgba(15, 43, 71, 0.05)',
+            boxShadow: '0 2px 8px -1px rgba(15, 43, 71, 0.05)',
             transition: 'all 0.2s ease',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{
-              width: '50px',
-              height: '50px',
-              borderRadius: '14px',
-              backgroundColor: '#ECFDF5',
-              color: '#059669',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <FileText size={24} />
-            </div>
-            <div>
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F2B47' }}>
-                Team Report
-              </div>
-              <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '0.2rem' }}>
-                Cluster Performance & Coverage Audit
-              </div>
-            </div>
+          <div style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            backgroundColor: '#ECFDF5',
+            color: '#059669',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <FileText size={20} />
           </div>
-          <ChevronRight size={20} color="#94A3B8" />
+          <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0F2B47' }}>
+            Team Report
+          </span>
         </Link>
       </div>
 
