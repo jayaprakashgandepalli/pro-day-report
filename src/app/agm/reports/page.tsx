@@ -205,7 +205,7 @@ export default function AgmReportsPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
           {staffList.map((member: any) => {
             const isField = member.role !== 'TELECALLER';
 
@@ -215,58 +215,58 @@ export default function AgmReportsPage() {
                 href={`/agm/reports/staff?staffId=${member.employeeId}`}
                 style={{
                   backgroundColor: '#ffffff',
-                  borderRadius: '14px',
+                  borderRadius: '12px',
                   border: '1px solid #e2e8f0',
-                  padding: '1.15rem 1.25rem',
+                  padding: '0.55rem 0.85rem',
                   textDecoration: 'none',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                   transition: 'all 0.15s ease',
-                  flexWrap: 'wrap',
-                  gap: '0.85rem',
+                  gap: '0.65rem',
                 }}
               >
                 {/* Left: Avatar & Info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0 }}>
                   <div style={{
-                    width: '46px',
-                    height: '46px',
-                    borderRadius: '12px',
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '9px',
                     backgroundColor: isField ? '#ecfdf5' : '#f3e8ff',
                     border: `1px solid ${isField ? '#a7f3d0' : '#e9d5ff'}`,
                     color: isField ? '#047857' : '#7c3aed',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontWeight: 900,
-                    fontSize: '1.2rem',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
                     flexShrink: 0,
                   }}>
                     {member.name ? member.name.charAt(0).toUpperCase() : 'U'}
                   </div>
 
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F2B47' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F2B47', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {member.name}
                       </span>
                       <span style={{
                         backgroundColor: isField ? '#ecfdf5' : '#f3e8ff',
                         color: isField ? '#047857' : '#7c3aed',
                         border: `1px solid ${isField ? '#a7f3d0' : '#e9d5ff'}`,
-                        fontSize: '0.7rem',
+                        fontSize: '0.65rem',
                         fontWeight: 700,
-                        padding: '0.1rem 0.45rem',
-                        borderRadius: '6px',
+                        padding: '0.05rem 0.35rem',
+                        borderRadius: '5px',
+                        whiteSpace: 'nowrap',
                       }}>
-                        {isField ? '🏃 Field Staff' : '🎧 Telecaller'}
+                        {isField ? '🏃 Field' : '🎧 Tele'}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <span>Login ID: <strong style={{ color: '#0F2B47' }}>{member.employeeId}</strong></span>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.1rem', display: 'flex', gap: '0.45rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span>Login: <strong style={{ color: '#0F2B47' }}>{member.employeeId}</strong></span>
                       {member.schools && (
                         <span>• 🏫 <strong>{member.schools.length}</strong> Schools</span>
                       )}
@@ -275,45 +275,44 @@ export default function AgmReportsPage() {
                 </div>
 
                 {/* Right: Metrics & Arrow */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: 'auto' }}>
-                  {/* Metric Badges */}
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <div style={{
-                      backgroundColor: '#f0fdf4',
-                      border: '1px solid #bbf7d0',
-                      borderRadius: '8px',
-                      padding: '0.35rem 0.65rem',
-                      textAlign: 'center',
-                    }}>
-                      <div style={{ fontSize: '0.66rem', color: '#16a34a', fontWeight: 700, textTransform: 'uppercase' }}>
-                        Doorsteps
-                      </div>
-                      <div style={{ fontSize: '0.98rem', fontWeight: 900, color: '#15803d' }}>
-                        {member.doorstepDone || 0}
-                      </div>
-                    </div>
-
-                    <div style={{
-                      backgroundColor: '#faf5ff',
-                      border: '1px solid #e9d5ff',
-                      borderRadius: '8px',
-                      padding: '0.35rem 0.65rem',
-                      textAlign: 'center',
-                    }}>
-                      <div style={{ fontSize: '0.66rem', color: '#7c3aed', fontWeight: 700, textTransform: 'uppercase' }}>
-                        Admitted
-                      </div>
-                      <div style={{ fontSize: '0.98rem', fontWeight: 900, color: '#6b21a8' }}>
-                        {member.admitted || 0}
-                      </div>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                  {/* Compact Doorstep Pill */}
+                  <div style={{
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '6px',
+                    padding: '0.2rem 0.45rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                  }}>
+                    <span style={{ fontSize: '0.65rem', color: '#16a34a', fontWeight: 700 }}>DOOR:</span>
+                    <strong style={{ fontSize: '0.85rem', color: '#15803d', fontWeight: 900 }}>
+                      {member.doorstepDone || 0}
+                    </strong>
                   </div>
 
-                  {/* Forward Arrow Button */}
+                  {/* Compact Admitted Pill */}
                   <div style={{
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '10px',
+                    backgroundColor: '#faf5ff',
+                    border: '1px solid #e9d5ff',
+                    borderRadius: '6px',
+                    padding: '0.2rem 0.45rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                  }}>
+                    <span style={{ fontSize: '0.65rem', color: '#7c3aed', fontWeight: 700 }}>ADM:</span>
+                    <strong style={{ fontSize: '0.85rem', color: '#6b21a8', fontWeight: 900 }}>
+                      {member.admitted || 0}
+                    </strong>
+                  </div>
+
+                  {/* Forward Arrow */}
+                  <div style={{
+                    width: '26px',
+                    height: '26px',
+                    borderRadius: '7px',
                     backgroundColor: '#047857',
                     color: '#ffffff',
                     display: 'flex',
@@ -321,7 +320,7 @@ export default function AgmReportsPage() {
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}>
-                    <ChevronRight size={18} />
+                    <ChevronRight size={14} />
                   </div>
                 </div>
               </Link>
