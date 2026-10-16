@@ -76,6 +76,7 @@ export async function GET(req: NextRequest) {
 
     // 4. Fetch all visits for activity tracking
     const studentIds = teamStudents.map(s => s.id);
+    const studentMap = new Map(teamStudents.map(s => [s.id, s]));
     const teamVisits = await prisma.visit.findMany({
       where: {
         OR: [
@@ -219,7 +220,25 @@ export async function GET(req: NextRequest) {
       );
 
       // Build date-wise activity map
-      const activityMap = new Map<string, { date: string; dayLabel: string; newLeads: number; doorsteps: number; admissions: number; notes: string[] }>();
+      const activityMap = new Map<string, {
+        date: string;
+        dayLabel: string;
+        newLeads: number;
+        doorsteps: number;
+        admissions: number;
+        notes: string[];
+        visitsList: Array<{
+          id: string;
+          studentName: string;
+          phone?: string;
+          village?: string;
+          mandal?: string;
+          schoolName?: string;
+          remarks?: string;
+          leadStatus?: string;
+          type: 'VISIT' | 'ADMISSION' | 'NEW_LEAD';
+        }>;
+      }>();
 
       // Populate from students created
       for (const st of myStudents) {
@@ -233,12 +252,24 @@ export async function GET(req: NextRequest) {
             doorsteps: 0,
             admissions: 0,
             notes: [],
+            visitsList: [],
           });
         }
         const item = activityMap.get(dStr)!;
         item.newLeads += 1;
         if ((st.leadStatus || '').toLowerCase() === 'admitted') {
           item.admissions += 1;
+          item.visitsList.push({
+            id: `adm-${st.id}`,
+            studentName: st.studentName,
+            phone: st.phone || '',
+            village: st.village || '',
+            mandal: st.mandal || '',
+            schoolName: st.schoolName || '',
+            remarks: 'Joined / Admitted',
+            leadStatus: 'Admitted',
+            type: 'ADMISSION',
+          });
         }
       }
 
@@ -255,6 +286,7 @@ export async function GET(req: NextRequest) {
             doorsteps: 0,
             admissions: 0,
             notes: [],
+            visitsList: [],
           });
         }
         const item = activityMap.get(dStr)!;
@@ -262,6 +294,19 @@ export async function GET(req: NextRequest) {
         if (v.remarks && !item.notes.includes(v.remarks)) {
           item.notes.push(v.remarks);
         }
+
+        const st = studentMap.get(v.studentId);
+        item.visitsList.push({
+          id: v.id,
+          studentName: st?.studentName || 'Student Visit',
+          phone: st?.phone || '',
+          village: st?.village || '',
+          mandal: st?.mandal || '',
+          schoolName: st?.schoolName || '',
+          remarks: v.remarks || 'Village doorstep visit completed',
+          leadStatus: st?.leadStatus || '',
+          type: 'VISIT',
+        });
       }
 
       const dailyActivity = Array.from(activityMap.values()).sort(
