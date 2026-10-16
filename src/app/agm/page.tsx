@@ -272,162 +272,95 @@ export default function AgmDashboardPage() {
         </div>
       </div>
 
-      {/* Bottom Grid: Recent Doorsteps & Catchment Schools */}
-      <div style={{
+      {/* Quick Action Navigation: My Team & Team Report */}
+      <div className="agm-quick-tiles" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-        gap: '1.5rem',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: '1rem',
       }}>
-        {/* Card A: Recent Doorstep Visits Live Feed */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          padding: '1.5rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <CheckCircle2 size={16} />
-              </div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0F2B47' }}>
-                Recent Team Doorsteps
-              </h3>
+        {/* Tile 1: My Team */}
+        <Link
+          href="/agm/team"
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            padding: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            textDecoration: 'none',
+            boxShadow: '0 4px 16px -2px rgba(15, 43, 71, 0.05)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '14px',
+              backgroundColor: '#EFF6FF',
+              color: '#2563EB',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Users size={24} />
             </div>
-            <Link
-              href="/agm/students?doorstep=COMPLETED"
-              style={{ fontSize: '0.78rem', color: '#2563EB', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-            >
-              <span>View All</span>
-              <ChevronRight size={13} />
-            </Link>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {recentVisits.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#94A3B8', fontSize: '0.85rem' }}>
-                No doorstep visits recorded yet.
+            <div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F2B47' }}>
+                My Team
               </div>
-            ) : (
-              recentVisits.map((v, i) => (
-                <div key={i} style={{
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0F2B47' }}>
-                      {v.studentName}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', gap: '0.5rem', marginTop: '0.15rem' }}>
-                      <span>🏫 {v.schoolName}</span>
-                      <span>•</span>
-                      <span>📍 {v.village}</span>
-                    </div>
-                    {v.remarks && (
-                      <div style={{ fontSize: '0.72rem', color: '#475569', fontStyle: 'italic', marginTop: '0.2rem' }}>
-                        &quot;{v.remarks}&quot;
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{
-                      display: 'inline-block',
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      backgroundColor: '#DCFCE7',
-                      color: '#15803D',
-                      padding: '0.15rem 0.5rem',
-                      borderRadius: '9999px',
-                    }}>
-                      Visited
-                    </span>
-                    <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '0.2rem' }}>
-                      by {v.staffName}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Card B: Catchment Schools Coverage Summary */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '16px',
-          border: '1px solid #e2e8f0',
-          padding: '1.5rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <School size={16} />
+              <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '0.2rem' }}>
+                {kpis.teamCount} Members ({kpis.fieldStaffCount} Field, {kpis.telecallerCount} Telecallers)
               </div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0F2B47' }}>
-                Catchment Schools Coverage
-              </h3>
             </div>
-            <Link
-              href="/agm/schools"
-              style={{ fontSize: '0.78rem', color: '#2563EB', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-            >
-              <span>View All ({catchmentSchools.length})</span>
-              <ChevronRight size={13} />
-            </Link>
           </div>
+          <ChevronRight size={20} color="#94A3B8" />
+        </Link>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {catchmentSchools.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#94A3B8', fontSize: '0.85rem' }}>
-                No schools assigned under this AGM&apos;s team yet.
+        {/* Tile 2: Team Report */}
+        <Link
+          href="/agm/reports"
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            padding: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            textDecoration: 'none',
+            boxShadow: '0 4px 16px -2px rgba(15, 43, 71, 0.05)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '14px',
+              backgroundColor: '#ECFDF5',
+              color: '#059669',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <FileText size={24} />
+            </div>
+            <div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F2B47' }}>
+                Team Report
               </div>
-            ) : (
-              catchmentSchools.slice(0, 5).map((sch, i) => (
-                <div key={i} style={{
-                  padding: '0.75rem 1rem',
-                  borderRadius: '10px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0F2B47' }}>
-                      {sch.name}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B', display: 'flex', gap: '0.5rem', marginTop: '0.15rem' }}>
-                      <span>📍 {sch.mandal || 'N/A'}</span>
-                      <span>•</span>
-                      <span>10th Pool: <strong>{sch.strength}</strong></span>
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#2563EB', marginTop: '0.2rem', fontWeight: 600 }}>
-                      Assigned to: {sch.staffAssigned?.join(', ') || 'Unassigned'}
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#047857' }}>
-                      {sch.collectedCount} Leads
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#DC2626', fontWeight: 600, marginTop: '0.1rem' }}>
-                      {sch.remainingCount} Pending
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+              <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '0.2rem' }}>
+                Cluster Performance & Coverage Audit
+              </div>
+            </div>
           </div>
-        </div>
+          <ChevronRight size={20} color="#94A3B8" />
+        </Link>
       </div>
 
       {/* FULL-SCREEN 1380px STAFF PROGRESS REPORT MODAL */}
