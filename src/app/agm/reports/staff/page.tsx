@@ -34,7 +34,7 @@ function StaffReportDetailContent() {
 
   const [fromDate, setFromDate] = useState<string>(getTodayStr());
   const [toDate, setToDate] = useState<string>(getTodayStr());
-  const [activePreset, setActivePreset] = useState<'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'ALL'>('TODAY');
+  const [activePreset, setActivePreset] = useState<'YESTERDAY' | 'WEEK' | 'MONTH' | 'ALL' | ''>('');
 
   const fetchReportData = async () => {
     try {
@@ -55,15 +55,12 @@ function StaffReportDetailContent() {
     fetchReportData();
   }, []);
 
-  const handlePreset = (preset: 'TODAY' | 'YESTERDAY' | 'WEEK' | 'MONTH' | 'ALL') => {
+  const handlePreset = (preset: 'YESTERDAY' | 'WEEK' | 'MONTH' | 'ALL') => {
     setActivePreset(preset);
     const now = new Date();
     const today = now.toISOString().split('T')[0];
 
-    if (preset === 'TODAY') {
-      setFromDate(today);
-      setToDate(today);
-    } else if (preset === 'YESTERDAY') {
+    if (preset === 'YESTERDAY') {
       const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
       const yStr = y.toISOString().split('T')[0];
       setFromDate(yStr);
@@ -283,34 +280,15 @@ function StaffReportDetailContent() {
         marginBottom: '0.85rem',
         boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
       }}>
-        {/* Row 1: Header + Reset */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <Calendar size={16} color="#047857" />
-            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F2B47' }}>
-              Date Filter
-            </span>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handlePreset('TODAY')}
-            style={{
-              padding: '0.25rem 0.55rem',
-              backgroundColor: '#f1f5f9',
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              fontSize: '0.72rem',
-              color: '#475569',
-              cursor: 'pointer',
-              fontWeight: 700,
-            }}
-          >
-            Reset to Today
-          </button>
+        {/* Row 1: Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.65rem' }}>
+          <Calendar size={16} color="#047857" />
+          <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F2B47' }}>
+            Date to Date Filter
+          </span>
         </div>
 
-        {/* Row 2: Preset Buttons (horizontal scrollable on mobile) */}
+        {/* Row 2: Preset Buttons */}
         <div style={{
           display: 'flex',
           gap: '0.35rem',
@@ -321,7 +299,6 @@ function StaffReportDetailContent() {
           scrollbarWidth: 'none',
         }}>
           {[
-            { id: 'TODAY' as const, label: 'Today' },
             { id: 'YESTERDAY' as const, label: 'Yesterday' },
             { id: 'WEEK' as const, label: 'Last 7 Days' },
             { id: 'MONTH' as const, label: 'This Month' },
