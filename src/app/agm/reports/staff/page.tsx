@@ -277,69 +277,98 @@ function StaffReportDetailContent() {
       {/* DATE-TO-DATE FILTER SECTION */}
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '16px',
+        borderRadius: '12px',
         border: '1px solid #e2e8f0',
-        padding: '1.25rem',
-        marginBottom: '1.25rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        padding: '0.85rem 1rem',
+        marginBottom: '0.85rem',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0F2B47', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <Calendar size={17} color="#047857" /> Date to Date Filter
-            </h3>
-            <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
-              Select custom date range to see date-wise village visits & admissions
-            </p>
+        {/* Row 1: Header + Reset */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Calendar size={16} color="#047857" />
+            <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F2B47' }}>
+              Date Filter
+            </span>
           </div>
 
-          {/* Quick Presets */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-            {[
-              { id: 'TODAY' as const, label: 'Today' },
-              { id: 'YESTERDAY' as const, label: 'Yesterday' },
-              { id: 'WEEK' as const, label: 'Last 7 Days' },
-              { id: 'MONTH' as const, label: 'This Month' },
-              { id: 'ALL' as const, label: 'All Dates' },
-            ].map(p => {
-              const active = activePreset === p.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => handlePreset(p.id)}
-                  style={{
-                    padding: '0.35rem 0.65rem',
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    border: active ? '1px solid #047857' : '1px solid #cbd5e1',
-                    backgroundColor: active ? '#047857' : '#f8fafc',
-                    color: active ? '#ffffff' : '#334155',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            onClick={() => handlePreset('TODAY')}
+            style={{
+              padding: '0.25rem 0.55rem',
+              backgroundColor: '#f1f5f9',
+              border: '1px solid #cbd5e1',
+              borderRadius: '6px',
+              fontSize: '0.72rem',
+              color: '#475569',
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            Reset to Today
+          </button>
         </div>
 
-        {/* From-To Date Inputs */}
+        {/* Row 2: Preset Buttons (horizontal scrollable on mobile) */}
         <div style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '0.85rem',
-          backgroundColor: '#f8fafc',
-          padding: '0.75rem 1rem',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          flexWrap: 'wrap',
+          gap: '0.35rem',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: '0.25rem',
+          marginBottom: '0.65rem',
+          scrollbarWidth: 'none',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569' }}>FROM:</span>
+          {[
+            { id: 'TODAY' as const, label: 'Today' },
+            { id: 'YESTERDAY' as const, label: 'Yesterday' },
+            { id: 'WEEK' as const, label: 'Last 7 Days' },
+            { id: 'MONTH' as const, label: 'This Month' },
+            { id: 'ALL' as const, label: 'All Dates' },
+          ].map(p => {
+            const active = activePreset === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handlePreset(p.id)}
+                style={{
+                  padding: '0.3rem 0.65rem',
+                  borderRadius: '7px',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                  border: active ? '1px solid #047857' : '1px solid #e2e8f0',
+                  backgroundColor: active ? '#047857' : '#f8fafc',
+                  color: active ? '#ffffff' : '#475569',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Row 3: From and To Date Inputs (Balanced 2-column grid) */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '0.5rem',
+          marginBottom: '0.65rem',
+        }}>
+          <div style={{
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '0.4rem 0.55rem',
+          }}>
+            <div style={{ fontSize: '0.66rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
+              From Date
+            </div>
             <input
               type="date"
               value={fromDate}
@@ -348,19 +377,27 @@ function StaffReportDetailContent() {
                 setActivePreset('ALL');
               }}
               style={{
-                padding: '0.4rem 0.65rem',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
                 fontSize: '0.82rem',
-                backgroundColor: '#ffffff',
+                fontWeight: 700,
                 color: '#0F2B47',
-                fontWeight: 600,
+                outline: 'none',
+                padding: '0',
               }}
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-            <span style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569' }}>TO:</span>
+          <div style={{
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: '8px',
+            padding: '0.4rem 0.55rem',
+          }}>
+            <div style={{ fontSize: '0.66rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
+              To Date
+            </div>
             <input
               type="date"
               value={toDate}
@@ -369,41 +406,42 @@ function StaffReportDetailContent() {
                 setActivePreset('ALL');
               }}
               style={{
-                padding: '0.4rem 0.65rem',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
+                width: '100%',
+                border: 'none',
+                background: 'transparent',
                 fontSize: '0.82rem',
-                backgroundColor: '#ffffff',
+                fontWeight: 700,
                 color: '#0F2B47',
-                fontWeight: 600,
+                outline: 'none',
+                padding: '0',
               }}
             />
           </div>
+        </div>
 
-          {/* Reset button */}
-          <button
-            type="button"
-            onClick={() => handlePreset('TODAY')}
-            style={{
-              padding: '0.4rem 0.75rem',
-              backgroundColor: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '8px',
-              fontSize: '0.76rem',
-              color: '#64748b',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            Reset to Today
-          </button>
-
-          {/* Filtered Range Totals */}
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.85rem', fontSize: '0.82rem', fontWeight: 800, flexWrap: 'wrap' }}>
-            <span style={{ color: '#16a34a' }}>Visits: {rangeDoorsteps}</span>
-            <span style={{ color: '#7c3aed' }}>Admissions: {rangeAdmissions}</span>
-            <span style={{ color: '#2563eb' }}>Data: {rangeNewLeads}</span>
-          </div>
+        {/* Row 4: Summary Result Stats */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+          padding: '0.45rem 0.6rem',
+          fontSize: '0.78rem',
+          fontWeight: 800,
+        }}>
+          <span style={{ color: '#16a34a' }}>
+            Visits: <strong>{rangeDoorsteps}</strong>
+          </span>
+          <span style={{ color: '#94a3b8' }}>•</span>
+          <span style={{ color: '#7c3aed' }}>
+            Admissions: <strong>{rangeAdmissions}</strong>
+          </span>
+          <span style={{ color: '#94a3b8' }}>•</span>
+          <span style={{ color: '#2563eb' }}>
+            Data: <strong>{rangeNewLeads}</strong>
+          </span>
         </div>
       </div>
 
