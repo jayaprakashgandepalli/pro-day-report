@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { UserPlus, Pencil, Trash2, X, Check, ToggleLeft, ToggleRight, Settings } from 'lucide-react';
 
 export default function AdminUsersPage() {
@@ -237,13 +238,19 @@ export default function AdminUsersPage() {
       <form className="card" onSubmit={handleAddUser}>
         <h2 style={{ marginBottom: '1rem', fontSize: '1.1rem' }}>Create New User</h2>
         
+        <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', fontSize: '0.875rem', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>🏫 Need to create or manage a <strong>College / Institution</strong>?</span>
+          <Link href="/admin/colleges" style={{ color: '#047857', fontWeight: 700, textDecoration: 'underline' }}>
+            Go to Colleges Page →
+          </Link>
+        </div>
+
         <div className="form-group">
           <label className="form-label">Role</label>
           <select className="form-control" value={role} onChange={(e) => setRole(e.target.value)}>
             <option value="EMPLOYEE">Employee</option>
             <option value="TELECALLER">Telecaller</option>
             <option value="ADMIN">Admin</option>
-            <option value="COLLEGE">College</option>
           </select>
         </div>
 

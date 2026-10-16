@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       employeeId: user.employeeId,
       name: user.name,
       role: user.role,
+      collegeId: user.collegeId || null,
     });
 
     const cookieStore = await cookies();

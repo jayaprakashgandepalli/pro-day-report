@@ -22,6 +22,11 @@ model User {
   
   // Field for TELECALLER role to restrict visibility to specific employees
   assignedEmployees String[] @default([])
+  assignedAgms      String[] @default([])
+  
+  // Location & School assignments for Field Employees
+  assignedMandals   String[] @default([])
+  assignedSchools   String[] @default([])
   
   lastViewedTelecallerUpdatesAt DateTime?
   createdAt        DateTime  @default(now())
@@ -32,6 +37,9 @@ model User {
   keyPersons       KeyPerson[] @relation("EmployeeKeyPersons")
   relativeContacts RelativeContact[] @relation("EmployeeRelatives")
   tasks            EmployeeTask[] @relation("EmployeeTasks")
+  
+  collegeId        String?
+  college          College?  @relation(fields: [collegeId], references: [id], onDelete: SetNull)
 }
 
 model ConfigValue {
@@ -52,8 +60,12 @@ model ConfigValue {
   telecallerUpdateDetails String?
   createdAt DateTime      @default(now())
 
+  collegeId       String?
+  college         College?      @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
   @@index([type])
   @@index([parentId])
+  @@index([collegeId])
 }
 
 model Student {
@@ -111,8 +123,12 @@ model Student {
   testResponses      StudentTestResponse[]
   assessmentReport   AssessmentReport?
 
+  collegeId          String?
+  college            College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+
   @@index([schoolName])
   @@index([mandal])
+  @@index([collegeId])
   @@index([employeeId])
   @@index([village])
   @@index([district])
@@ -293,3 +309,31 @@ model EmployeeTask {
   @@index([endDate])
 }
 
+model College {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  name            String
+  logo            String?
+  phone           String?
+  email           String?
+  address         String?
+  contactPerson   String?
+  isActive          Boolean   @default(true)
+  maxStudents       Int       @default(5000)
+
+  // Subscription & Permission Limits
+  maxAgms           Int       @default(2)
+  maxTelecallers    Int       @default(5)
+  maxEmployees      Int       @default(10)
+  subscriptionPlan  String    @default("YEARLY") // MONTHLY, QUARTERLY, HALF_YEARLY, YEARLY
+  subscriptionPrice Float     @default(0)
+  subscriptionStart DateTime  @default(now())
+  subscriptionEnd   DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  users             User[]
+  students          Student[]
+  schools           ConfigValue[]
+}
