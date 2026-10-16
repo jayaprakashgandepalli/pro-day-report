@@ -98,6 +98,16 @@ export default function AgmReportsPage() {
           .agm-reports-container {
             padding: 0.85rem 0.75rem !important;
           }
+          .agm-report-header {
+            margin-bottom: 1rem !important;
+            gap: 0.75rem !important;
+          }
+          .agm-report-header h1 {
+            font-size: 1.25rem !important;
+          }
+          .agm-report-header p {
+            font-size: 0.8rem !important;
+          }
         }
         @media print {
           body {
@@ -124,7 +134,7 @@ export default function AgmReportsPage() {
       `}} />
 
       {/* Header Bar */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+      <div className="no-print agm-report-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0d9488', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
             <FileText size={16} />

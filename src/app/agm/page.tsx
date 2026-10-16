@@ -162,6 +162,9 @@ export default function AgmDashboardPage() {
             padding: 0.85rem 0.75rem !important;
             gap: 1rem !important;
           }
+          .agm-header-banner {
+            display: none !important;
+          }
           .agm-hero-stats {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 0.65rem !important;
@@ -180,8 +183,8 @@ export default function AgmDashboardPage() {
         }
       `}} />
       
-      {/* 1. Header Banner */}
-      <div style={{
+      {/* 1. Header Banner (Hidden on Mobile) */}
+      <div className="agm-header-banner" style={{
         backgroundColor: '#ffffff',
         padding: '1.5rem 1.75rem',
         borderRadius: '16px',

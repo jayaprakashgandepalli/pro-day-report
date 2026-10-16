@@ -84,11 +84,14 @@ export default function AgmSchoolsPage() {
             grid-template-columns: 1fr !important;
             gap: 1rem !important;
           }
+          .agm-header-banner {
+            display: none !important;
+          }
         }
       `}} />
       
       {/* Header Banner */}
-      <div style={{
+      <div className="agm-header-banner" style={{
         backgroundColor: '#ffffff',
         padding: '1.5rem 1.75rem',
         borderRadius: '16px',

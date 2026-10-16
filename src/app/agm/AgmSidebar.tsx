@@ -14,7 +14,8 @@ import {
   X,
   ShieldCheck,
   Building2,
-  ChevronRight
+  ChevronRight,
+  RefreshCw
 } from 'lucide-react';
 
 export default function AgmSidebar() {
@@ -129,14 +130,24 @@ export default function AgmSidebar() {
             </div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer' }}
-          title="Logout"
-        >
-          <LogOut size={20} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{ background: 'transparent', border: 'none', color: '#38bdf8', cursor: 'pointer', padding: '0.35rem' }}
+            title="Refresh"
+          >
+            <RefreshCw size={19} />
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', padding: '0.35rem' }}
+            title="Logout"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile Backdrop Overlay */}

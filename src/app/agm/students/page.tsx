@@ -81,6 +81,9 @@ function AgmStudentsContent() {
             padding: 0.85rem 0.75rem !important;
             gap: 1rem !important;
           }
+          .agm-header-banner {
+            display: none !important;
+          }
           .agm-filter-box {
             padding: 0.85rem 1rem !important;
             flex-direction: column !important;
@@ -92,8 +95,8 @@ function AgmStudentsContent() {
         }
       `}} />
       
-      {/* Header Banner */}
-      <div style={{
+      {/* Header Banner (Hidden on Mobile) */}
+      <div className="agm-header-banner" style={{
         backgroundColor: '#ffffff',
         padding: '1.5rem 1.75rem',
         borderRadius: '16px',

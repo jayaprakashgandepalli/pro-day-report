@@ -143,7 +143,7 @@ export default function AgmTeamPage() {
             gap: 1rem !important;
           }
           .agm-header-banner {
-            padding: 1rem 1.15rem !important;
+            display: none !important;
           }
           .agm-team-grid {
             grid-template-columns: 1fr !important;
