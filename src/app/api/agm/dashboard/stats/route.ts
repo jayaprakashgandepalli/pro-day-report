@@ -40,8 +40,6 @@ export async function GET(req: NextRequest) {
     });
 
     const staffIds = staffMembers.map(s => s.employeeId);
-
-    // If AGM itself created students, include them as well
     const allRelevantStaffIds = [...staffIds, agmUser.employeeId];
 
     // 3. Fetch all students under this team
@@ -58,6 +56,7 @@ export async function GET(req: NextRequest) {
         mandal: true,
         village: true,
         marks: true,
+        group: true,
         leadStatus: true,
         doorstepCompleted: true,
         studyInterestedAt: true,
@@ -75,48 +74,201 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // 4. Fetch Config values for school & mandal name mapping
+    // 4. Fetch all visits for activity tracking
+    const studentIds = teamStudents.map(s => s.id);
+    const teamVisits = await prisma.visit.findMany({
+      where: {
+        OR: [
+          { addedById: { in: allRelevantStaffIds } },
+          { studentId: { in: studentIds } },
+        ],
+      },
+      select: {
+        id: true,
+        studentId: true,
+        addedById: true,
+        visitDate: true,
+        remarks: true,
+        createdAt: true,
+      },
+      orderBy: { visitDate: 'desc' },
+    });
+
+    // 5. Fetch Config values for school & mandal hierarchy mapping
     const configs = await prisma.configValue.findMany({
       where: {
-        type: { in: ['SCHOOL', 'MANDAL', 'DISTRICT'] },
+        type: { in: ['SCHOOL', 'MANDAL', 'VILLAGE', 'DISTRICT'] },
       },
       select: {
         id: true,
         type: true,
         value: true,
         strength: true,
+        parentId: true,
         headmasterName: true,
         headmasterPhone: true,
+        grade: true,
       },
     });
 
     const configMap: Record<string, string> = {};
     const schoolStrengthMap: Record<string, number> = {};
     const schoolDetailsMap: Record<string, any> = {};
+    const villageMap = new Map<string, any>();
+    const mandalMap = new Map<string, string>();
 
     for (const c of configs) {
       configMap[c.id] = c.value;
-      if (c.type === 'SCHOOL') {
+      if (c.type === 'MANDAL') {
+        mandalMap.set(c.id, c.value);
+      } else if (c.type === 'VILLAGE') {
+        villageMap.set(c.id, c);
+      } else if (c.type === 'SCHOOL') {
         schoolStrengthMap[c.id] = c.strength || 0;
-        schoolStrengthMap[c.value] = c.strength || 0;
+        schoolStrengthMap[c.value.trim().toLowerCase()] = c.strength || 0;
         schoolDetailsMap[c.id] = c;
       }
     }
 
-    // 5. Aggregate KPIs per Staff Member
+    // Helper to resolve mandal name from school parent
+    const resolveMandalName = (schoolConf: any) => {
+      if (!schoolConf || !schoolConf.parentId) return 'General';
+      const parentId = schoolConf.parentId;
+      if (mandalMap.has(parentId)) return mandalMap.get(parentId)!;
+      if (villageMap.has(parentId)) {
+        const v = villageMap.get(parentId);
+        if (v.parentId && mandalMap.has(v.parentId)) {
+          return mandalMap.get(v.parentId)!;
+        }
+      }
+      return configMap[parentId] || 'General';
+    };
+
+    // 6. Aggregate Comprehensive KPIs per Staff Member
     const staffStats = staffMembers.map(staff => {
       const myStudents = teamStudents.filter(s => s.employeeId === staff.employeeId);
       const totalLeads = myStudents.length;
       const doorstepDone = myStudents.filter(s => s.doorstepCompleted).length;
-      const doorstepPending = totalLeads - doorstepDone;
+      const doorstepPending = Math.max(0, totalLeads - doorstepDone);
       const admitted = myStudents.filter(s => (s.leadStatus || '').toLowerCase() === 'admitted').length;
-      const starLeads = myStudents.filter(s => {
-        const isStarStatus = (s.leadStatus || '').toLowerCase().includes('star') || (s.leadStatus || '').toLowerCase().includes('prime');
-        const hasGoodMarks = s.marks && (s.marks.includes('4') || s.marks.includes('5') || s.marks.includes('A'));
-        return isStarStatus || hasGoodMarks;
-      }).length;
 
-      const schoolNames = (staff.assignedSchools || []).map(sId => configMap[sId] || sId);
+      // Star leads
+      const starLeadsList = myStudents.filter(s => {
+        const isStarStatus = (s.leadStatus || '').toLowerCase().includes('star') || (s.leadStatus || '').toLowerCase().includes('prime');
+        const hasGoodMarks = s.marks && (s.marks.includes('4') || s.marks.includes('5') || s.marks.includes('9') || s.marks.includes('10') || s.marks.toUpperCase().includes('A'));
+        return isStarStatus || hasGoodMarks || s.doorstepCompleted;
+      }).map(st => ({
+        id: st.id,
+        studentName: st.studentName,
+        phone: st.phone,
+        schoolName: (st.schoolName ? configMap[st.schoolName] : null) || st.schoolName || 'N/A',
+        group: st.group,
+        marks: st.marks,
+        doorstepCompleted: st.doorstepCompleted,
+        leadStatus: st.leadStatus,
+      }));
+
+      // Assigned Schools Breakdown
+      const assignedSchoolIds = staff.assignedSchools || [];
+      const staffSchools = assignedSchoolIds.map(schoolId => {
+        const schoolConf = schoolDetailsMap[schoolId];
+        const schoolName = schoolConf?.value || configMap[schoolId] || schoolId;
+        const mandalName = resolveMandalName(schoolConf);
+        const strength = schoolConf?.strength || 0;
+
+        // Count leads collected by this staff for this school
+        const schoolNameLower = schoolName.trim().toLowerCase();
+        const schoolStudents = myStudents.filter(st => {
+          if (!st.schoolName) return false;
+          const stSchoolLower = st.schoolName.trim().toLowerCase();
+          return stSchoolLower === schoolNameLower || st.schoolName === schoolId;
+        });
+
+        const collected = schoolStudents.length;
+        const remaining = Math.max(0, strength - collected);
+        const coverageRate = strength > 0 ? Math.min(100, Math.round((collected / strength) * 100)) : 0;
+        const schoolDoorstepsDone = schoolStudents.filter(st => st.doorstepCompleted).length;
+        const schoolDoorstepsPending = Math.max(0, collected - schoolDoorstepsDone);
+
+        return {
+          id: schoolId,
+          name: schoolName,
+          mandalName,
+          strength,
+          grade: schoolConf?.grade || '',
+          headmasterName: schoolConf?.headmasterName || '',
+          headmasterPhone: schoolConf?.headmasterPhone || '',
+          collected,
+          remaining,
+          coverageRate,
+          doorstepsCompleted: schoolDoorstepsDone,
+          doorstepsPending: schoolDoorstepsPending,
+        };
+      });
+
+      const totalSchoolStrength = staffSchools.reduce((sum, s) => sum + s.strength, 0);
+      const remainingToCollect = Math.max(0, totalSchoolStrength - totalLeads);
+      const overallCoverageRate = totalSchoolStrength > 0
+        ? Math.min(100, Math.round((totalLeads / totalSchoolStrength) * 100))
+        : 0;
+
+      // Staff visits for daily timeline
+      const myStudentIds = new Set(myStudents.map(s => s.id));
+      const staffVisits = teamVisits.filter(v =>
+        v.addedById === staff.employeeId || myStudentIds.has(v.studentId)
+      );
+
+      // Build date-wise activity map
+      const activityMap = new Map<string, { date: string; dayLabel: string; newLeads: number; doorsteps: number; admissions: number; notes: string[] }>();
+
+      // Populate from students created
+      for (const st of myStudents) {
+        const dStr = new Date(st.createdAt).toISOString().split('T')[0];
+        if (!activityMap.has(dStr)) {
+          const dObj = new Date(st.createdAt);
+          activityMap.set(dStr, {
+            date: dStr,
+            dayLabel: dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            newLeads: 0,
+            doorsteps: 0,
+            admissions: 0,
+            notes: [],
+          });
+        }
+        const item = activityMap.get(dStr)!;
+        item.newLeads += 1;
+        if ((st.leadStatus || '').toLowerCase() === 'admitted') {
+          item.admissions += 1;
+        }
+      }
+
+      // Populate from visits
+      for (const v of staffVisits) {
+        const vDate = v.visitDate || v.createdAt;
+        const dStr = new Date(vDate).toISOString().split('T')[0];
+        if (!activityMap.has(dStr)) {
+          const dObj = new Date(vDate);
+          activityMap.set(dStr, {
+            date: dStr,
+            dayLabel: dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            newLeads: 0,
+            doorsteps: 0,
+            admissions: 0,
+            notes: [],
+          });
+        }
+        const item = activityMap.get(dStr)!;
+        item.doorsteps += 1;
+        if (v.remarks && !item.notes.includes(v.remarks)) {
+          item.notes.push(v.remarks);
+        }
+      }
+
+      const dailyActivity = Array.from(activityMap.values()).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+
+      const schoolNames = staffSchools.map(s => s.name);
       const mandalNames = (staff.assignedMandals || []).map(mId => configMap[mId] || mId);
 
       return {
@@ -128,26 +280,75 @@ export async function GET(req: NextRequest) {
         assignedSchools: staff.assignedSchools || [],
         assignedSchoolNames: schoolNames,
         assignedMandalNames: mandalNames,
+        schools: staffSchools,
+        totalSchoolStrength,
         totalLeads,
+        remainingToCollect,
+        overallCoverageRate,
         doorstepDone,
         doorstepPending,
         admitted,
-        starLeads,
+        starLeads: starLeadsList.length,
+        starLeadsList,
+        dailyActivity,
       };
     });
 
-    // 6. Overall Team Totals
+    // 7. Overall Team Totals
     const totalLeads = teamStudents.length;
     const totalDoorstepDone = teamStudents.filter(s => s.doorstepCompleted).length;
-    const totalDoorstepPending = totalLeads - totalDoorstepDone;
+    const totalDoorstepPending = Math.max(0, totalLeads - totalDoorstepDone);
     const totalAdmissions = teamStudents.filter(s => (s.leadStatus || '').toLowerCase() === 'admitted').length;
-    const totalStarLeads = teamStudents.filter(s => {
-      const isStarStatus = (s.leadStatus || '').toLowerCase().includes('star') || (s.leadStatus || '').toLowerCase().includes('prime');
-      const hasGoodMarks = s.marks && (s.marks.includes('4') || s.marks.includes('5') || s.marks.includes('A'));
-      return isStarStatus || hasGoodMarks;
-    }).length;
 
-    // 7. Recent Doorstep Visits
+    // 8. Catchment Schools Global Summary
+    const assignedSchoolIds = Array.from(new Set(staffMembers.flatMap(s => s.assignedSchools || [])));
+    let totalAssigned10thStrength = 0;
+
+    const catchmentSchools = assignedSchoolIds.map(schoolId => {
+      const schoolConf = schoolDetailsMap[schoolId];
+      const schoolName = schoolConf?.value || configMap[schoolId] || schoolId;
+      const mandalName = resolveMandalName(schoolConf);
+      const strength = schoolConf?.strength || 0;
+      totalAssigned10thStrength += strength;
+
+      const staffAssigned = staffMembers
+        .filter(s => (s.assignedSchools || []).includes(schoolId))
+        .map(s => s.name);
+
+      const schoolStudents = teamStudents.filter(st => {
+        if (!st.schoolName) return false;
+        const stLower = st.schoolName.trim().toLowerCase();
+        return stLower === schoolName.trim().toLowerCase() || st.schoolName === schoolId;
+      });
+
+      const collectedCount = schoolStudents.length;
+      const doorstepsCompleted = schoolStudents.filter(s => s.doorstepCompleted).length;
+      const doorstepsPending = Math.max(0, collectedCount - doorstepsCompleted);
+      const remainingCount = Math.max(0, strength - collectedCount);
+      const coverageRate = strength > 0 ? Math.min(100, Math.round((collectedCount / strength) * 100)) : 0;
+
+      return {
+        id: schoolId,
+        name: schoolName,
+        mandal: mandalName,
+        strength,
+        headmasterName: schoolConf?.headmasterName || '-',
+        headmasterPhone: schoolConf?.headmasterPhone || '-',
+        staffAssigned,
+        collectedCount,
+        remainingCount,
+        coverageRate,
+        doorstepsCompleted,
+        doorstepsPending,
+      };
+    });
+
+    const remainingTotalToCollect = Math.max(0, totalAssigned10thStrength - totalLeads);
+    const overallTeamCoverageRate = totalAssigned10thStrength > 0
+      ? Math.min(100, Math.round((totalLeads / totalAssigned10thStrength) * 100))
+      : 0;
+
+    // 9. Recent Doorstep Visits
     const recentVisits: any[] = [];
     for (const s of teamStudents as any[]) {
       if (s.visits && s.visits.length > 0) {
@@ -169,33 +370,6 @@ export async function GET(req: NextRequest) {
     }
     recentVisits.sort((a, b) => new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime());
 
-    // 8. Assigned Catchment Schools Summary
-    const assignedSchoolIds = Array.from(new Set(staffMembers.flatMap(s => s.assignedSchools || [])));
-    const catchmentSchools = assignedSchoolIds.map(schoolId => {
-      const schoolName = configMap[schoolId] || schoolId;
-      const details = schoolDetailsMap[schoolId];
-      const strength = details?.strength || 0;
-      const staffAssigned = staffMembers
-        .filter(s => (s.assignedSchools || []).includes(schoolId))
-        .map(s => s.name);
-
-      const collectedCount = teamStudents.filter(st => {
-        const sName = st.schoolName;
-        return sName === schoolId || sName === schoolName;
-      }).length;
-
-      return {
-        id: schoolId,
-        name: schoolName,
-        strength,
-        headmasterName: details?.headmasterName || '-',
-        headmasterPhone: details?.headmasterPhone || '-',
-        staffAssigned,
-        collectedCount,
-        remainingCount: Math.max(0, strength - collectedCount),
-      };
-    });
-
     return NextResponse.json({
       agm: {
         id: agmUser.id,
@@ -212,8 +386,10 @@ export async function GET(req: NextRequest) {
         totalDoorstepDone,
         totalDoorstepPending,
         totalAdmissions,
-        totalStarLeads,
         catchmentSchoolsCount: assignedSchoolIds.length,
+        total10thStrength: totalAssigned10thStrength,
+        remainingToCollect: remainingTotalToCollect,
+        overallCoverageRate: overallTeamCoverageRate,
       },
       staffStats,
       recentVisits: recentVisits.slice(0, 15),

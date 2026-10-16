@@ -59,7 +59,7 @@ export default function AgmReportsPage() {
   const agmUser = data?.agm;
   const college = data?.college;
   const kpis = data?.kpis || {};
-  const staffList = (data?.team || []).filter((s: any) => {
+  const staffList = (data?.staffStats || []).filter((s: any) => {
     if (filterRole === 'FIELD' && s.role !== 'EMPLOYEE') return false;
     if (filterRole === 'TELECALLER' && s.role !== 'TELECALLER') return false;
     if (searchQuery) {
@@ -71,23 +71,23 @@ export default function AgmReportsPage() {
     return true;
   });
 
-  const schools = (data?.schools || []).filter((sch: any) => {
+  const schools = (data?.catchmentSchools || []).filter((sch: any) => {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const matchName = sch.name?.toLowerCase().includes(q);
       const matchMandal = sch.mandal?.toLowerCase().includes(q);
-      const matchEmp = sch.assignedEmployeeName?.toLowerCase().includes(q);
+      const matchEmp = (sch.staffAssigned || []).join(' ').toLowerCase().includes(q);
       if (!matchName && !matchMandal && !matchEmp) return false;
     }
     return true;
   });
 
   const completionPct = kpis.totalLeads > 0 
-    ? Math.round((kpis.doorstepsCompleted / kpis.totalLeads) * 100) 
+    ? Math.round((kpis.totalDoorstepDone / kpis.totalLeads) * 100) 
     : 0;
 
   return (
-    <div style={{ padding: '2rem 1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '2rem 1.5rem', maxWidth: '1440px', margin: '0 auto' }}>
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           body {
@@ -118,13 +118,13 @@ export default function AgmReportsPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0d9488', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
             <FileText size={16} />
-            <span>EXECUTIVE REPORTING PORTAL</span>
+            <span>EXECUTIVE REPORTING & AUDIT PORTAL</span>
           </div>
           <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0F2B47', margin: 0, letterSpacing: '-0.025em' }}>
-            AGM Performance & Coverage Report
+            AGM Cluster Performance & Coverage Report
           </h1>
           <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.95rem' }}>
-            Comprehensive performance matrix and catchment school progress for {agmUser?.name || 'Area General Manager'}
+            School strength vs collected data, doorsteps progress, and staff performance for {agmUser?.name || 'Area General Manager'}
           </p>
         </div>
 
@@ -178,7 +178,7 @@ export default function AgmReportsPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0F2B47' }}>
             <Building2 size={24} />
             <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, textTransform: 'uppercase' }}>
-              {college?.name || 'Navanidhi Group of Institutions'}
+              {agmUser?.collegeName || 'Navanidhi Group of Institutions'}
             </h2>
           </div>
           <p style={{ margin: '0.25rem 0 0 0', color: '#475569', fontSize: '0.875rem' }}>
@@ -188,10 +188,10 @@ export default function AgmReportsPage() {
         <div style={{ textAlign: 'right' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', backgroundColor: '#e6fffa', color: '#0d9488', padding: '0.35rem 0.75rem', borderRadius: '6px', fontWeight: 700, fontSize: '0.85rem' }}>
             <ShieldCheck size={16} />
-            <span>AGM: {agmUser?.name || 'rama krishna'} ({agmUser?.employeeId || 'rama'})</span>
+            <span>AGM: {agmUser?.name || 'Area General Manager'} ({agmUser?.employeeId || 'agm'})</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-            Total Staff Supervised: {kpis.teamCount || 0} Members
+            Supervised Team: {kpis.teamCount || 0} Members ({kpis.fieldStaffCount || 0} Field • {kpis.telecallerCount || 0} Telecaller)
           </div>
         </div>
       </div>
@@ -200,14 +200,14 @@ export default function AgmReportsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         <div className="report-card" style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb' }}>
-              <Users size={18} />
+            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
+              <School size={18} />
             </div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>TOTAL SUPERVISED TEAM</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>CATCHMENT SCHOOLS</span>
           </div>
-          <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0F2B47' }}>{kpis.teamCount || 0}</div>
+          <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0F2B47' }}>{kpis.catchmentSchoolsCount || 0}</div>
           <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-            {kpis.fieldStaffCount || 0} Field Staff • {kpis.telecallerCount || 0} Telecallers
+            10th Pool Strength: <strong>{kpis.total10thStrength || 0} Students</strong>
           </div>
         </div>
 
@@ -216,11 +216,24 @@ export default function AgmReportsPage() {
             <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
               <GraduationCap size={18} />
             </div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>TOTAL TEAM LEADS</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>COLLECTED STUDENT DATA</span>
           </div>
-          <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0F2B47' }}>{kpis.totalLeads || 0}</div>
+          <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#047857' }}>{kpis.totalLeads || 0}</div>
           <div style={{ fontSize: '0.75rem', color: '#16a34a', marginTop: '0.25rem', fontWeight: 600 }}>
-            {kpis.admittedCount || 0} Admitted to College
+            {kpis.overallCoverageRate || 0}% Coverage of 10th Pool
+          </div>
+        </div>
+
+        <div className="report-card" style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dc2626' }}>
+              <Clock size={18} />
+            </div>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>PENDING TO COLLECT</span>
+          </div>
+          <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#dc2626' }}>{kpis.remainingToCollect || 0}</div>
+          <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '0.25rem', fontWeight: 600 }}>
+            Students Yet to be Contacted
           </div>
         </div>
 
@@ -232,23 +245,10 @@ export default function AgmReportsPage() {
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>DOORSTEP PROGRESS</span>
           </div>
           <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0F2B47' }}>
-            {kpis.doorstepsCompleted || 0} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 500 }}>({completionPct}%)</span>
+            {kpis.totalDoorstepDone || 0} <span style={{ fontSize: '1rem', color: '#64748b', fontWeight: 500 }}>({completionPct}%)</span>
           </div>
           <div style={{ fontSize: '0.75rem', color: '#eab308', marginTop: '0.25rem', fontWeight: 600 }}>
-            {kpis.doorstepPending || 0} Doorsteps Pending
-          </div>
-        </div>
-
-        <div className="report-card" style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '1.25rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
-              <School size={18} />
-            </div>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>CATCHMENT SCHOOLS</span>
-          </div>
-          <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0F2B47' }}>{kpis.catchmentSchoolsCount || 0}</div>
-          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
-            Estimated 10th Pool: {kpis.total10thStrength || 0} Students
+            {kpis.totalDoorstepPending || 0} Doorsteps Pending
           </div>
         </div>
       </div>
@@ -352,31 +352,36 @@ export default function AgmReportsPage() {
                   <th style={{ padding: '0.75rem 1rem' }}>Employee Name & Role</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Login ID</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Assigned Catchment</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Total Leads</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>10th Pool</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Collected Data</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Uncollected (Pending)</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Coverage %</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Doorsteps Done</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Doorsteps Pending</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Completion %</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Admitted</th>
                 </tr>
               </thead>
               <tbody>
                 {staffList.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
                       No staff members match the selected criteria.
                     </td>
                   </tr>
                 ) : (
                   staffList.map((s: any, idx: number) => {
-                    const total = s.leadsCount || 0;
+                    const isField = s.role === 'EMPLOYEE';
+                    const totalStr = s.totalSchoolStrength || 0;
+                    const coll = s.totalLeads || 0;
+                    const rem = s.remainingToCollect ?? Math.max(0, totalStr - coll);
+                    const cov = s.overallCoverageRate ?? (totalStr > 0 ? Math.round((coll / totalStr) * 100) : 0);
                     const done = s.doorstepDone || 0;
-                    const pending = s.doorstepPending || 0;
-                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                    const pending = s.doorstepPending ?? Math.max(0, coll - done);
 
                     return (
                       <tr key={s.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '1rem' }}>
-                          <div style={{ fontWeight: 700, color: '#0F2B47' }}>{s.name}</div>
+                          <div style={{ fontWeight: 800, color: '#0F2B47' }}>{s.name}</div>
                           <span style={{
                             display: 'inline-block',
                             marginTop: '0.2rem',
@@ -384,10 +389,10 @@ export default function AgmReportsPage() {
                             fontWeight: 700,
                             padding: '0.15rem 0.45rem',
                             borderRadius: '4px',
-                            backgroundColor: s.role === 'EMPLOYEE' ? '#e0f2fe' : '#fce7f3',
-                            color: s.role === 'EMPLOYEE' ? '#0369a1' : '#be185d'
+                            backgroundColor: isField ? '#e0f2fe' : '#fce7f3',
+                            color: isField ? '#0369a1' : '#be185d'
                           }}>
-                            {s.role === 'EMPLOYEE' ? '🏃 FIELD STAFF' : '📞 TELECALLER'}
+                            {isField ? '🏃 FIELD STAFF' : '📞 TELECALLER'}
                           </span>
                         </td>
                         <td style={{ padding: '1rem', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
@@ -395,11 +400,29 @@ export default function AgmReportsPage() {
                         </td>
                         <td style={{ padding: '1rem' }}>
                           <span style={{ fontWeight: 600, color: '#0F2B47' }}>
-                            {s.role === 'EMPLOYEE' ? `${s.schoolsCount || 0} Schools` : 'Across Assigned Leads'}
+                            {isField ? `${s.schools?.length || s.assignedSchools?.length || 0} Schools` : 'Assigned Leads'}
                           </span>
                         </td>
-                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#0F2B47' }}>
-                          {total}
+                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, color: '#0F2B47' }}>
+                          {isField ? totalStr : '—'}
+                        </td>
+                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, color: '#047857' }}>
+                          {coll}
+                        </td>
+                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, color: '#DC2626' }}>
+                          {isField ? rem : '—'}
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          {isField ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <div style={{ width: '45px', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: `${cov}%`, height: '100%', backgroundColor: '#10b981' }} />
+                              </div>
+                              <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#334155' }}>{cov}%</span>
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94a3b8' }}>—</span>
+                          )}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#16a34a' }}>
                           {done}
@@ -407,25 +430,8 @@ export default function AgmReportsPage() {
                         <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: pending > 0 ? '#ea580c' : '#94a3b8' }}>
                           {pending}
                         </td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <div style={{ width: '45px', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                              <div style={{ width: `${pct}%`, height: '100%', backgroundColor: pct >= 80 ? '#16a34a' : pct >= 40 ? '#0d9488' : '#f59e0b' }} />
-                            </div>
-                            <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#334155' }}>{pct}%</span>
-                          </div>
-                        </td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{
-                            padding: '0.2rem 0.5rem',
-                            borderRadius: '9999px',
-                            fontSize: '0.7rem',
-                            fontWeight: 700,
-                            backgroundColor: s.isActive ? '#dcfce7' : '#fee2e2',
-                            color: s.isActive ? '#15803d' : '#b91c1c'
-                          }}>
-                            {s.isActive ? 'ACTIVE' : 'INACTIVE'}
-                          </span>
+                        <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#7c3aed' }}>
+                          {s.admitted || 0}
                         </td>
                       </tr>
                     );
@@ -442,7 +448,7 @@ export default function AgmReportsPage() {
         <div className="report-card" style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
           <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0F2B47' }}>
-              Assigned Catchment Schools Coverage ({schools.length})
+              Assigned Catchment Schools Coverage & Strength ({schools.length})
             </h3>
             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
               Coverage across supervised field staff
@@ -458,39 +464,56 @@ export default function AgmReportsPage() {
                   <th style={{ padding: '0.75rem 1rem' }}>Assigned Field Staff</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>10th Pool Strength</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Leads Collected</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Pending to Collect</th>
+                  <th style={{ padding: '0.75rem 1rem' }}>Coverage %</th>
                   <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Doorsteps Done</th>
+                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Doorsteps Pending</th>
                   <th style={{ padding: '0.75rem 1rem' }}>Headmaster Contact</th>
                 </tr>
               </thead>
               <tbody>
                 {schools.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+                    <td colSpan={10} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
                       No catchment schools found for supervised staff.
                     </td>
                   </tr>
                 ) : (
                   schools.map((sch: any, idx: number) => (
                     <tr key={sch.id || idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '1rem', fontWeight: 700, color: '#0F2B47' }}>
+                      <td style={{ padding: '1rem', fontWeight: 800, color: '#0F2B47' }}>
                         {sch.name}
                       </td>
                       <td style={{ padding: '1rem', color: '#475569' }}>
-                        {sch.mandal || 'N/A'}
+                        📍 {sch.mandal || 'N/A'}
                       </td>
                       <td style={{ padding: '1rem' }}>
                         <span style={{ fontWeight: 600, color: '#0284c7' }}>
-                          {sch.assignedEmployeeName || 'Unassigned'}
+                          {(sch.staffAssigned || []).join(', ') || 'Unassigned'}
                         </span>
                       </td>
-                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#0F2B47' }}>
+                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, color: '#0F2B47' }}>
                         {sch.strength || 0}
                       </td>
-                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#0d9488' }}>
-                        {sch.leadsCount || 0}
+                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, color: '#047857' }}>
+                        {sch.collectedCount || 0}
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 800, color: '#DC2626' }}>
+                        {sch.remainingCount || 0}
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <div style={{ width: '45px', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${sch.coverageRate || 0}%`, height: '100%', backgroundColor: '#10b981' }} />
+                          </div>
+                          <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#334155' }}>{sch.coverageRate || 0}%</span>
+                        </div>
                       </td>
                       <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#16a34a' }}>
                         {sch.doorstepsCompleted || 0}
+                      </td>
+                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: sch.doorstepsPending > 0 ? '#ea580c' : '#94a3b8' }}>
+                        {sch.doorstepsPending || 0}
                       </td>
                       <td style={{ padding: '1rem', color: '#475569', fontSize: '0.8rem' }}>
                         {sch.headmasterName ? `${sch.headmasterName} (${sch.headmasterPhone || 'No Phone'})` : 'Not recorded'}
@@ -510,12 +533,12 @@ export default function AgmReportsPage() {
           <div style={{ textAlign: 'center', width: '220px' }}>
             <div style={{ borderBottom: '1px solid #000', marginBottom: '0.5rem', height: '30px' }} />
             <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>AGM Signature</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{agmUser?.name || 'rama krishna'}</div>
+            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{agmUser?.name || 'Area General Manager'}</div>
           </div>
           <div style={{ textAlign: 'center', width: '220px' }}>
             <div style={{ borderBottom: '1px solid #000', marginBottom: '0.5rem', height: '30px' }} />
             <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>College Principal / Director</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{college?.name || 'Navanidhi Group'}</div>
+            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{agmUser?.collegeName || 'Navanidhi Group'}</div>
           </div>
         </div>
       </div>
