@@ -120,10 +120,6 @@ export default function AgmDashboardPage() {
     return true;
   });
 
-  const doorstepPercent = kpis.totalLeads > 0
-    ? Math.round((kpis.totalDoorstepDone / kpis.totalLeads) * 100)
-    : 0;
-
   return (
     <div className="agm-page-container">
       <style dangerouslySetInnerHTML={{__html: `
@@ -137,13 +133,7 @@ export default function AgmDashboardPage() {
         }
         .agm-hero-stats {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.25rem;
-        }
-        .agm-kpi-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          grid-template-columns: repeat(4, 1fr);
           gap: 1rem;
         }
         .agm-modal-card {
@@ -157,19 +147,17 @@ export default function AgmDashboardPage() {
           box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4);
           overflow: hidden;
         }
+        @media (max-width: 1024px) {
+          .agm-hero-stats {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
         @media (max-width: 767px) {
           .agm-page-container {
             padding: 0.85rem 0.75rem !important;
-            gap: 1rem !important;
-          }
-          .agm-header-banner {
-            display: none !important;
+            gap: 0.85rem !important;
           }
           .agm-hero-stats {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 0.65rem !important;
-          }
-          .agm-kpi-grid {
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 0.65rem !important;
           }
@@ -183,73 +171,48 @@ export default function AgmDashboardPage() {
         }
       `}} />
       
-      {/* 1. Header Banner (Hidden on Mobile) */}
-      <div className="agm-header-banner" style={{
-        backgroundColor: '#ffffff',
-        padding: '1.5rem 1.75rem',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
+      {/* Compact Top Action Bar */}
+      <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '1rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        gap: '0.75rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: '52px',
-            height: '52px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #0F2B47 0%, #1E3A8A 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#F59E0B',
-            boxShadow: '0 4px 14px rgba(15, 43, 71, 0.25)',
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0F2B47' }}>
+            Operations Command Center
+          </h1>
+          <span style={{
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            padding: '0.15rem 0.55rem',
+            borderRadius: '9999px',
+            backgroundColor: '#FEF3C7',
+            color: '#B45309',
+            border: '1px solid #FDE68A',
           }}>
-            <ShieldCheck size={28} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800, color: '#0F2B47' }}>
-                Area Operations Command Center
-              </h1>
-              <span style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                padding: '0.2rem 0.6rem',
-                borderRadius: '9999px',
-                backgroundColor: '#FEF3C7',
-                color: '#B45309',
-                border: '1px solid #FDE68A',
-              }}>
-                AGM / AREA MANAGER
-              </span>
-            </div>
-            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-              Welcome back, <strong>{data?.agm?.name || 'Area Manager'}</strong>! Real-time field activities, catchment schools pool, and doorstep conversion tracking.
-            </p>
-          </div>
+            {data?.agm?.name || 'AGM'}
+          </span>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <Link
             href="/agm/reports"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.55rem 1rem',
+              gap: '0.35rem',
+              padding: '0.45rem 0.85rem',
               backgroundColor: '#0F2B47',
               color: '#ffffff',
-              borderRadius: '10px',
+              borderRadius: '8px',
               textDecoration: 'none',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
             }}
           >
-            <FileText size={15} />
+            <FileText size={14} />
             <span>Generate Full Report</span>
           </Link>
 
@@ -260,272 +223,129 @@ export default function AgmDashboardPage() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.45rem',
-              padding: '0.55rem 1rem',
-              backgroundColor: '#f1f5f9',
+              gap: '0.35rem',
+              padding: '0.45rem 0.85rem',
+              backgroundColor: '#ffffff',
               border: '1px solid #cbd5e1',
-              borderRadius: '10px',
+              borderRadius: '8px',
               color: '#334155',
               fontWeight: 700,
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{ padding: '1rem', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '12px', color: '#991B1B', fontSize: '0.88rem' }}>
+        <div style={{ padding: '0.85rem 1rem', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', color: '#991B1B', fontSize: '0.85rem' }}>
           {error}
         </div>
       )}
 
-      {/* 2. HERO FEATURE: Catchment Schools Total Strength vs Collected Data */}
+      {/* The 4 Focused KPI Cards (Exactly as requested) */}
       <div style={{
-        background: 'linear-gradient(135deg, #0F2B47 0%, #1e3a5f 100%)',
-        color: '#ffffff',
-        padding: '1.75rem',
+        background: 'linear-gradient(135deg, #0F2B47 0%, #163252 100%)',
+        padding: '1.15rem',
         borderRadius: '16px',
-        boxShadow: '0 8px 24px rgba(15, 43, 71, 0.18)',
-        border: '1px solid #2d4a6f',
+        boxShadow: '0 8px 24px rgba(15, 43, 71, 0.16)',
+        border: '1px solid #23456e',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <School size={24} color="#6ee7b7" />
-              <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#ffffff' }}>
-                Catchment Schools: 10th Pool Strength vs Data Collected
-              </h2>
-            </div>
-            <p style={{ margin: '0.35rem 0 0 0', color: '#94a3b8', fontSize: '0.88rem' }}>
-              Total 10th class pool capacity across your team&apos;s assigned schools vs actual student data collected.
-            </p>
-          </div>
-
-          <Link
-            href="/agm/schools"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: 'rgba(255, 255, 255, 0.12)',
-              color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontSize: '0.84rem',
-              fontWeight: 700,
-            }}
-          >
-            <span>View All Catchment Schools ({kpis.catchmentSchoolsCount})</span>
-            <ChevronRight size={14} />
-          </Link>
-        </div>
-
-        {/* 4 Hero Counters */}
         <div className="agm-hero-stats">
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
-              10th Pool Strength
+          {/* Card 1: 10TH POOL STRENGTH */}
+          <div style={{
+            backgroundColor: '#172d47',
+            padding: '1.25rem 1.15rem',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          }}>
+            <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+              10TH POOL STRENGTH
             </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#ffffff', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#ffffff', margin: '0.35rem 0' }}>
               {kpis.total10thStrength || 0}
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#cbd5e1', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
               Across {kpis.catchmentSchoolsCount || 0} Assigned Schools
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '0.74rem', color: '#6ee7b7', textTransform: 'uppercase', fontWeight: 700 }}>
-              Collected Student Data
+          {/* Card 2: COLLECTED STUDENT DATA */}
+          <div style={{
+            backgroundColor: '#172d47',
+            padding: '1.25rem 1.15rem',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          }}>
+            <div style={{ fontSize: '0.74rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+              COLLECTED STUDENT DATA
             </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#6ee7b7', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#34d399', margin: '0.35rem 0' }}>
               {kpis.totalLeads}
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#a7f3d0', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.78rem', color: '#a7f3d0' }}>
               {kpis.totalDoorstepDone} Doorsteps Done
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '0.74rem', color: '#fca5a5', textTransform: 'uppercase', fontWeight: 700 }}>
-              Uncollected (Pending)
+          {/* Card 3: UNCOLLECTED (PENDING) */}
+          <div style={{
+            backgroundColor: '#172d47',
+            padding: '1.25rem 1.15rem',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          }}>
+            <div style={{ fontSize: '0.74rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+              UNCOLLECTED (PENDING)
             </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#fca5a5', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#f87171', margin: '0.35rem 0' }}>
               {kpis.remainingToCollect || 0}
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#fecaca', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.78rem', color: '#fca5a5' }}>
               Students yet to be contacted
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ fontSize: '0.74rem', color: '#93c5fd', textTransform: 'uppercase', fontWeight: 700 }}>
-              Overall Collection %
+          {/* Card 4: OVERALL COLLECTION % */}
+          <div style={{
+            backgroundColor: '#172d47',
+            padding: '1.25rem 1.15rem',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.12)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+          }}>
+            <div style={{ fontSize: '0.74rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+              OVERALL COLLECTION %
             </div>
-            <div style={{ fontSize: '1.85rem', fontWeight: 900, color: '#93c5fd', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#60a5fa', margin: '0.35rem 0' }}>
               {kpis.overallCoverageRate || 0}%
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#bfdbfe', marginTop: '0.2rem' }}>
+            <div style={{ fontSize: '0.78rem', color: '#bfdbfe' }}>
               Target Coverage Progress
             </div>
           </div>
         </div>
-
-        {/* Global Progress Bar */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '0.35rem' }}>
-            <span>Team Catchment Coverage</span>
-            <span style={{ fontWeight: 700, color: '#6ee7b7' }}>{kpis.totalLeads} of {kpis.total10thStrength || 0} Students ({kpis.overallCoverageRate || 0}%)</span>
-          </div>
-          <div style={{ width: '100%', height: '8px', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '4px', overflow: 'hidden' }}>
-            <div style={{
-              width: `${kpis.overallCoverageRate || 0}%`,
-              height: '100%',
-              backgroundColor: '#10B981',
-              borderRadius: '4px',
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-        </div>
       </div>
 
-      {/* 3. Executive KPI Cards Grid */}
-      <div className="agm-kpi-grid">
-        {/* KPI 1: My Team */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1.25rem',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              My Assigned Team
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#0F2B47' }}>
-            {kpis.teamCount}
-          </div>
-          <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#64748B', display: 'flex', gap: '0.5rem' }}>
-            <span style={{ color: '#059669', fontWeight: 600 }}>{kpis.fieldStaffCount} Field</span>
-            <span>•</span>
-            <span style={{ color: '#7C3AED', fontWeight: 600 }}>{kpis.telecallerCount} Telecallers</span>
-          </div>
-        </div>
-
-        {/* KPI 2: Total Leads */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1.25rem',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Total Team Leads
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#ECFDF5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <GraduationCap size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#0F2B47' }}>
-            {kpis.totalLeads}
-          </div>
-          <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#64748B' }}>
-            Captured across team
-          </div>
-        </div>
-
-        {/* KPI 3: Doorstep Visits Done */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1.25rem',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Doorstep Visits
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle2 size={18} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#16A34A' }}>
-              {kpis.totalDoorstepDone}
-            </div>
-            <div style={{ fontSize: '0.82rem', color: '#64748B', fontWeight: 600 }}>
-              / {kpis.totalLeads} ({doorstepPercent}%)
-            </div>
-          </div>
-          <div style={{ width: '100%', height: '6px', backgroundColor: '#E2E8F0', borderRadius: '999px', marginTop: '0.6rem', overflow: 'hidden' }}>
-            <div style={{ width: `${doorstepPercent}%`, height: '100%', backgroundColor: '#16A34A', borderRadius: '999px' }} />
-          </div>
-        </div>
-
-        {/* KPI 4: Admissions Converted */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1.25rem',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Admissions Converted
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#FEF3C7', color: '#D97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Award size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#D97706' }}>
-            {kpis.totalAdmissions}
-          </div>
-          <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#64748B' }}>
-            Confirmed joined students
-          </div>
-        </div>
-
-        {/* KPI 5: Star Leads */}
-        <div style={{
-          backgroundColor: '#ffffff',
-          padding: '1.25rem',
-          borderRadius: '14px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              High-Potential Leads
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#FDF4FF', color: '#C026D3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Star size={18} />
-            </div>
-          </div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#C026D3' }}>
-            {kpis.totalStarLeads}
-          </div>
-          <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#64748B' }}>
-            Top marks & visited leads
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Team Performance Matrix (Main Table) */}
+      {/* Team Performance Matrix (Main Table) */}
       <div style={{
         backgroundColor: '#ffffff',
         borderRadius: '16px',
@@ -536,11 +356,8 @@ export default function AgmDashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0F2B47' }}>
-              Staff Performance & Progress Matrix ({staffStats.length})
+              Staff Performance Matrix ({staffStats.length})
             </h2>
-            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748B' }}>
-              Catchment pool, data collection progress, and doorstep metrics for each staff member under this AGM.
-            </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
