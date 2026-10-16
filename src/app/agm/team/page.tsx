@@ -31,8 +31,7 @@ export default function AgmTeamPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'FIELD' | 'TELECALLER'>('ALL');
 
-  // Modal State for Assigned Schools & Progress
-  const [selectedStaffForReport, setSelectedStaffForReport] = useState<any | null>(null);
+
 
   const fetchTeamData = async () => {
     try {
@@ -53,9 +52,7 @@ export default function AgmTeamPage() {
     fetchTeamData();
   }, []);
 
-  const handleOpenStaffReport = (staff: any) => {
-    setSelectedStaffForReport(staff);
-  };
+
 
   const staffStats: any[] = data?.staffStats || [];
 
@@ -483,9 +480,8 @@ export default function AgmTeamPage() {
 
                 {/* Action Button */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenStaffReport(staff)}
+                  <Link
+                    href={`/agm/team/schools?staffId=${staff.employeeId}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -494,7 +490,7 @@ export default function AgmTeamPage() {
                       padding: '0.65rem 1rem',
                       backgroundColor: '#047857',
                       color: '#ffffff',
-                      border: 'none',
+                      textDecoration: 'none',
                       borderRadius: '10px',
                       fontSize: '0.84rem',
                       fontWeight: 700,
@@ -505,7 +501,7 @@ export default function AgmTeamPage() {
                   >
                     <School size={16} />
                     <span>View Assigned Schools & Progress</span>
-                  </button>
+                  </Link>
                 </div>
               </div>
             );
@@ -513,206 +509,7 @@ export default function AgmTeamPage() {
         )}
       </div>
 
-      {/* MODAL: ASSIGNED SCHOOLS & DATA COLLECTION PROGRESS ONLY */}
-      {selectedStaffForReport && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(5px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem',
-        }}>
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            width: '100%',
-            maxWidth: '480px',
-            maxHeight: '85vh',
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-            overflow: 'hidden',
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
-              padding: '1rem 1.25rem',
-              color: '#ffffff',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexShrink: 0,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}>
-                  <School size={20} color="#ffffff" />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
-                    Assigned Schools ({selectedStaffForReport.schools?.length || 0})
-                  </h3>
-                  <div style={{ fontSize: '0.78rem', color: '#a7f3d0', marginTop: '0.1rem' }}>
-                    {selectedStaffForReport.name} ({selectedStaffForReport.employeeId})
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedStaffForReport(null)}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '8px',
-                  backgroundColor: 'rgba(255,255,255,0.2)',
-                  border: 'none',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Body - Schools list with collected data and small percentage */}
-            <div style={{
-              padding: '1rem 1.25rem',
-              overflowY: 'auto',
-              WebkitOverflowScrolling: 'touch',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              backgroundColor: '#f8fafc',
-              flex: 1,
-            }}>
-              {(!selectedStaffForReport.schools || selectedStaffForReport.schools.length === 0) ? (
-                <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: '#94a3b8', fontSize: '0.88rem' }}>
-                  No schools assigned to this staff member yet.
-                </div>
-              ) : (
-                selectedStaffForReport.schools.map((s: any) => {
-                  const strength = s.strength || 0;
-                  const collected = s.collected || 0;
-                  const percentage = strength > 0 ? Math.round((collected / strength) * 100) : (s.coverageRate || 0);
-
-                  return (
-                    <div
-                      key={s.id || s.name}
-                      style={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        padding: '0.9rem 1rem',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.5rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0F2B47' }}>
-                            {s.name}
-                          </div>
-                          {s.mandalName && (
-                            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.15rem' }}>
-                              📍 {s.mandalName}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Small Percentage Badge */}
-                        <span style={{
-                          backgroundColor: percentage >= 50 ? '#dcfce7' : percentage > 0 ? '#e0f2fe' : '#f1f5f9',
-                          color: percentage >= 50 ? '#15803d' : percentage > 0 ? '#0284c7' : '#64748b',
-                          fontSize: '0.75rem',
-                          fontWeight: 800,
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '6px',
-                          whiteSpace: 'nowrap',
-                        }}>
-                          {percentage}%
-                        </span>
-                      </div>
-
-                      {/* Number Display & Slim Progress Bar */}
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', marginBottom: '0.35rem' }}>
-                          <span style={{ color: '#64748b', fontWeight: 600 }}>Collected Data:</span>
-                          <span style={{ fontWeight: 800, color: '#0F2B47' }}>
-                            <strong style={{ color: '#047857', fontSize: '0.95rem' }}>{collected}</strong>
-                            <span style={{ color: '#94a3b8', margin: '0 0.2rem' }}>/</span>
-                            <span>{strength}</span>
-                          </span>
-                        </div>
-
-                        <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div
-                            style={{
-                              width: `${Math.min(100, Math.max(0, percentage))}%`,
-                              height: '100%',
-                              backgroundColor: '#047857',
-                              borderRadius: '4px',
-                              transition: 'width 0.3s ease',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div style={{
-              padding: '0.75rem 1.25rem',
-              backgroundColor: '#ffffff',
-              borderTop: '1px solid #e2e8f0',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              flexShrink: 0,
-            }}>
-              <button
-                type="button"
-                onClick={() => setSelectedStaffForReport(null)}
-                style={{
-                  padding: '0.5rem 1.25rem',
-                  backgroundColor: '#f1f5f9',
-                  color: '#334155',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
     </div>
   );
