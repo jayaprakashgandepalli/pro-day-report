@@ -106,26 +106,6 @@ export default function AgmReportsPage() {
         </button>
       </div>
 
-      {/* Header Banner */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        padding: '1.25rem 1.5rem',
-        marginBottom: '1.25rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#047857', fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
-          <FileText size={16} />
-          <span>Team Operations & Visits Tracking</span>
-        </div>
-        <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 900, color: '#0F2B47' }}>
-          Team Reports ({staffList.length} Members)
-        </h1>
-        <p style={{ margin: '0.25rem 0 0 0', color: '#64748b', fontSize: '0.86rem' }}>
-          Select a team member from the list below to view their daily village visits, admissions, and date-to-date activity report.
-        </p>
-      </div>
 
       {/* Search & Role Filter Bar */}
       <div style={{
