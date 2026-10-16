@@ -540,54 +540,31 @@ export default function AgmTeamPage() {
                   </div>
                 </div>
 
-                {/* Two Action Buttons */}
+                {/* Action Button */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {isField && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenStaffReport(staff)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.45rem',
-                        padding: '0.65rem 1rem',
-                        backgroundColor: '#047857',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '10px',
-                        fontSize: '0.84rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        boxShadow: '0 2px 6px rgba(4, 120, 87, 0.25)',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <FileText size={16} />
-                      <span>View School & Daily Progress Report</span>
-                    </button>
-                  )}
-
-                  <Link
-                    href={`/agm/students?staffId=${staff.employeeId}`}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenStaffReport(staff)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '0.45rem',
-                      padding: '0.6rem 1rem',
-                      backgroundColor: '#0F2B47',
+                      padding: '0.65rem 1rem',
+                      backgroundColor: '#047857',
                       color: '#ffffff',
+                      border: 'none',
                       borderRadius: '10px',
-                      textDecoration: 'none',
-                      fontSize: '0.82rem',
+                      fontSize: '0.84rem',
                       fontWeight: 700,
-                      transition: 'background-color 0.15s',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(4, 120, 87, 0.25)',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    <span>View {staff.name}&apos;s Leads Registry</span>
-                    <ChevronRight size={14} />
-                  </Link>
+                    <FileText size={16} />
+                    <span>View {isField ? 'School & Daily Progress Report' : 'Daily Progress Report'}</span>
+                  </button>
                 </div>
               </div>
             );
