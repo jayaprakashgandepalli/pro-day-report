@@ -274,31 +274,33 @@ export async function GET(req: NextRequest) {
         }
         const item = activityMap.get(dStr)!;
         item.newLeads += 1;
-        if ((st.leadStatus || '').toLowerCase() === 'admitted') {
+        const isAdmitted = (st.leadStatus || '').toLowerCase() === 'admitted';
+        if (isAdmitted) {
           item.admissions += 1;
-          item.visitsList.push({
-            id: `adm-${st.id}`,
-            studentId: st.id,
-            studentName: st.studentName,
-            phone: st.phone || '',
-            whatsapp: st.whatsapp || '',
-            fatherName: st.fatherName || '',
-            occupation: st.occupation || '',
-            address: st.address || '',
-            village: st.village || '',
-            mandal: st.mandal || '',
-            district: st.district || '',
-            schoolName: st.schoolName || '',
-            group: st.group || '',
-            marks: st.marks || '',
-            visitNumber: st.visitNumber || '1',
-            remarks: st.remarks || 'Joined / Admitted',
-            leadStatus: 'Admitted',
-            doorstepCompleted: st.doorstepCompleted,
-            type: 'ADMISSION',
-            date: dStr,
-          });
         }
+
+        item.visitsList.push({
+          id: isAdmitted ? `adm-${st.id}` : `lead-${st.id}`,
+          studentId: st.id,
+          studentName: st.studentName,
+          phone: st.phone || '',
+          whatsapp: st.whatsapp || '',
+          fatherName: st.fatherName || '',
+          occupation: st.occupation || '',
+          address: st.address || '',
+          village: st.village || '',
+          mandal: st.mandal || '',
+          district: st.district || '',
+          schoolName: st.schoolName || '',
+          group: st.group || '',
+          marks: st.marks || '',
+          visitNumber: st.visitNumber || '1',
+          remarks: st.remarks || (isAdmitted ? 'Joined / Admitted' : 'New student lead recorded'),
+          leadStatus: st.leadStatus || (isAdmitted ? 'Admitted' : 'New Lead'),
+          doorstepCompleted: st.doorstepCompleted,
+          type: isAdmitted ? 'ADMISSION' : 'NEW_LEAD',
+          date: dStr,
+        });
       }
 
       // Populate from visits
@@ -324,28 +326,43 @@ export async function GET(req: NextRequest) {
         }
 
         const st = studentMap.get(v.studentId);
-        item.visitsList.push({
-          id: v.id,
-          studentId: st?.id || v.studentId,
-          studentName: st?.studentName || 'Student Visit',
-          phone: st?.phone || '',
-          whatsapp: st?.whatsapp || '',
-          fatherName: st?.fatherName || '',
-          occupation: st?.occupation || '',
-          address: st?.address || '',
-          village: st?.village || '',
-          mandal: st?.mandal || '',
-          district: st?.district || '',
-          schoolName: st?.schoolName || '',
-          group: st?.group || '',
-          marks: st?.marks || '',
-          visitNumber: st?.visitNumber || '1',
-          remarks: v.remarks || st?.remarks || 'Village doorstep visit completed',
-          leadStatus: st?.leadStatus || 'Visited',
-          doorstepCompleted: st?.doorstepCompleted ?? true,
-          type: 'VISIT',
-          date: dStr,
-        });
+        const existingIdx = item.visitsList.findIndex(x => x.studentId === v.studentId);
+        if (existingIdx >= 0) {
+          const existing = item.visitsList[existingIdx];
+          if (existing.type === 'NEW_LEAD') {
+            existing.type = (st?.leadStatus || '').toLowerCase() === 'admitted' ? 'ADMISSION' : 'VISIT';
+          }
+          if (v.remarks) {
+            existing.remarks = v.remarks;
+          }
+          if (st?.visitNumber) {
+            existing.visitNumber = st.visitNumber;
+          }
+          existing.doorstepCompleted = true;
+        } else {
+          item.visitsList.push({
+            id: v.id,
+            studentId: st?.id || v.studentId,
+            studentName: st?.studentName || 'Student Visit',
+            phone: st?.phone || '',
+            whatsapp: st?.whatsapp || '',
+            fatherName: st?.fatherName || '',
+            occupation: st?.occupation || '',
+            address: st?.address || '',
+            village: st?.village || '',
+            mandal: st?.mandal || '',
+            district: st?.district || '',
+            schoolName: st?.schoolName || '',
+            group: st?.group || '',
+            marks: st?.marks || '',
+            visitNumber: st?.visitNumber || '1',
+            remarks: v.remarks || st?.remarks || 'Village doorstep visit completed',
+            leadStatus: st?.leadStatus || 'Visited',
+            doorstepCompleted: st?.doorstepCompleted ?? true,
+            type: (st?.leadStatus || '').toLowerCase() === 'admitted' ? 'ADMISSION' : 'VISIT',
+            date: dStr,
+          });
+        }
       }
 
       const dailyActivity = Array.from(activityMap.values()).sort(

@@ -18,7 +18,9 @@ import {
   Filter,
   Search,
   Eye,
-  X
+  X,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 function StaffReportDetailContent() {
@@ -28,11 +30,20 @@ function StaffReportDetailContent() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [selectedStudentForDetails, setSelectedStudentForDetails] = useState<any | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [filterType, setFilterType] = useState<'ALL' | 'VISIT' | 'ADMISSION' | 'NEW_LEAD'>('ALL');
 
-  // Default date: TODAY
+  const toggleExpand = (id: string) => {
+    setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Default date: TODAY (local system date)
   const getTodayStr = () => {
     const now = new Date();
-    return now.toISOString().split('T')[0];
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const [fromDate, setFromDate] = useState<string>(getTodayStr());
@@ -117,6 +128,18 @@ function StaffReportDetailContent() {
       dayLabel: day.dayLabel || day.date,
     }))
   );
+
+  const visitsCount = visitedStudentsList.filter((s: any) => s.type === 'VISIT').length;
+  const admissionsCount = visitedStudentsList.filter((s: any) => s.type === 'ADMISSION' || (s.leadStatus || '').toLowerCase() === 'admitted').length;
+  const newLeadsCount = visitedStudentsList.filter((s: any) => s.type === 'NEW_LEAD').length;
+
+  const displayedStudents = visitedStudentsList.filter((st: any) => {
+    if (filterType === 'ALL') return true;
+    if (filterType === 'ADMISSION') return st.type === 'ADMISSION' || (st.leadStatus || '').toLowerCase() === 'admitted';
+    if (filterType === 'VISIT') return st.type === 'VISIT';
+    if (filterType === 'NEW_LEAD') return st.type === 'NEW_LEAD';
+    return true;
+  });
 
   return (
     <div style={{ padding: '1.25rem', maxWidth: '960px', margin: '0 auto' }}>
@@ -434,194 +457,316 @@ function StaffReportDetailContent() {
         </div>
       </div>
 
-      {/* VISITED STUDENTS LIST (DATE RANGE FILTERED) */}
+      {/* ACTIVITY & STUDENTS LIST (DATE RANGE FILTERED) */}
       <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+        {/* Section Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem', flexWrap: 'wrap', gap: '0.4rem' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0F2B47' }}>
-              Visited Students List
+              {isTodayOnly ? "Today's Activity & Students" : "Activity & Students List"}
             </h3>
-            <span style={{ fontSize: '0.78rem', color: '#64748b' }}>
-              {visitedStudentsList.length} Students visited in selected date range
+            <span style={{ fontSize: '0.76rem', color: '#64748b' }}>
+              {isTodayOnly ? "Default today's visits, new leads, and admissions" : `Showing ${displayedStudents.length} of ${visitedStudentsList.length} records`}
             </span>
+          </div>
+
+          {/* Activity Type Filter Tabs */}
+          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+            {[
+              { id: 'ALL' as const, label: 'All', count: visitedStudentsList.length },
+              { id: 'VISIT' as const, label: 'Visits', count: visitsCount },
+              { id: 'ADMISSION' as const, label: 'Admissions', count: admissionsCount },
+              { id: 'NEW_LEAD' as const, label: 'New Leads', count: newLeadsCount },
+            ].map(tab => {
+              const active = filterType === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilterType(tab.id)}
+                  style={{
+                    padding: '0.22rem 0.55rem',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    border: active ? '1px solid #0F2B47' : '1px solid #e2e8f0',
+                    backgroundColor: active ? '#0F2B47' : '#ffffff',
+                    color: active ? '#ffffff' : '#64748b',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{tab.label}</span>
+                  <span style={{
+                    backgroundColor: active ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
+                    color: active ? '#ffffff' : '#475569',
+                    fontSize: '0.66rem',
+                    padding: '0.05rem 0.3rem',
+                    borderRadius: '4px',
+                    fontWeight: 800,
+                  }}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: '#64748b' }}>
-            <RefreshCw size={26} className="animate-spin" style={{ margin: '0 auto 0.75rem auto', color: '#047857' }} />
-            <p style={{ margin: 0, fontWeight: 700 }}>Loading visited students...</p>
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748b' }}>
+            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.6rem auto', color: '#047857' }} />
+            <p style={{ margin: 0, fontWeight: 700, fontSize: '0.88rem' }}>Loading activity & students...</p>
           </div>
-        ) : visitedStudentsList.length === 0 ? (
+        ) : displayedStudents.length === 0 ? (
           <div style={{
             textAlign: 'center',
-            padding: '3rem 1rem',
+            padding: '2.5rem 1rem',
             backgroundColor: '#ffffff',
-            borderRadius: '16px',
+            borderRadius: '14px',
             border: '1px solid #e2e8f0',
           }}>
-            <Calendar size={36} color="#94a3b8" style={{ margin: '0 auto 0.75rem auto' }} />
-            <p style={{ color: '#0F2B47', fontSize: '0.98rem', fontWeight: 800, margin: '0 0 0.35rem 0' }}>
-              No Visited Students in Selected Range
+            <Calendar size={32} color="#94a3b8" style={{ margin: '0 auto 0.6rem auto' }} />
+            <p style={{ color: '#0F2B47', fontSize: '0.94rem', fontWeight: 800, margin: '0 0 0.25rem 0' }}>
+              No Records Found
             </p>
-            <p style={{ color: '#64748b', fontSize: '0.82rem', margin: 0 }}>
+            <p style={{ color: '#64748b', fontSize: '0.8rem', margin: 0 }}>
               {isTodayOnly
-                ? 'No visits recorded yet today. Use the date filter above to view past dates.'
-                : 'No visits recorded between ' + (fromDate || 'start') + ' and ' + (toDate || 'today') + '.'}
+                ? "No activity recorded yet today. Use the date filter above to view previous dates."
+                : `No activity found between ${fromDate || 'start'} and ${toDate || 'today'}.`}
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {visitedStudentsList.map((st: any, idx: number) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+            {displayedStudents.map((st: any, idx: number) => {
               const isAdmission = st.type === 'ADMISSION' || (st.leadStatus || '').toLowerCase() === 'admitted';
+              const isVisit = st.type === 'VISIT';
+              const isNewLead = st.type === 'NEW_LEAD';
+              const cardKey = st.id || `${st.studentId}-${idx}`;
+              const isExpanded = !!expandedIds[cardKey];
 
               return (
                 <div
-                  key={st.id || `${st.studentId}-${idx}`}
+                  key={cardKey}
                   style={{
                     backgroundColor: '#ffffff',
-                    borderRadius: '12px',
-                    border: isAdmission ? '1px solid #d8b4fe' : '1px solid #e2e8f0',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                    padding: '0.85rem 1rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.45rem',
+                    borderRadius: '10px',
+                    border: isAdmission
+                      ? (isExpanded ? '1px solid #a855f7' : '1px solid #e9d5ff')
+                      : isVisit
+                      ? (isExpanded ? '1px solid #10b981' : '1px solid #bbf7d0')
+                      : (isExpanded ? '1px solid #38bdf8' : '1px solid #e2e8f0'),
+                    boxShadow: isExpanded ? '0 3px 6px rgba(0,0,0,0.06)' : '0 1px 2px rgba(0,0,0,0.03)',
+                    overflow: 'hidden',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  {/* Top Line: Badges + Student Name + Date */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {/* Visit Number Badge */}
+                  {/* COMPACT CARD HEADER - ALWAYS VISIBLE (Click anywhere to Expand/Collapse) */}
+                  <div
+                    onClick={() => toggleExpand(cardKey)}
+                    style={{
+                      padding: '0.55rem 0.8rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      backgroundColor: isExpanded ? '#f8fafc' : '#ffffff',
+                      userSelect: 'none',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    {/* Left: Badges + Student Name */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0, flex: 1 }}>
+                      {/* Badge */}
                       <span style={{
-                        backgroundColor: '#0F2B47',
+                        backgroundColor: isAdmission ? '#7c3aed' : isVisit ? '#047857' : '#0284c7',
                         color: '#ffffff',
-                        fontSize: '0.72rem',
+                        fontSize: '0.64rem',
                         fontWeight: 800,
-                        padding: '0.18rem 0.55rem',
-                        borderRadius: '6px',
+                        padding: '0.12rem 0.45rem',
+                        borderRadius: '5px',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
                       }}>
-                        Visit #{st.visitNumber || '1'}
-                      </span>
-
-                      {/* Type Badge */}
-                      <span style={{
-                        backgroundColor: isAdmission ? '#7c3aed' : '#047857',
-                        color: '#ffffff',
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        padding: '0.15rem 0.5rem',
-                        borderRadius: '6px',
-                      }}>
-                        {isAdmission ? 'ADMISSION' : 'DOORSTEP VISIT'}
+                        {isAdmission ? 'ADMISSION' : isVisit ? `VISIT #${st.visitNumber || 1}` : 'NEW LEAD'}
                       </span>
 
                       {/* Student Name */}
-                      <strong style={{ fontSize: '0.98rem', color: '#0F2B47' }}>
+                      <span style={{
+                        fontWeight: 800,
+                        fontSize: '0.88rem',
+                        color: '#0F2B47',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
                         {st.studentName}
-                      </strong>
+                      </span>
+
+                      {/* Quick Location Hint in collapsed state */}
+                      {(st.village || st.schoolName) && !isExpanded && (
+                        <span style={{
+                          fontSize: '0.72rem',
+                          color: '#64748b',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          • {[st.village, st.schoolName].filter(Boolean).join(', ')}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Date Label */}
-                    <span style={{
-                      fontSize: '0.76rem',
-                      fontWeight: 700,
-                      color: '#64748b',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
+                    {/* Right: Phone pill + Expand arrow */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                      {st.phone && (
+                        <a
+                          href={`tel:${st.phone}`}
+                          onClick={e => e.stopPropagation()}
+                          title="Call student"
+                          style={{
+                            fontSize: '0.72rem',
+                            color: '#047857',
+                            fontWeight: 700,
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                            backgroundColor: '#ecfdf5',
+                            padding: '0.18rem 0.45rem',
+                            borderRadius: '5px',
+                            border: '1px solid #a7f3d0',
+                          }}
+                        >
+                          <Phone size={10} />
+                          <span>{st.phone}</span>
+                        </a>
+                      )}
+
+                      <span style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* EXPANDED CONTENT - VISIBLE WHEN CLICKED */}
+                  {isExpanded && (
+                    <div style={{
+                      padding: '0.65rem 0.85rem 0.8rem 0.85rem',
+                      borderTop: '1px solid #f1f5f9',
+                      backgroundColor: '#f8fafc',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.45rem',
                     }}>
-                      <Calendar size={13} color="#94a3b8" />
-                      <span>{st.dayLabel || st.visitDate}</span>
-                    </span>
-                  </div>
-
-                  {/* Location & School */}
-                  <div style={{ fontSize: '0.8rem', color: '#475569', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {(st.village || st.mandal) && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <MapPin size={13} color="#047857" />
-                        <span>{[st.village, st.mandal].filter(Boolean).join(', ')}</span>
-                      </span>
-                    )}
-                    {st.schoolName && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <School size={13} color="#0284c7" />
-                        <span>{st.schoolName}</span>
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Remark Box - Clearly displayed */}
-                  <div style={{
-                    backgroundColor: '#f8fafc',
-                    borderLeft: '3px solid #047857',
-                    padding: '0.4rem 0.65rem',
-                    borderRadius: '0 6px 6px 0',
-                    fontSize: '0.8rem',
-                    color: '#1e293b',
-                  }}>
-                    <strong style={{ color: '#047857' }}>Remark: </strong>
-                    <span>{st.remarks || 'No remarks provided'}</span>
-                  </div>
-
-                  {/* Bottom Actions Row: Phone & Full Details Button */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
-                    paddingTop: '0.35rem',
-                    borderTop: '1px solid #f1f5f9',
-                  }}>
-                    {st.phone ? (
-                      <a
-                        href={`tel:${st.phone}`}
-                        style={{
-                          fontSize: '0.78rem',
-                          color: '#047857',
-                          fontWeight: 700,
-                          textDecoration: 'none',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          backgroundColor: '#ecfdf5',
-                          padding: '0.25rem 0.6rem',
-                          borderRadius: '6px',
-                          border: '1px solid #a7f3d0',
-                        }}
-                      >
-                        <Phone size={12} />
-                        <span>{st.phone}</span>
-                      </a>
-                    ) : (
-                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No phone</span>
-                    )}
-
-                    {/* Full Details Button */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStudentForDetails(st)}
-                      style={{
-                        padding: '0.35rem 0.75rem',
-                        backgroundColor: '#0F2B47',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '7px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
+                      {/* Location & School & Date */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
-                        gap: '0.35rem',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                      }}
-                    >
-                      <Eye size={13} />
-                      <span>Full Details</span>
-                    </button>
-                  </div>
+                        flexWrap: 'wrap',
+                        gap: '0.4rem',
+                        fontSize: '0.78rem',
+                        color: '#475569',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                          {(st.village || st.mandal) && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <MapPin size={12} color="#047857" />
+                              <span>{[st.village, st.mandal].filter(Boolean).join(', ')}</span>
+                            </span>
+                          )}
+                          {st.schoolName && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <School size={12} color="#0284c7" />
+                              <span>{st.schoolName}</span>
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>
+                          📅 {st.dayLabel || st.visitDate}
+                        </span>
+                      </div>
+
+                      {/* Remark Box - Clearly visible */}
+                      <div style={{
+                        backgroundColor: '#ffffff',
+                        borderLeft: '3px solid #047857',
+                        padding: '0.4rem 0.65rem',
+                        borderRadius: '0 6px 6px 0',
+                        fontSize: '0.8rem',
+                        color: '#1e293b',
+                        border: '1px solid #e2e8f0',
+                        borderLeftWidth: '3px',
+                        borderLeftColor: isAdmission ? '#7c3aed' : isVisit ? '#047857' : '#0284c7',
+                      }}>
+                        <strong style={{ color: isAdmission ? '#7c3aed' : isVisit ? '#047857' : '#0284c7' }}>
+                          Remark:{' '}
+                        </strong>
+                        <span>{st.remarks || (isAdmission ? 'Joined / Admitted' : isVisit ? 'Village doorstep visit completed' : 'New student lead recorded')}</span>
+                      </div>
+
+                      {/* Actions: Full Details Button */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        paddingTop: '0.25rem',
+                      }}>
+                        {st.phone && (
+                          <a
+                            href={`tel:${st.phone}`}
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                              fontSize: '0.74rem',
+                              color: '#047857',
+                              fontWeight: 700,
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              backgroundColor: '#ecfdf5',
+                              padding: '0.25rem 0.55rem',
+                              borderRadius: '6px',
+                              border: '1px solid #a7f3d0',
+                            }}
+                          >
+                            <Phone size={11} />
+                            <span>Call {st.phone}</span>
+                          </a>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedStudentForDetails(st);
+                          }}
+                          style={{
+                            padding: '0.3rem 0.75rem',
+                            backgroundColor: '#0F2B47',
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '0.76rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                          }}
+                        >
+                          <Eye size={12} />
+                          <span>Full Details</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
