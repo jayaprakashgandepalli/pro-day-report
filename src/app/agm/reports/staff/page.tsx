@@ -135,60 +135,60 @@ function StaffReportDetailContent() {
         </Link>
       </div>
 
-      {/* Staff Profile Header Card */}
+      {/* Compact Staff Profile Header */}
       <div style={{
         backgroundColor: '#ffffff',
-        borderRadius: '16px',
+        borderRadius: '12px',
         border: '1px solid #e2e8f0',
-        padding: '1.25rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        padding: '0.75rem 1rem',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: '0.75rem',
-        marginBottom: '1.25rem',
+        gap: '0.5rem',
+        marginBottom: '0.85rem',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '12px',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            color: '#2563EB',
+            width: '36px',
+            height: '36px',
+            borderRadius: '9px',
+            backgroundColor: staff?.role === 'TELECALLER' ? '#f3e8ff' : '#ecfdf5',
+            border: `1px solid ${staff?.role === 'TELECALLER' ? '#d8b4fe' : '#a7f3d0'}`,
+            color: staff?.role === 'TELECALLER' ? '#7c3aed' : '#047857',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontWeight: 900,
-            fontSize: '1.25rem',
+            fontWeight: 800,
+            fontSize: '1rem',
             flexShrink: 0,
           }}>
-            {staff?.name ? staff.name.charAt(0).toUpperCase() : <Users size={22} />}
+            {staff?.name ? staff.name.charAt(0).toUpperCase() : <Users size={18} />}
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 900, color: '#0F2B47' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0F2B47' }}>
                 {staff ? staff.name : (loading ? 'Loading...' : 'Staff Member')}
-              </h1>
+              </span>
               <span style={{
                 backgroundColor: staff?.role === 'TELECALLER' ? '#f3e8ff' : '#ecfdf5',
                 color: staff?.role === 'TELECALLER' ? '#7c3aed' : '#047857',
                 border: `1px solid ${staff?.role === 'TELECALLER' ? '#d8b4fe' : '#a7f3d0'}`,
-                fontSize: '0.72rem',
+                fontSize: '0.65rem',
                 fontWeight: 700,
-                padding: '0.15rem 0.5rem',
-                borderRadius: '6px',
+                padding: '0.05rem 0.35rem',
+                borderRadius: '5px',
               }}>
-                {staff?.role === 'TELECALLER' ? 'Telecaller' : 'Field Staff'}
+                {staff?.role === 'TELECALLER' ? 'Tele' : 'Field'}
               </span>
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-              <span>Login ID: <strong style={{ color: '#0F2B47' }}>{staff?.employeeId || staffId}</strong></span>
+            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '0.1rem', display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+              <span>Login: <strong style={{ color: '#0F2B47' }}>{staff?.employeeId || staffId}</strong></span>
               <span>•</span>
-              <span>Total Doorsteps: <strong style={{ color: '#16a34a' }}>{staff?.doorstepDone || 0}</strong></span>
+              <span>Doorsteps: <strong style={{ color: '#16a34a' }}>{staff?.doorstepDone || 0}</strong></span>
               <span>•</span>
-              <span>Total Admitted: <strong style={{ color: '#7c3aed' }}>{staff?.admitted || 0}</strong></span>
+              <span>Admitted: <strong style={{ color: '#7c3aed' }}>{staff?.admitted || 0}</strong></span>
             </div>
           </div>
         </div>
@@ -199,110 +199,77 @@ function StaffReportDetailContent() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
-            padding: '0.45rem 0.75rem',
-            borderRadius: '8px',
+            gap: '0.35rem',
+            padding: '0.35rem 0.65rem',
+            borderRadius: '6px',
             border: '1px solid #e2e8f0',
             backgroundColor: '#f8fafc',
             color: '#475569',
-            fontSize: '0.78rem',
+            fontSize: '0.74rem',
             fontWeight: 600,
             cursor: 'pointer',
           }}
         >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           <span>Refresh</span>
         </button>
       </div>
 
-      {/* DEFAULT: TODAY'S HIGHLIGHTS CARD */}
+      {/* Simple Compact Today Stats Bar */}
       <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '16px',
-        border: '1px solid #e2e8f0',
-        padding: '1.25rem',
-        marginBottom: '1.25rem',
-        boxShadow: '0 2px 6px -1px rgba(15, 43, 71, 0.05)',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '0.5rem',
+        marginBottom: '0.85rem',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.1rem' }}>📅</span>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0F2B47' }}>
-              Today&apos;s Operations ({new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})
-            </h3>
+        {/* Today Village Visits */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #bbf7d0',
+          padding: '0.65rem 0.5rem',
+          textAlign: 'center',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#16a34a', textTransform: 'uppercase' }}>
+            Today Visits
           </div>
-          <span style={{
-            backgroundColor: '#ecfdf5',
-            color: '#047857',
-            fontSize: '0.74rem',
-            fontWeight: 800,
-            padding: '0.2rem 0.6rem',
-            borderRadius: '8px',
-          }}>
-            DEFAULT VIEW: TODAY
-          </span>
+          <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#15803d', marginTop: '0.15rem' }}>
+            {todayDoorsteps}
+          </div>
         </div>
 
+        {/* Today Admissions */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '0.85rem',
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e9d5ff',
+          padding: '0.65rem 0.5rem',
+          textAlign: 'center',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         }}>
-          {/* Today Doorsteps / Village Visits */}
-          <div style={{
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: '12px',
-            padding: '1rem',
-          }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#16a34a', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <CheckCircle2 size={15} />
-              <span>Today&apos;s Village Visits</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#15803d', marginTop: '0.35rem' }}>
-              {todayDoorsteps}
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#166534', marginTop: '0.2rem', fontWeight: 600 }}>
-              Physical Doorstep Visits Done Today
-            </div>
+          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase' }}>
+            Today Admissions
           </div>
-
-          {/* Today Admissions */}
-          <div style={{
-            backgroundColor: '#faf5ff',
-            border: '1px solid #e9d5ff',
-            borderRadius: '12px',
-            padding: '1rem',
-          }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <GraduationCap size={15} />
-              <span>Today&apos;s Admissions</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#6b21a8', marginTop: '0.35rem' }}>
-              {todayAdmissions}
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#581c87', marginTop: '0.2rem', fontWeight: 600 }}>
-              Students Confirmed & Admitted Today
-            </div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#6b21a8', marginTop: '0.15rem' }}>
+            {todayAdmissions}
           </div>
+        </div>
 
-          {/* Today New Leads Collected */}
-          <div style={{
-            backgroundColor: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            borderRadius: '12px',
-            padding: '1rem',
-          }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <FileText size={15} />
-              <span>Today&apos;s Data Collected</span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: 900, color: '#1d4ed8', marginTop: '0.35rem' }}>
-              {todayNewLeads}
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#1e40af', marginTop: '0.2rem', fontWeight: 600 }}>
-              New 10th Student Leads Entered Today
-            </div>
+        {/* Today Data Collected */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #bfdbfe',
+          padding: '0.65rem 0.5rem',
+          textAlign: 'center',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+        }}>
+          <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#2563eb', textTransform: 'uppercase' }}>
+            Today Leads
+          </div>
+          <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#1d4ed8', marginTop: '0.15rem' }}>
+            {todayNewLeads}
           </div>
         </div>
       </div>
