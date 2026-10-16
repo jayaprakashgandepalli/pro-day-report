@@ -76,7 +76,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       final results = await Future.wait([
         ApiService.getStudents(
           limit: 1000,
-          minimal: true,
+          minimal: false,
           forceRefresh: forceRefresh,
         ),
         ApiService.getConfigMap(),
@@ -318,12 +318,25 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 
   // Profile completion calculation matching old web app
   Map<String, dynamic> _getProfileCompletion(Map<String, dynamic> s) {
+    // Resolve district from village / schoolArea if missing
+    String? districtVal = s['district']?.toString();
+    if (districtVal == null || districtVal.trim().isEmpty) {
+      final vId = s['village']?.toString() ?? s['schoolArea']?.toString();
+      if (vId != null && _configParentMap.containsKey(vId)) {
+        final mId = _configParentMap[vId];
+        if (mId != null && _configParentMap.containsKey(mId)) {
+          districtVal = _configParentMap[mId];
+        }
+      }
+    }
+
     final List<Map<String, dynamic>> fields = [
       {'val': s['fatherName'], 'label': 'Father Name'},
-      {'val': s['district'], 'label': 'District'},
+      {'val': districtVal, 'label': 'District'},
       {'val': s['schoolName'], 'label': 'School'},
       {'val': s['gender'], 'label': 'Gender'},
-      {'val': s['occupation'], 'label': 'Occupation'},
+      if (s['occupation'] != null && s['occupation'].toString().trim().isNotEmpty)
+        {'val': s['occupation'], 'label': 'Occupation'},
     ];
 
     final missing = fields

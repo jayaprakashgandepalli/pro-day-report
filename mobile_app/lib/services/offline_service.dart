@@ -63,6 +63,35 @@ class OfflineService {
   // ================= STUDENTS CACHE =================
 
   static Future<void> saveStudents(List<dynamic> students) async {
+    final existingList = getCachedStudents();
+    if (existingList != null && existingList.isNotEmpty) {
+      final existingMap = <String, Map<String, dynamic>>{};
+      for (final item in existingList) {
+        if (item is Map && item['id'] != null) {
+          existingMap[item['id'].toString()] = Map<String, dynamic>.from(item);
+        }
+      }
+
+      final mergedList = <dynamic>[];
+      for (final s in students) {
+        if (s is Map && s['id'] != null && existingMap.containsKey(s['id'].toString())) {
+          final old = existingMap[s['id'].toString()]!;
+          final merged = Map<String, dynamic>.from(old);
+          s.forEach((key, val) {
+            if (val != null && val.toString().trim().isNotEmpty) {
+              merged[key] = val;
+            } else if (!merged.containsKey(key)) {
+              merged[key] = val;
+            }
+          });
+          mergedList.add(merged);
+        } else {
+          mergedList.add(s);
+        }
+      }
+      await _save(_keyStudents, mergedList);
+      return;
+    }
     await _save(_keyStudents, students);
   }
 

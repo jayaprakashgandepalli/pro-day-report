@@ -219,29 +219,29 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       if (_selectedColumns.contains(id)) {
         tableHeaders.add(col['label']!);
         if (id == 'sno') {
-          columnWidths[colIdx] = const pw.FixedColumnWidth(26);
+          columnWidths[colIdx] = const pw.FixedColumnWidth(28);
         } else if (id == 'studentName') {
-          columnWidths[colIdx] = const pw.FlexColumnWidth(2.3);
+          columnWidths[colIdx] = const pw.FlexColumnWidth(2.2);
         } else if (id == 'fatherName') {
           columnWidths[colIdx] = const pw.FlexColumnWidth(2.0);
         } else if (id == 'occupation') {
           columnWidths[colIdx] = const pw.FlexColumnWidth(1.4);
         } else if (id == 'address') {
-          columnWidths[colIdx] = const pw.FlexColumnWidth(3.4);
+          columnWidths[colIdx] = const pw.FlexColumnWidth(3.3);
         } else if (id == 'phone') {
-          columnWidths[colIdx] = const pw.FixedColumnWidth(60);
+          columnWidths[colIdx] = const pw.FixedColumnWidth(64);
         } else if (id == 'whatsapp') {
-          columnWidths[colIdx] = const pw.FixedColumnWidth(60);
+          columnWidths[colIdx] = const pw.FixedColumnWidth(64);
         } else if (id == 'group') {
           columnWidths[colIdx] = const pw.FlexColumnWidth(1.3);
         } else if (id == 'visitNumber') {
-          columnWidths[colIdx] = const pw.FixedColumnWidth(32);
+          columnWidths[colIdx] = const pw.FixedColumnWidth(36);
         } else if (id == 'schoolName') {
-          columnWidths[colIdx] = const pw.FlexColumnWidth(2.8);
+          columnWidths[colIdx] = const pw.FlexColumnWidth(2.7);
         } else if (id == 'doorstep') {
           columnWidths[colIdx] = const pw.FixedColumnWidth(48);
         } else if (id == 'remarks') {
-          columnWidths[colIdx] = const pw.FlexColumnWidth(3.8);
+          columnWidths[colIdx] = const pw.FlexColumnWidth(4.0);
         }
         colIdx++;
       }
@@ -433,7 +433,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                     pw.Text(
                       reportTitle,
                       style: pw.TextStyle(
-                        fontSize: 11,
+                        fontSize: 12.5,
                         fontWeight: pw.FontWeight.bold,
                         color: PdfColor.fromHex('#0F766E'),
                       ),
@@ -441,17 +441,17 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 6),
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
                     'Employee Name: $_employeeName',
-                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
                   ),
                   pw.Text(
                     'Date Range: $_dateRangeDisplay',
-                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
                   ),
                 ],
               ),
@@ -460,7 +460,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   padding: const pw.EdgeInsets.only(top: 2),
                   child: pw.Text(
                     'Filters: ${filterParts.join(' | ')}',
-                    style: pw.TextStyle(fontSize: 7.5, color: PdfColor.fromHex('#64748B')),
+                    style: pw.TextStyle(fontSize: 8.5, color: PdfColor.fromHex('#64748B')),
                   ),
                 ),
               pw.SizedBox(height: 6),
@@ -473,11 +473,11 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             children: [
               pw.Text(
                 'Page ${context.pageNumber} of ${context.pagesCount}',
-                style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey),
+                style: const pw.TextStyle(fontSize: 8.0, color: PdfColors.grey),
               ),
               pw.Text(
                 'PRO Day Report',
-                style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey),
+                style: const pw.TextStyle(fontSize: 8.0, color: PdfColors.grey),
               ),
             ],
           );
@@ -490,20 +490,20 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               columnWidths: columnWidths,
               border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
               headerStyle: pw.TextStyle(
-                fontSize: 7.5,
+                fontSize: 8.5,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.white,
               ),
               headerDecoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('#0F766E'),
               ),
-              cellStyle: const pw.TextStyle(fontSize: 6.8),
-              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2.5),
-              headerPadding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 3.5),
+              cellStyle: const pw.TextStyle(fontSize: 8.0),
+              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
+              headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
               cellAlignment: pw.Alignment.centerLeft,
               headerAlignment: pw.Alignment.centerLeft,
             ),
-            pw.SizedBox(height: 10),
+            pw.SizedBox(height: 12),
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -513,18 +513,18 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   children: [
                     pw.Text(
                       'Summary:',
-                      style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                      style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
                     ),
-                    pw.SizedBox(height: 2),
+                    pw.SizedBox(height: 3),
                     pw.Text(
                       'Total Students: ${_students.length}',
-                      style: const pw.TextStyle(fontSize: 8),
+                      style: const pw.TextStyle(fontSize: 8.5),
                     ),
                     if (groupCountsSummary.isNotEmpty) ...[
                       pw.SizedBox(height: 2),
                       pw.Text(
                         groupCountsSummary,
-                        style: const pw.TextStyle(fontSize: 7.5),
+                        style: const pw.TextStyle(fontSize: 8.0),
                       ),
                     ],
                   ],
@@ -533,7 +533,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   padding: const pw.EdgeInsets.only(top: 8),
                   child: pw.Text(
                     'Employee Signature: _________________',
-                    style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                    style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
                   ),
                 ),
               ],
@@ -564,8 +564,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
     try {
       final pdfBytes = await _buildPdfDoc();
-      final safeName = _employeeName.replaceAll(' ', '_');
-      final filename = 'Report_${safeName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final safeName = _employeeName.trim().isNotEmpty
+          ? _employeeName.trim().replaceAll(RegExp(r'\s+'), '_')
+          : 'Employee';
+      final filename = 'Report_$safeName.pdf';
 
       await PdfDownloader.download(pdfBytes, filename);
 
@@ -592,8 +594,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     setState(() => _generatingPdf = true);
     try {
       final pdfBytes = await _buildPdfDoc();
-      final safeName = _employeeName.replaceAll(' ', '_');
-      final filename = 'Report_${safeName}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+      final safeName = _employeeName.trim().isNotEmpty
+          ? _employeeName.trim().replaceAll(RegExp(r'\s+'), '_')
+          : 'Employee';
+      final filename = 'Report_$safeName.pdf';
 
       if (!kIsWeb) {
         // On Mobile (Android/iOS): share PDF directly via native share sheet (WhatsApp)

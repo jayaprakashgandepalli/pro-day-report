@@ -141,7 +141,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     try {
       final configFuture = ApiService.getConfigMap();
       final results = await Future.wait([
-        ApiService.getStudents(limit: 1000, minimal: true, forceRefresh: forceRefresh),
+        ApiService.getStudents(limit: 1000, minimal: false, forceRefresh: forceRefresh),
         ApiService.getTasks(forceRefresh: forceRefresh),
         ApiService.getFollowups('today', forceRefresh: forceRefresh),
         ApiService.getKeyPersons(forceRefresh: forceRefresh),
@@ -236,6 +236,22 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         };
       });
       _saveCachedStats();
+
+      // Sync employee profile from cloud (College Name, Phone, Name)
+      ApiService.getEmployeeProfile(widget.employeeId).then((profile) async {
+        if (profile != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final c = profile['collegeName']?.toString().trim() ?? '';
+          final p = profile['phone']?.toString().trim() ?? '';
+          final n = profile['name']?.toString().trim() ?? '';
+          if (c.isNotEmpty) await prefs.setString('employee_college', c);
+          if (p.isNotEmpty) await prefs.setString('employee_phone', p);
+          if (n.isNotEmpty) {
+            await prefs.setString('user_name', n);
+            if (mounted) setState(() => _displayName = n);
+          }
+        }
+      }).catchError((_) {});
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }

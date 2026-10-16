@@ -92,7 +92,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       _landmarkController.text = s['address']?.toString() ?? '';
       _visitNumberController.text = s['visitNumber']?.toString() ?? '';
       _remarksController.text = s['remarks']?.toString() ?? '';
-      _doorstepCompleted = s['doorstepCompleted'] == true;
+      final visitsList = s['visits'] as List<dynamic>?;
+      final hasVisits = visitsList != null && visitsList.isNotEmpty;
+      _doorstepCompleted = (s['doorstepCompleted'] == true) || hasVisits;
       _occupation = s['occupation']?.toString();
       _group = s['group']?.toString();
       _studyInterestedAt = s['studyInterestedAt']?.toString();
@@ -159,10 +161,11 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   }
 
   void _resolveCascadingHierarchies() {
-    // 1. Resolve Residence Cascading Hierarchy from Village/Mandal
+    // 1. Resolve Residence Cascading Hierarchy from Village/Mandal/District
     if (_residenceVillage != null && _residenceVillage!.isNotEmpty) {
+      final vNorm = _residenceVillage!.trim().toLowerCase();
       final vCfg = _configs.firstWhere(
-        (c) => c is Map && (c['id']?.toString() == _residenceVillage || c['value']?.toString() == _residenceVillage) && c['type'] == 'VILLAGE',
+        (c) => c is Map && (c['id']?.toString() == _residenceVillage || c['value']?.toString().trim().toLowerCase() == vNorm) && c['type'] == 'VILLAGE',
         orElse: () => null,
       );
       if (vCfg != null) {
@@ -173,8 +176,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       }
     }
     if (_residenceMandal != null && _residenceMandal!.isNotEmpty) {
+      final mNorm = _residenceMandal!.trim().toLowerCase();
       final mCfg = _configs.firstWhere(
-        (c) => c is Map && (c['id']?.toString() == _residenceMandal || c['value']?.toString() == _residenceMandal) && c['type'] == 'MANDAL',
+        (c) => c is Map && (c['id']?.toString() == _residenceMandal || c['value']?.toString().trim().toLowerCase() == mNorm) && c['type'] == 'MANDAL',
         orElse: () => null,
       );
       if (mCfg != null) {
@@ -185,8 +189,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       }
     }
     if (_residenceDistrict != null && _residenceDistrict!.isNotEmpty) {
+      final dNorm = _residenceDistrict!.trim().toLowerCase();
       final dCfg = _configs.firstWhere(
-        (c) => c is Map && (c['id']?.toString() == _residenceDistrict || c['value']?.toString() == _residenceDistrict) && c['type'] == 'DISTRICT',
+        (c) => c is Map && (c['id']?.toString() == _residenceDistrict || c['value']?.toString().trim().toLowerCase() == dNorm) && c['type'] == 'DISTRICT',
         orElse: () => null,
       );
       if (dCfg != null) {
@@ -194,30 +199,61 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       }
     }
 
-    // 2. Resolve Previous School Cascading Hierarchy from School Name
+    // 2. Resolve Previous School Cascading Hierarchy
+    // Try from school name first
     if (_schoolName != null && _schoolName!.isNotEmpty) {
+      final sNorm = _schoolName!.trim().toLowerCase();
       final schoolCfg = _configs.firstWhere(
-        (c) => c is Map && c['type'] == 'SCHOOL' && c['value'] == _schoolName,
+        (c) => c is Map && c['type'] == 'SCHOOL' && (c['value']?.toString().trim().toLowerCase() == sNorm || c['id']?.toString() == _schoolName),
         orElse: () => null,
       );
-      if (schoolCfg != null && schoolCfg['parentId'] != null) {
-        final vId = schoolCfg['parentId'].toString();
-        _schoolVillage ??= vId;
-        final vCfg = _configs.firstWhere(
-          (c) => c is Map && c['id']?.toString() == vId,
-          orElse: () => null,
-        );
-        if (vCfg != null && vCfg['parentId'] != null) {
-          final mId = vCfg['parentId'].toString();
-          _schoolMandal ??= mId;
-          final mCfg = _configs.firstWhere(
-            (c) => c is Map && c['id']?.toString() == mId,
-            orElse: () => null,
-          );
-          if (mCfg != null && mCfg['parentId'] != null) {
-            _schoolDistrict ??= mCfg['parentId'].toString();
-          }
+      if (schoolCfg != null) {
+        _schoolName = schoolCfg['value'].toString();
+        if (schoolCfg['parentId'] != null) {
+          _schoolVillage ??= schoolCfg['parentId'].toString();
         }
+      }
+    }
+
+    // Climb up from school village
+    if (_schoolVillage != null && _schoolVillage!.isNotEmpty) {
+      final vNorm = _schoolVillage!.trim().toLowerCase();
+      final vCfg = _configs.firstWhere(
+        (c) => c is Map && (c['id']?.toString() == _schoolVillage || c['value']?.toString().trim().toLowerCase() == vNorm) && c['type'] == 'VILLAGE',
+        orElse: () => null,
+      );
+      if (vCfg != null) {
+        _schoolVillage = vCfg['id'].toString();
+        if (vCfg['parentId'] != null) {
+          _schoolMandal ??= vCfg['parentId'].toString();
+        }
+      }
+    }
+
+    // Climb up from school mandal
+    if (_schoolMandal != null && _schoolMandal!.isNotEmpty) {
+      final mNorm = _schoolMandal!.trim().toLowerCase();
+      final mCfg = _configs.firstWhere(
+        (c) => c is Map && (c['id']?.toString() == _schoolMandal || c['value']?.toString().trim().toLowerCase() == mNorm) && c['type'] == 'MANDAL',
+        orElse: () => null,
+      );
+      if (mCfg != null) {
+        _schoolMandal = mCfg['id'].toString();
+        if (mCfg['parentId'] != null) {
+          _schoolDistrict ??= mCfg['parentId'].toString();
+        }
+      }
+    }
+
+    // Climb up from school district
+    if (_schoolDistrict != null && _schoolDistrict!.isNotEmpty) {
+      final dNorm = _schoolDistrict!.trim().toLowerCase();
+      final dCfg = _configs.firstWhere(
+        (c) => c is Map && (c['id']?.toString() == _schoolDistrict || c['value']?.toString().trim().toLowerCase() == dNorm) && c['type'] == 'DISTRICT',
+        orElse: () => null,
+      );
+      if (dCfg != null) {
+        _schoolDistrict = dCfg['id'].toString();
       }
     }
   }

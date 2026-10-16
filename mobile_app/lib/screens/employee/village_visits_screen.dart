@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -56,7 +55,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
 
     try {
       final results = await Future.wait([
-        ApiService.getStudents(limit: 1000, minimal: true, forceRefresh: forceRefresh),
+        ApiService.getStudents(limit: 1000, minimal: false, forceRefresh: forceRefresh),
         ApiService.getConfigMap(),
         ApiService.getConfigParentMap(),
         ApiService.getCollegesList(),
@@ -93,7 +92,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
   }
 
   Future<void> _fetchStudentsOnly({bool forceRefresh = false}) async {
-    final res = await ApiService.getStudents(limit: 1000, minimal: true, forceRefresh: forceRefresh);
+    final res = await ApiService.getStudents(limit: 1000, minimal: false, forceRefresh: forceRefresh);
     if (!mounted) return;
     if (res['success'] == true) {
       _students = (res['students'] as List<dynamic>?) ?? [];
@@ -326,98 +325,6 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-  }
-
-  // Generate a watermarked visit report image with photo on top and student details banner on bottom
-  Future<Uint8List> _createWatermarkedVisitImage({
-    required Uint8List photoBytes,
-    required String studentName,
-    required String fatherName,
-    required String village,
-    required String school,
-    required String phone,
-    required String remarks,
-  }) async {
-    final codec = await ui.instantiateImageCodec(photoBytes);
-    final frame = await codec.getNextFrame();
-    final ui.Image img = frame.image;
-
-    final int imgWidth = img.width;
-    final int imgHeight = img.height;
-
-    // Responsive font scaling based on photo width
-    final double fontSize = (imgWidth * 0.038).clamp(24.0, 52.0);
-    final double padding = fontSize * 1.1;
-    final double maxWidth = (imgWidth - (padding * 2)).clamp(200.0, double.infinity);
-
-    final List<InlineSpan> spans = [];
-    void addField(String label, String value, {Color? valColor}) {
-      if (value.trim().isEmpty) return;
-      spans.add(TextSpan(
-        text: '$label: ',
-        style: TextStyle(
-          color: const Color(0xFF94A3B8), // slate-400
-          fontSize: fontSize,
-          fontWeight: FontWeight.w600,
-        ),
-      ));
-      spans.add(TextSpan(
-        text: '$value\n',
-        style: TextStyle(
-          color: valColor ?? const Color(0xFFF1F5F9), // slate-100
-          fontSize: fontSize,
-          fontWeight: FontWeight.w700,
-        ),
-      ));
-    }
-
-    addField('Student Name', studentName);
-    if (fatherName.isNotEmpty) addField('Father Name', fatherName);
-    if (village.isNotEmpty) addField('Village', village);
-    if (school.isNotEmpty) addField('School', school);
-    if (phone.isNotEmpty) addField('Mobile No', phone, valColor: const Color(0xFF4ADE80));
-    if (remarks.isNotEmpty) addField('Remarks', remarks);
-
-    final textPainter = TextPainter(
-      text: TextSpan(children: spans),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout(maxWidth: maxWidth);
-
-    final double bannerHeight = textPainter.height + (padding * 2);
-    final int totalWidth = imgWidth;
-    final int totalHeight = (imgHeight + bannerHeight).round();
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, totalWidth.toDouble(), totalHeight.toDouble()));
-
-    // 1. Draw original photo
-    canvas.drawImage(img, Offset.zero, Paint());
-
-    // 2. Draw dark footer banner (#1E293B)
-    final footerPaint = Paint()..color = const Color(0xFF1E293B);
-    canvas.drawRect(
-      Rect.fromLTWH(0, imgHeight.toDouble(), totalWidth.toDouble(), bannerHeight),
-      footerPaint,
-    );
-
-    // 3. Draw top accent green line (#25D366)
-    final linePaint = Paint()
-      ..color = const Color(0xFF25D366)
-      ..strokeWidth = (fontSize * 0.12).clamp(3.0, 6.0);
-    canvas.drawLine(
-      Offset(0, imgHeight.toDouble()),
-      Offset(totalWidth.toDouble(), imgHeight.toDouble()),
-      linePaint,
-    );
-
-    // 4. Draw text
-    textPainter.paint(canvas, Offset(padding, imgHeight.toDouble() + padding));
-
-    final picture = recorder.endRecording();
-    final resultImg = await picture.toImage(totalWidth, totalHeight);
-    final byteData = await resultImg.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
   }
 
   // Record / Update Visit Modal
@@ -770,7 +677,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                     : const Icon(Icons.chat_bubble_outline_rounded, size: 18),
                                 label: Text(
                                   isSharing
-                                      ? 'Preparing Photo...'
+                                      ? 'Sending to WhatsApp...'
                                       : (attachedPhotoBytes != null ? 'Share Photo to WhatsApp' : 'Share to WhatsApp'),
                                   style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
                                 ),
@@ -790,36 +697,32 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                         if (attachedPhotoBytes != null) {
                                           setModalState(() => isSharing = true);
                                           try {
-                                            final watermarkedBytes = await _createWatermarkedVisitImage(
-                                              photoBytes: attachedPhotoBytes!,
-                                              studentName: studentName,
-                                              fatherName: fatherName,
-                                              village: village,
-                                              school: school,
-                                              phone: phone,
-                                              remarks: remarksController.text.trim(),
-                                            );
-
                                             if (kIsWeb) {
                                               await SharePlus.instance.share(
                                                 ShareParams(
                                                   files: [
                                                     XFile.fromData(
-                                                      watermarkedBytes,
-                                                      mimeType: 'image/png',
-                                                      name: 'visit_report_${DateTime.now().millisecondsSinceEpoch}.png',
+                                                      attachedPhotoBytes!,
+                                                      mimeType: 'image/jpeg',
+                                                      name: 'visit_${DateTime.now().millisecondsSinceEpoch}.jpg',
                                                     ),
                                                   ],
                                                   text: msg.toString(),
                                                 ),
                                               );
                                             } else {
-                                              final tempDir = await getTemporaryDirectory();
-                                              final tempFile = File('${tempDir.path}/visit_report_${DateTime.now().millisecondsSinceEpoch}.png');
-                                              await tempFile.writeAsBytes(watermarkedBytes);
+                                              XFile shareFile;
+                                              if (attachedPhoto != null) {
+                                                shareFile = attachedPhoto!;
+                                              } else {
+                                                final tempDir = await getTemporaryDirectory();
+                                                final tempFile = File('${tempDir.path}/visit_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                                                await tempFile.writeAsBytes(attachedPhotoBytes!);
+                                                shareFile = XFile(tempFile.path);
+                                              }
                                               await SharePlus.instance.share(
                                                 ShareParams(
-                                                  files: [XFile(tempFile.path)],
+                                                  files: [shareFile],
                                                   text: msg.toString(),
                                                 ),
                                               );
@@ -1043,7 +946,9 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                           isSaving = false;
                                           isSavedSuccess = true;
                                         });
-                                        _fetchStudentsOnly();
+                                        student['doorstepCompleted'] = true;
+                                        if (apiStudentStatus != null) student['leadStatus'] = apiStudentStatus;
+                                        _fetchStudentsOnly(forceRefresh: true);
                                       } else {
                                         setModalState(() => isSaving = false);
                                         ScaffoldMessenger.of(ctx).showSnackBar(

@@ -468,7 +468,7 @@ class ApiService {
   /// 4. Fetch Students List with instant cache-first (0ms) and offline fallback
   static Future<Map<String, dynamic>> getStudents({
     int limit = 1000,
-    bool minimal = true,
+    bool minimal = false,
     bool forceRefresh = false,
     String? search,
     String? startDate,
@@ -655,7 +655,9 @@ class ApiService {
     try {
       final res = await updateStudentToServerOnly(studentId, studentData);
       if (res['success'] == true) {
-        await OfflineService.updateStudentLocally(studentId, studentData);
+        final serverStudent = res['data']?['student'];
+        final updatedMap = (serverStudent is Map) ? Map<String, dynamic>.from(serverStudent) : studentData;
+        await OfflineService.updateStudentLocally(studentId, updatedMap);
         _cachedStudents = OfflineService.getCachedStudents();
         return res;
       }
@@ -696,7 +698,20 @@ class ApiService {
 
   // 3c. Get Student by ID
   static Future<Map<String, dynamic>> getStudentById(String studentId) async {
-    // Check in local cache first
+    // 1. Try to fetch fresh and complete student details from server first
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/students/$studentId');
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['student'] != null) {
+        final serverStudent = Map<String, dynamic>.from(data['student'] as Map);
+        await OfflineService.updateStudentLocally(studentId, serverStudent);
+        return {'success': true, 'student': serverStudent};
+      }
+    } catch (_) {}
+
+    // 2. Offline fallback: check in local cache
     final localList = OfflineService.getCachedStudents();
     if (localList != null) {
       for (final s in localList) {
@@ -706,18 +721,7 @@ class ApiService {
       }
     }
 
-    try {
-      final headers = await getAuthHeaders();
-      final uri = await buildUri('/api/students/$studentId');
-      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['student'] != null) {
-        return {'success': true, 'student': data['student']};
-      }
-      return {'success': false, 'error': data['error'] ?? 'Student not found'};
-    } catch (e) {
-      return {'success': false, 'error': 'Connection error: $e'};
-    }
+    return {'success': false, 'error': 'Student not found'};
   }
 
   // 3d. Delete Student
@@ -830,7 +834,12 @@ class ApiService {
     try {
       final res = await recordVisitToServerOnly(payload);
       if (res['success'] == true) {
-        _cachedStudents = null;
+        await OfflineService.updateStudentLocally(studentId, {
+          'doorstepCompleted': true,
+          'leadStatus': ?leadStatus,
+          if (remarks.isNotEmpty) 'remarks': remarks,
+        });
+        _cachedStudents = OfflineService.getCachedStudents();
         _studentsCacheTime = null;
         _cachedFollowups.clear();
         _followupsCacheTime.clear();
@@ -840,9 +849,12 @@ class ApiService {
     } catch (e) {
       // Offline fallback
       await OfflineService.enqueueAction(actionType: 'record_visit', payload: payload);
-      if (leadStatus != null) {
-        await OfflineService.updateStudentLocally(studentId, {'leadStatus': leadStatus, 'doorstepCompleted': true});
-      }
+      await OfflineService.updateStudentLocally(studentId, {
+        'doorstepCompleted': true,
+        'leadStatus': ?leadStatus,
+        if (remarks.isNotEmpty) 'remarks': remarks,
+      });
+      _cachedStudents = OfflineService.getCachedStudents();
       return {
         'success': true,
         'offline': true,
@@ -1187,6 +1199,57 @@ class ApiService {
       }
     } finally {
       _isSyncing = false;
+    }
+  }
+
+  // ================= EMPLOYEE PROFILE SYNC =================
+
+  static Future<Map<String, dynamic>?> getEmployeeProfile(String employeeId) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/employee/profile', {'employeeId': employeeId.trim()});
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final res = jsonDecode(response.body);
+        if (res['success'] == true && res['profile'] != null) {
+          return res['profile'] as Map<String, dynamic>;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error getting employee profile: $e');
+    }
+    return null;
+  }
+
+  static Future<bool> saveEmployeeProfile({
+    required String employeeId,
+    required String name,
+    required String phone,
+    required String collegeName,
+  }) async {
+    try {
+      final headers = await getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      final uri = await buildUri('/api/employee/profile');
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode({
+          'employeeId': employeeId.trim(),
+          'name': name.trim(),
+          'phone': phone.trim(),
+          'collegeName': collegeName.trim(),
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final res = jsonDecode(response.body);
+        return res['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error saving employee profile: $e');
+      return false;
     }
   }
 }

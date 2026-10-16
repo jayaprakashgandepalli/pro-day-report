@@ -19,6 +19,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const data = await req.json();
 
     const currentStudent = await prisma.student.findUnique({ where: { id } });
+    if (!currentStudent) {
+      return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
+    }
 
     const cleanPhone = data.phone !== undefined ? normalizePhoneNumber(data.phone) : undefined;
     const cleanWhatsapp = data.whatsapp !== undefined ? (data.whatsapp ? normalizePhoneNumber(data.whatsapp) : null) : undefined;

@@ -40,9 +40,15 @@ export async function POST(req: Request) {
       }
     }
 
+    const userCreator = await prisma.user.findUnique({
+      where: { employeeId: payload.employeeId },
+      select: { collegeId: true }
+    });
+
     const newStudent = await prisma.student.create({
       data: {
         employeeId: payload.employeeId,
+        collegeId: userCreator?.collegeId || data.collegeId || null,
         studentName: data.studentName || "",
         fatherName: data.fatherName || null,
         occupation: data.occupation || null,
@@ -113,9 +119,21 @@ export async function GET(req: Request) {
     } else if (payload.role === 'COLLEGE') {
       const user = await prisma.user.findUnique({
         where: { employeeId: payload.employeeId },
-        select: { allowedGroups: true, allowedLocations: true }
+        select: { collegeId: true, allowedGroups: true, allowedLocations: true }
       });
-      if (user) {
+      if (user && user.collegeId) {
+        const collegeStaff = await prisma.user.findMany({
+          where: { collegeId: user.collegeId },
+          select: { employeeId: true }
+        });
+        const staffIds = collegeStaff.map(s => s.employeeId);
+        whereClause.AND.push({
+          OR: [
+            { collegeId: user.collegeId },
+            { employeeId: { in: staffIds } }
+          ]
+        });
+      } else if (user) {
         if (user.allowedGroups.length > 0) {
           whereClause.AND.push({ group: { in: user.allowedGroups } });
         }
@@ -292,8 +310,29 @@ export async function GET(req: Request) {
     if (interest) whereClause.AND.push({ studyInterestedAt: interest });
     if (fee) whereClause.AND.push({ ableToBearFee: fee });
 
-    const employeeIdFilter = searchParams.get('employeeId');
+    const employeeIdFilter = searchParams.get('employeeId') || searchParams.get('staffId');
     if (employeeIdFilter) whereClause.AND.push({ employeeId: employeeIdFilter });
+
+    const agmIdFilter = searchParams.get('agmId');
+    if (agmIdFilter) {
+      const agmStaff = await prisma.user.findMany({
+        where: {
+          assignedAgms: { has: agmIdFilter }
+        },
+        select: { employeeId: true }
+      });
+      const staffUnderAgm = [...agmStaff.map(s => s.employeeId), agmIdFilter];
+      whereClause.AND.push({
+        employeeId: { in: staffUnderAgm }
+      });
+    }
+
+    const doorstepFilter = searchParams.get('doorstep');
+    if (doorstepFilter === 'completed') {
+      whereClause.AND.push({ doorstepCompleted: true });
+    } else if (doorstepFilter === 'pending') {
+      whereClause.AND.push({ doorstepCompleted: false });
+    }
 
     const groupFilter = searchParams.get('group');
     if (groupFilter) whereClause.AND.push({ group: groupFilter });
@@ -427,20 +466,38 @@ export async function GET(req: Request) {
     if (minimal) {
       queryOptions.select = {
         id: true,
+        employeeId: true,
+        collegeId: true,
         studentName: true,
+        gender: true,
         phone: true,
         whatsapp: true,
         fatherName: true,
+        occupation: true,
         group: true,
         schoolName: true,
         schoolArea: true,
         marks: true,
+        district: true,
+        mandal: true,
         village: true,
         address: true,
         studyInterestedAt: true,
+        educationStage: true,
         ableToBearFee: true,
+        visitNumber: true,
+        remarks: true,
         leadStatus: true,
+        doorstepCompleted: true,
+        telecallerUpdateAt: true,
+        telecallerUpdateDetails: true,
+        nextFollowUpDate: true,
+        nextFollowUpType: true,
+        joinedCollegeId: true,
+        applicationNumber: true,
+        admissionDate: true,
         createdAt: true,
+        updatedAt: true,
         visits: visitInclude,
       };
     } else {

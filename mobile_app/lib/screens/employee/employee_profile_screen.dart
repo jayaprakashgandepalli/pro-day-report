@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/api_service.dart';
 
 class EmployeeProfileScreen extends StatefulWidget {
   final String employeeId;
@@ -48,7 +49,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       
-      // Load stored phone or fallback to employeeId if numeric
+      // 1. Load from local cache first for instant display
       final storedPhone = prefs.getString('employee_phone');
       if (storedPhone != null && storedPhone.isNotEmpty) {
         _phoneController.text = storedPhone;
@@ -59,20 +60,41 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
         }
       }
 
-      // Load stored name if available
       final storedName = prefs.getString('user_name');
       if (storedName != null && storedName.isNotEmpty) {
         _nameController.text = storedName;
       }
 
-      // Load stored college name
       final storedCollege = prefs.getString('employee_college');
-      if (storedCollege != null) {
+      if (storedCollege != null && storedCollege.isNotEmpty) {
         _collegeController.text = storedCollege;
       }
 
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+
+      // 2. Fetch latest from Server Database (Cloud Sync)
+      final cloudProfile = await ApiService.getEmployeeProfile(widget.employeeId);
+      if (cloudProfile != null) {
+        final cloudCollege = cloudProfile['collegeName']?.toString().trim() ?? '';
+        final cloudPhone = cloudProfile['phone']?.toString().trim() ?? '';
+        final cloudName = cloudProfile['name']?.toString().trim() ?? '';
+
+        if (cloudCollege.isNotEmpty) {
+          _collegeController.text = cloudCollege;
+          await prefs.setString('employee_college', cloudCollege);
+        }
+        if (cloudPhone.isNotEmpty) {
+          _phoneController.text = cloudPhone;
+          await prefs.setString('employee_phone', cloudPhone);
+        }
+        if (cloudName.isNotEmpty) {
+          _nameController.text = cloudName;
+          await prefs.setString('user_name', cloudName);
+        }
+
+        if (mounted) setState(() {});
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
@@ -94,10 +116,19 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
     setState(() => _isSaving = true);
 
     try {
+      // 1. Save locally
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_name', name);
       await prefs.setString('employee_phone', phone);
       await prefs.setString('employee_college', college);
+
+      // 2. Sync to Server Database so it appears in Browser & all devices
+      await ApiService.saveEmployeeProfile(
+        employeeId: widget.employeeId,
+        name: name,
+        phone: phone,
+        collegeName: college,
+      );
 
       if (!mounted) return;
 
@@ -106,7 +137,7 @@ class _EmployeeProfileScreenState extends State<EmployeeProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Color(0xFF10B981),
-          content: Text('Profile details updated successfully! 🎉'),
+          content: Text('Profile details updated & synced successfully! 🎉'),
         ),
       );
     } catch (e) {
