@@ -177,101 +177,97 @@ export default function AgmDashboardPage() {
         </div>
       )}
 
-      {/* The 4 Focused KPI Cards (Exactly as requested) */}
-      <div style={{
-        background: 'linear-gradient(135deg, #0F2B47 0%, #163252 100%)',
-        padding: '1.15rem',
-        borderRadius: '16px',
-        boxShadow: '0 8px 24px rgba(15, 43, 71, 0.16)',
-        border: '1px solid #23456e',
-      }}>
-        <div className="agm-hero-stats">
-          {/* Card 1: 10TH POOL STRENGTH */}
-          <div style={{
-            backgroundColor: '#172d47',
-            padding: '1.25rem 1.15rem',
-            borderRadius: '14px',
-            border: '1px solid rgba(255,255,255,0.12)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-          }}>
-            <div style={{ fontSize: '0.74rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
-              10TH POOL STRENGTH
-            </div>
-            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#ffffff', margin: '0.35rem 0' }}>
-              {kpis.total10thStrength || 0}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#cbd5e1' }}>
-              Across {kpis.catchmentSchoolsCount || 0} Assigned Schools
-            </div>
+      {/* The 4 Focused KPI Cards (Classy Design) */}
+      <div className="agm-hero-stats">
+        {/* Card 1: 10TH POOL STRENGTH */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          padding: '1.25rem 1.25rem',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          borderTop: '4px solid #0F2B47',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 16px -2px rgba(15, 43, 71, 0.06)',
+        }}>
+          <div style={{ fontSize: '0.74rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+            10TH POOL STRENGTH
           </div>
-
-          {/* Card 2: COLLECTED STUDENT DATA */}
-          <div style={{
-            backgroundColor: '#172d47',
-            padding: '1.25rem 1.15rem',
-            borderRadius: '14px',
-            border: '1px solid rgba(255,255,255,0.12)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-          }}>
-            <div style={{ fontSize: '0.74rem', color: '#34d399', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
-              COLLECTED STUDENT DATA
-            </div>
-            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#34d399', margin: '0.35rem 0' }}>
-              {kpis.totalLeads}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#a7f3d0' }}>
-              {kpis.totalDoorstepDone} Doorsteps Done
-            </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#0F2B47', margin: '0.35rem 0' }}>
+            {kpis.total10thStrength || 0}
           </div>
-
-          {/* Card 3: UNCOLLECTED (PENDING) */}
-          <div style={{
-            backgroundColor: '#172d47',
-            padding: '1.25rem 1.15rem',
-            borderRadius: '14px',
-            border: '1px solid rgba(255,255,255,0.12)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-          }}>
-            <div style={{ fontSize: '0.74rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
-              UNCOLLECTED (PENDING)
-            </div>
-            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#f87171', margin: '0.35rem 0' }}>
-              {kpis.remainingToCollect || 0}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#fca5a5' }}>
-              Students yet to be contacted
-            </div>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>
+            Across {kpis.catchmentSchoolsCount || 0} Assigned Schools
           </div>
+        </div>
 
-          {/* Card 4: OVERALL COLLECTION % */}
-          <div style={{
-            backgroundColor: '#172d47',
-            padding: '1.25rem 1.15rem',
-            borderRadius: '14px',
-            border: '1px solid rgba(255,255,255,0.12)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-          }}>
-            <div style={{ fontSize: '0.74rem', color: '#60a5fa', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
-              OVERALL COLLECTION %
-            </div>
-            <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#60a5fa', margin: '0.35rem 0' }}>
-              {kpis.overallCoverageRate || 0}%
-            </div>
-            <div style={{ fontSize: '0.78rem', color: '#bfdbfe' }}>
-              Target Coverage Progress
-            </div>
+        {/* Card 2: COLLECTED STUDENT DATA */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          padding: '1.25rem 1.25rem',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          borderTop: '4px solid #10B981',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 16px -2px rgba(16, 185, 129, 0.08)',
+        }}>
+          <div style={{ fontSize: '0.74rem', color: '#059669', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+            COLLECTED STUDENT DATA
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#059669', margin: '0.35rem 0' }}>
+            {kpis.totalLeads}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#047857', fontWeight: 600 }}>
+            {kpis.totalDoorstepDone} Doorsteps Done
+          </div>
+        </div>
+
+        {/* Card 3: UNCOLLECTED (PENDING) */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          padding: '1.25rem 1.25rem',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          borderTop: '4px solid #F43F5E',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 16px -2px rgba(244, 63, 94, 0.08)',
+        }}>
+          <div style={{ fontSize: '0.74rem', color: '#E11D48', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+            UNCOLLECTED (PENDING)
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#E11D48', margin: '0.35rem 0' }}>
+            {kpis.remainingToCollect || 0}
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>
+            Students yet to be contacted
+          </div>
+        </div>
+
+        {/* Card 4: OVERALL COLLECTION % */}
+        <div style={{
+          backgroundColor: '#ffffff',
+          padding: '1.25rem 1.25rem',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          borderTop: '4px solid #3B82F6',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          boxShadow: '0 4px 16px -2px rgba(59, 130, 246, 0.08)',
+        }}>
+          <div style={{ fontSize: '0.74rem', color: '#2563EB', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.04em' }}>
+            OVERALL COLLECTION %
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 900, color: '#2563EB', margin: '0.35rem 0' }}>
+            {kpis.overallCoverageRate || 0}%
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>
+            Target Coverage Progress
           </div>
         </div>
       </div>
