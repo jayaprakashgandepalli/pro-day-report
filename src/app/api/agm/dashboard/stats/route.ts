@@ -51,12 +51,18 @@ export async function GET(req: NextRequest) {
         id: true,
         employeeId: true,
         studentName: true,
+        fatherName: true,
+        occupation: true,
+        address: true,
         phone: true,
+        whatsapp: true,
         schoolName: true,
+        district: true,
         mandal: true,
         village: true,
         marks: true,
         group: true,
+        remarks: true,
         leadStatus: true,
         doorstepCompleted: true,
         studyInterestedAt: true,
@@ -229,14 +235,25 @@ export async function GET(req: NextRequest) {
         notes: string[];
         visitsList: Array<{
           id: string;
+          studentId?: string;
           studentName: string;
           phone?: string;
+          whatsapp?: string;
+          fatherName?: string;
+          occupation?: string;
+          address?: string;
           village?: string;
           mandal?: string;
+          district?: string;
           schoolName?: string;
+          group?: string;
+          marks?: string;
+          visitNumber?: string | number;
           remarks?: string;
           leadStatus?: string;
+          doorstepCompleted?: boolean;
           type: 'VISIT' | 'ADMISSION' | 'NEW_LEAD';
+          date?: string;
         }>;
       }>();
 
@@ -261,14 +278,25 @@ export async function GET(req: NextRequest) {
           item.admissions += 1;
           item.visitsList.push({
             id: `adm-${st.id}`,
+            studentId: st.id,
             studentName: st.studentName,
             phone: st.phone || '',
+            whatsapp: st.whatsapp || '',
+            fatherName: st.fatherName || '',
+            occupation: st.occupation || '',
+            address: st.address || '',
             village: st.village || '',
             mandal: st.mandal || '',
+            district: st.district || '',
             schoolName: st.schoolName || '',
-            remarks: 'Joined / Admitted',
+            group: st.group || '',
+            marks: st.marks || '',
+            visitNumber: st.visitNumber || '1',
+            remarks: st.remarks || 'Joined / Admitted',
             leadStatus: 'Admitted',
+            doorstepCompleted: st.doorstepCompleted,
             type: 'ADMISSION',
+            date: dStr,
           });
         }
       }
@@ -298,14 +326,25 @@ export async function GET(req: NextRequest) {
         const st = studentMap.get(v.studentId);
         item.visitsList.push({
           id: v.id,
+          studentId: st?.id || v.studentId,
           studentName: st?.studentName || 'Student Visit',
           phone: st?.phone || '',
+          whatsapp: st?.whatsapp || '',
+          fatherName: st?.fatherName || '',
+          occupation: st?.occupation || '',
+          address: st?.address || '',
           village: st?.village || '',
           mandal: st?.mandal || '',
+          district: st?.district || '',
           schoolName: st?.schoolName || '',
-          remarks: v.remarks || 'Village doorstep visit completed',
-          leadStatus: st?.leadStatus || '',
+          group: st?.group || '',
+          marks: st?.marks || '',
+          visitNumber: st?.visitNumber || '1',
+          remarks: v.remarks || st?.remarks || 'Village doorstep visit completed',
+          leadStatus: st?.leadStatus || 'Visited',
+          doorstepCompleted: st?.doorstepCompleted ?? true,
           type: 'VISIT',
+          date: dStr,
         });
       }
 
