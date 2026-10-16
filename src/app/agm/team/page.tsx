@@ -406,39 +406,6 @@ export default function AgmTeamPage() {
                     </span>
                   </div>
 
-                  {/* Assigned Schools & Territory Badges */}
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
-                        Assigned Catchment Territory ({schoolsCount} Schools)
-                      </span>
-                    </div>
-                    {staff.assignedSchoolNames && staff.assignedSchoolNames.length > 0 ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                        {staff.assignedSchoolNames.map((scName: string, i: number) => (
-                          <span key={i} style={{
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                            backgroundColor: '#EFF6FF',
-                            color: '#1D4ED8',
-                            padding: '0.18rem 0.5rem',
-                            borderRadius: '6px',
-                            border: '1px solid #BFDBFE',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                          }}>
-                            <School size={12} /> {scName}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: '0.75rem', color: '#94A3B8', fontStyle: 'italic' }}>
-                        No schools assigned yet
-                      </span>
-                    )}
-                  </div>
-
                   {/* Field Staff Enhanced Catchment Capacity & Progress Panel */}
                   {isField && (
                     <div style={{
