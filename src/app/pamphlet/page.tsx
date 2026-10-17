@@ -1,49 +1,173 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Image from 'next/image';
 
 interface PageItem {
   id: number;
   title: string;
   subtitle: string;
   src: string;
+  cdnSrc: string;
   tag: string;
 }
 
 const PAGES: PageItem[] = [
   {
+    id: 0,
+    title: 'శ్రీ వాత్సల్య జూనియర్ కళాశాల - కవర్ పేజీ',
+    subtitle: 'Sri Vaatsalya Junior College • Visakhapatnam',
+    src: '/scannn/page-0.jpeg',
+    cdnSrc: 'https://files.catbox.moe/na3eeh.jpeg',
+    tag: 'Cover Page',
+  },
+  {
     id: 1,
     title: 'JEE Mains & EAPCET 2026 ప్రభంజనం',
     subtitle: 'All India Ranks AIR 1136, AIR 1286 & EAPCET State Ranks',
-    src: '/pamphlet/page-1.jpg',
+    src: '/scannn/page-1.jpg',
+    cdnSrc: 'https://files.catbox.moe/sslv84.jpg',
     tag: 'JEE / NEET Front Page',
   },
   {
     id: 2,
     title: 'AP Junior Intermediate 2026 ఫలితాలు',
     subtitle: 'State 2nd Rank 467/470, 466/470 - అఖండ విజయం',
-    src: '/pamphlet/page-2.jpg',
+    src: '/scannn/page-2.jpg',
+    cdnSrc: 'https://files.catbox.moe/gosddd.jpg',
     tag: 'Jr Inter Results',
   },
   {
     id: 3,
     title: 'AP Senior Intermediate & IIT/NIT సీట్లు',
     subtitle: 'NIT Calicut, IIT Chittoor, IIIT Kurnool & 990/1000 Marks',
-    src: '/pamphlet/page-3.jpg',
+    src: '/scannn/page-3.jpg',
+    cdnSrc: 'https://files.catbox.moe/xfi1wm.jpg',
     tag: 'Sr Inter & IIT / NIT',
   },
   {
     id: 4,
     title: '1st Year Inter 100% Pass & క్యాంపస్‌లు',
     subtitle: "Day's Scholar, Boys & Girls Campuses • Visakhapatnam",
-    src: '/pamphlet/page-4.jpg',
+    src: '/scannn/page-4.jpg',
+    cdnSrc: 'https://files.catbox.moe/kd67bz.jpg',
     tag: 'Campuses & Admissions',
+  },
+  {
+    id: 5,
+    title: 'పేజీ 5 - సమగ్ర సమాచారం',
+    subtitle: 'Sri Vaatsalya Junior College Information',
+    src: '/scannn/page-5.jpeg',
+    cdnSrc: 'https://files.catbox.moe/oufw8n.jpeg',
+    tag: 'Page 5',
+  },
+  {
+    id: 6,
+    title: 'పేజీ 6 - అడ్మిషన్ల వివరాలు',
+    subtitle: 'Sri Vaatsalya Junior College Details',
+    src: '/scannn/page-6.jpeg',
+    cdnSrc: 'https://files.catbox.moe/akwhbu.jpeg',
+    tag: 'Page 6',
+  },
+  {
+    id: 7,
+    title: 'పేజీ 7 - ఫ్యాకల్టీ & బోధనా విధానం',
+    subtitle: 'Experienced Faculty & Methodology',
+    src: '/scannn/page-7.jpeg',
+    cdnSrc: 'https://files.catbox.moe/37l58s.jpeg',
+    tag: 'Page 7',
+  },
+  {
+    id: 8,
+    title: 'పేజీ 8 - అచీవ్‌మెంట్స్ & ర్యాంకర్స్',
+    subtitle: 'Top Performers & Rank Holders',
+    src: '/scannn/page-8.jpeg',
+    cdnSrc: 'https://files.catbox.moe/8gdmz9.jpeg',
+    tag: 'Page 8',
+  },
+  {
+    id: 9,
+    title: 'పేజీ 9 - కాలేజీ వివరాలు',
+    subtitle: 'Academic Structure & Highlights',
+    src: '/scannn/page-9.jpeg',
+    cdnSrc: 'https://files.catbox.moe/g432hd.jpeg',
+    tag: 'Page 9',
+  },
+  {
+    id: 10,
+    title: 'పేజీ 10 - విద్యా ప్రణాళిక',
+    subtitle: 'Curriculum & Special Coaching',
+    src: '/scannn/page-10.jpeg',
+    cdnSrc: 'https://files.catbox.moe/jglcy2.jpeg',
+    tag: 'Page 10',
+  },
+  {
+    id: 11,
+    title: 'పేజీ 11 - హాస్టల్ & క్యాంపస్ సదుపాయాలు',
+    subtitle: 'Hostel & Infrastructure Amenities',
+    src: '/scannn/page-11.jpeg',
+    cdnSrc: 'https://files.catbox.moe/bdqn95.jpeg',
+    tag: 'Page 11',
+  },
+  {
+    id: 12,
+    title: 'పేజీ 12 - విద్యార్థుల విజయాలు',
+    subtitle: 'Student Success Stories & Awards',
+    src: '/scannn/page-12.jpeg',
+    cdnSrc: 'https://files.catbox.moe/ejrj9r.jpeg',
+    tag: 'Page 12',
+  },
+  {
+    id: 13,
+    title: 'పేజీ 13 - ప్రత్యేక కార్యక్రమాలు',
+    subtitle: 'Special Programs & Guidance',
+    src: '/scannn/page-13.jpeg',
+    cdnSrc: 'https://files.catbox.moe/zqq17r.jpeg',
+    tag: 'Page 13',
+  },
+  {
+    id: 14,
+    title: 'పేజీ 14 - కోర్సులు & గ్రూపులు',
+    subtitle: 'MPC, BiPC, MEC & Integrated Coaching',
+    src: '/scannn/page-14.jpeg',
+    cdnSrc: 'https://files.catbox.moe/380qn2.jpeg',
+    tag: 'Page 14',
+  },
+  {
+    id: 15,
+    title: 'పేజీ 15 - టెస్ట్ సిరీస్ & మెటీరియల్',
+    subtitle: 'Daily Practice Papers & Mock Exams',
+    src: '/scannn/page-15.jpeg',
+    cdnSrc: 'https://files.catbox.moe/sib2sj.jpeg',
+    tag: 'Page 15',
+  },
+  {
+    id: 16,
+    title: 'పేజీ 16 - స్కాలర్‌షిప్ & ఫీజు రాయితీలు',
+    subtitle: 'Merit Scholarships & Support',
+    src: '/scannn/page-16.jpeg',
+    cdnSrc: 'https://files.catbox.moe/wbfuj2.jpeg',
+    tag: 'Page 16',
+  },
+  {
+    id: 17,
+    title: 'పేజీ 17 - తల్లిదండ్రుల అభిప్రాయాలు',
+    subtitle: 'Parent Testimonials & Trust',
+    src: '/scannn/page-17.jpeg',
+    cdnSrc: 'https://files.catbox.moe/c3o5yv.jpeg',
+    tag: 'Page 17',
+  },
+  {
+    id: 18,
+    title: 'పేజీ 18 - సంప్రదించండి & అడ్మిషన్ల హెల్ప్‌లైన్',
+    subtitle: 'Contact Us, Campuses & Helpline',
+    src: '/scannn/page-18.jpeg',
+    cdnSrc: 'https://files.catbox.moe/hzjlgn.jpeg',
+    tag: 'Helpline & Campuses',
   },
 ];
 
 export default function PamphletPage() {
-  const [activePage, setActivePage] = useState<number>(1);
+  const [activePage, setActivePage] = useState<number>(0);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -56,7 +180,7 @@ export default function PamphletPage() {
         const top = el.offsetTop;
         const height = el.offsetHeight;
         if (scrollPosition >= top && scrollPosition < top + height) {
-          setActivePage(index + 1);
+          setActivePage(PAGES[index].id);
         }
       });
     };
@@ -66,9 +190,11 @@ export default function PamphletPage() {
   }, []);
 
   const scrollToPage = (pageNum: number) => {
-    const el = pageRefs.current[pageNum - 1];
+    const idx = PAGES.findIndex(p => p.id === pageNum);
+    const el = pageRefs.current[idx];
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const y = el.getBoundingClientRect().top + window.pageYOffset - 110;
+      window.scrollTo({ top: y, behavior: 'smooth' });
     }
   };
 
@@ -83,7 +209,7 @@ export default function PamphletPage() {
       try {
         await navigator.share(shareData);
       } catch {
-        // Ignored if user dismissed share dialog
+        // Ignored
       }
     } else {
       await navigator.clipboard.writeText(window.location.href);
@@ -105,13 +231,13 @@ export default function PamphletPage() {
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '10px 16px',
+        padding: '10px 14px',
       }}>
         <div style={{
-          maxWidth: '520px',
+          maxWidth: '560px',
           margin: '0 auto',
           display: 'flex',
           alignItems: 'center',
@@ -131,21 +257,21 @@ export default function PamphletPage() {
                 2026 RESULTS
               </span>
               <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}>
-                Page {activePage} of 4
+                Page {activePage} of 18
               </span>
             </div>
             <h1 style={{
-              fontSize: '16px',
+              fontSize: '15px',
               fontWeight: 800,
               margin: '2px 0 0 0',
               color: '#F8FAFC',
               letterSpacing: '-0.3px',
             }}>
-              శ్రీ వాత్సల్య ఎడ్యుకేషనల్ గ్రూప్
+              శ్రీ వాత్సల్య జూనియర్ కళాశాల
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button
               onClick={handleShare}
               style={{
@@ -173,8 +299,9 @@ export default function PamphletPage() {
             </button>
 
             <a
-              href="/pamphlet.pdf"
-              download="Sri_Vaatsalya_Brochure_2026.pdf"
+              href="https://files.catbox.moe/s8e22d.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -201,11 +328,13 @@ export default function PamphletPage() {
 
         {/* Page Switcher Tabs */}
         <div style={{
-          maxWidth: '520px',
+          maxWidth: '560px',
           margin: '8px auto 0 auto',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          display: 'flex',
           gap: '6px',
+          overflowX: 'auto',
+          paddingBottom: '2px',
+          scrollbarWidth: 'none',
         }}>
           {PAGES.map((p) => {
             const isCurrent = activePage === p.id;
@@ -214,7 +343,8 @@ export default function PamphletPage() {
                 key={p.id}
                 onClick={() => scrollToPage(p.id)}
                 style={{
-                  padding: '5px 4px',
+                  flex: '0 0 auto',
+                  padding: '5px 10px',
                   borderRadius: '8px',
                   fontSize: '11px',
                   fontWeight: isCurrent ? 800 : 600,
@@ -225,11 +355,9 @@ export default function PamphletPage() {
                   transition: 'all 0.15s ease',
                   textAlign: 'center',
                   whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
                 }}
               >
-                పేజీ {p.id}
+                P-{p.id}
               </button>
             );
           })}
@@ -237,7 +365,7 @@ export default function PamphletPage() {
       </header>
 
       {/* Main Pages Content */}
-      <main style={{ maxWidth: '520px', margin: '0 auto', padding: '16px 12px' }}>
+      <main style={{ maxWidth: '560px', margin: '0 auto', padding: '16px 12px' }}>
         {PAGES.map((page, index) => (
           <div
             key={page.id}
@@ -253,8 +381,8 @@ export default function PamphletPage() {
           >
             {/* Page Header Banner */}
             <div style={{
-              padding: '12px 14px',
-              backgroundColor: '#0F172A',
+              padding: '12px 16px',
+              backgroundColor: '#1E293B',
               borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
               display: 'flex',
               alignItems: 'center',
@@ -262,36 +390,37 @@ export default function PamphletPage() {
             }}>
               <div>
                 <span style={{
-                  display: 'inline-block',
                   fontSize: '10px',
                   fontWeight: 800,
-                  color: '#60A5FA',
                   textTransform: 'uppercase',
+                  color: '#38BDF8',
                   letterSpacing: '0.8px',
+                  display: 'block',
+                  marginBottom: '2px',
                 }}>
                   {page.tag}
                 </span>
                 <h2 style={{
                   fontSize: '14px',
-                  fontWeight: 700,
-                  margin: '2px 0 0 0',
-                  color: '#F1F5F9',
+                  fontWeight: 800,
+                  margin: 0,
+                  color: '#F8FAFC',
                 }}>
                   {page.title}
                 </h2>
               </div>
 
               <button
-                onClick={() => setZoomedImage(page.src)}
+                onClick={() => setZoomedImage(page.cdnSrc)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
                   backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  color: '#E2E8F0',
+                  color: '#CBD5E1',
                   border: 'none',
-                  borderRadius: '6px',
-                  padding: '5px 8px',
+                  padding: '5px 10px',
+                  borderRadius: '8px',
                   fontSize: '11px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -309,7 +438,7 @@ export default function PamphletPage() {
 
             {/* Image Container with Tap to Zoom */}
             <div
-              onClick={() => setZoomedImage(page.src)}
+              onClick={() => setZoomedImage(page.cdnSrc)}
               style={{
                 position: 'relative',
                 width: '100%',
@@ -318,13 +447,19 @@ export default function PamphletPage() {
               }}
             >
               <img
-                src={page.src}
+                src={page.cdnSrc}
                 alt={page.title}
-                loading={page.id === 1 ? 'eager' : 'lazy'}
+                loading={index < 2 ? 'eager' : 'lazy'}
                 style={{
                   width: '100%',
                   height: 'auto',
                   display: 'block',
+                }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  if (target.src !== page.src) {
+                    target.src = page.src;
+                  }
                 }}
               />
 
@@ -359,7 +494,7 @@ export default function PamphletPage() {
               justifyContent: 'space-between',
             }}>
               <span>{page.subtitle}</span>
-              <span style={{ fontWeight: 700, color: '#CBD5E1' }}>{page.id} / 4</span>
+              <span style={{ fontWeight: 700, color: '#CBD5E1' }}>{index + 1} / {PAGES.length}</span>
             </div>
           </div>
         ))}
