@@ -42,7 +42,7 @@ class WhatsAppTemplateService {
   static const String _keyTemplates = 'custom_whatsapp_templates_v1';
   static const String _keyPamphletUrl = 'custom_whatsapp_pamphlet_url_v1';
 
-  static const String defaultPamphletUrl = 'https://files.catbox.moe/q0mlwa.pdf';
+  static const String defaultPamphletUrl = 'https://sri.uniknaturals.in/pamphlet';
   static const String defaultCollegeName = 'శ్రీ వాత్సల్య జూనియర్ కళాశాల';
 
   static final List<WhatsAppTemplateItem> _defaultTemplates = [
