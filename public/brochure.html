@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-  <title>Document & Brochure Viewer (19 Pages)</title>
+  <title>శ్రీ వాత్సల్య జూనియర్ కళాశాల - బ్రోచర్</title>
   <style>
     * {
       box-sizing: border-box;
@@ -13,124 +13,50 @@
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #0B0F19;
-      color: #F3F4F6;
+      background-color: #0F172A;
+      color: #F8FAFC;
       line-height: 1.5;
-      padding-bottom: 80px;
+      padding-bottom: 24px;
     }
-    /* Sticky Top Navigation */
+
+    /* Top Eye-Catchy Sticky Header with College Name Only */
     header {
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(15, 23, 42, 0.94);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 10px 14px;
-    }
-    .header-inner {
-      max-width: 600px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .brand-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: bold;
+      padding: 14px 16px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     }
     .brand-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: #FFFFFF;
-      letter-spacing: -0.3px;
+      font-size: 22px;
+      font-weight: 900;
+      margin: 0;
+      background: linear-gradient(135deg, #FBBF24 0%, #F59E0B 50%, #EF4444 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 0.3px;
+      text-shadow: 0 2px 12px rgba(245, 158, 11, 0.3);
+      line-height: 1.3;
     }
     .brand-subtitle {
       font-size: 11px;
       color: #94A3B8;
-    }
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .page-counter {
-      background: rgba(59, 130, 246, 0.15);
-      color: #60A5FA;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      padding: 5px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .btn-share {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #FFFFFF;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
       font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .btn-share:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-
-    /* Page Navigation Horizontal Scroller */
-    .nav-tabs {
-      max-width: 600px;
-      margin: 8px auto 0 auto;
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scrollbar-width: none;
-    }
-    .nav-tabs::-webkit-scrollbar {
-      display: none;
-    }
-    .nav-chip {
-      flex: 0 0 auto;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94A3B8;
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .nav-chip.active {
-      background: #2563EB;
-      color: #FFFFFF;
-      border-color: #3B82F6;
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+      letter-spacing: 1px;
+      margin-top: 3px;
+      text-transform: uppercase;
     }
 
     /* Main Container */
     main {
-      max-width: 600px;
+      max-width: 580px;
       margin: 0 auto;
-      padding: 14px 12px;
+      padding: 16px 12px;
       display: flex;
       flex-direction: column;
       gap: 20px;
@@ -138,35 +64,12 @@
 
     /* Card */
     .page-card {
-      background: #151D2E;
+      background: #1E293B;
       border-radius: 16px;
       overflow: hidden;
       border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
       position: relative;
-    }
-    .page-header {
-      padding: 10px 14px;
-      background: #1E293B;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .page-label {
-      font-size: 13px;
-      font-weight: 700;
-      color: #38BDF8;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .page-badge {
-      font-size: 11px;
-      color: #94A3B8;
-      background: rgba(0, 0, 0, 0.3);
-      padding: 2px 8px;
-      border-radius: 12px;
     }
 
     /* Image Wrapper */
@@ -176,7 +79,6 @@
       cursor: zoom-in;
       display: block;
       width: 100%;
-      min-height: 250px;
     }
     .img-wrap img {
       width: 100%;
@@ -188,9 +90,9 @@
       position: absolute;
       bottom: 10px;
       right: 10px;
-      background: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(4px);
-      color: #FFFFFF;
+      color: #F8FAFC;
       font-size: 11px;
       font-weight: 600;
       padding: 4px 10px;
@@ -235,107 +137,18 @@
     }
     .modal-img {
       max-width: 100%;
-      max-height: 94vh;
+      max-height: 92vh;
       object-fit: contain;
       border-radius: 4px;
-      box-shadow: 0 0 30px rgba(0,0,0,0.8);
-    }
-
-    /* Floating Quick Control Bar */
-    .floating-bar {
-      position: fixed;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(15, 23, 42, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      padding: 6px 14px;
-      border-radius: 30px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      z-index: 90;
-    }
-    .floating-btn {
-      background: none;
-      border: none;
-      color: #E2E8F0;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 8px;
-      border-radius: 20px;
-    }
-    .floating-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-    .floating-btn.primary {
-      background: #2563EB;
-      color: #FFFFFF;
-      padding: 6px 14px;
-    }
-
-    /* Toast Notification */
-    .toast {
-      position: fixed;
-      top: 70px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-20px);
-      background: #10B981;
-      color: #FFFFFF;
-      padding: 8px 18px;
-      border-radius: 25px;
-      font-size: 13px;
-      font-weight: 700;
-      opacity: 0;
-      pointer-events: none;
-      transition: all 0.25s ease;
-      z-index: 2000;
-      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
-    }
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
     }
   </style>
 </head>
 <body>
 
-  <!-- Top Header -->
+  <!-- Top Sticky Header with Eye-Catchy College Name Only -->
   <header>
-    <div class="header-inner">
-      <div class="brand">
-        <div class="brand-icon">📑</div>
-        <div>
-          <div class="brand-title">College Brochure / Document</div>
-          <div class="brand-subtitle">19 Pages Mobile Viewer</div>
-        </div>
-      </div>
-      <div class="header-actions">
-        <span class="page-counter" id="current-page-badge">Page 0 / 18</span>
-        <button class="btn-share" onclick="shareDocument()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="18" cy="5" r="3"></circle>
-            <circle cx="6" cy="12" r="3"></circle>
-            <circle cx="18" cy="19" r="3"></circle>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-          </svg>
-          Share
-        </button>
-      </div>
-    </div>
-
-    <!-- Quick Page Jump Tabs -->
-    <div class="nav-tabs" id="nav-tabs">
-      <!-- Generated via JS -->
-    </div>
+    <h1 class="brand-title">🏛️ శ్రీ వాత్సల్య జూనియర్ కళాశాల</h1>
+    <div class="brand-subtitle">Sri Vaatsalya Educational Institutions • Visakhapatnam</div>
   </header>
 
   <!-- Main Pages List -->
@@ -343,84 +156,43 @@
     <!-- Generated via JS -->
   </main>
 
-  <!-- Floating Navigation Controls -->
-  <div class="floating-bar">
-    <button class="floating-btn" onclick="scrollToTop()">
-      ⬆️ Top
-    </button>
-    <button class="floating-btn" onclick="prevPage()">
-      ◀ Prev
-    </button>
-    <span style="color: #64748B; font-size: 12px;">|</span>
-    <button class="floating-btn" onclick="nextPage()">
-      Next ▶
-    </button>
-    <button class="floating-btn primary" onclick="shareDocument()">
-      🔗 Share Link
-    </button>
-  </div>
-
   <!-- Fullscreen Modal / Pinch to Zoom -->
   <div class="modal" id="modal" onclick="closeModal()">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <img class="modal-img" id="modal-img" src="" alt="Full view" onclick="event.stopPropagation()">
   </div>
 
-  <!-- Toast -->
-  <div class="toast" id="toast">Link copied to clipboard!</div>
-
   <script>
     const PAGES = [
-      { id: 0, title: "Cover Page (Page 0)", url: "https://files.catbox.moe/na3eeh.jpeg" },
-      { id: 1, title: "Page 1 - Achievements", url: "https://files.catbox.moe/sslv84.jpg" },
-      { id: 2, title: "Page 2 - Results & Ranks", url: "https://files.catbox.moe/gosddd.jpg" },
-      { id: 3, title: "Page 3 - Top Performers", url: "https://files.catbox.moe/xfi1wm.jpg" },
-      { id: 4, title: "Page 4 - Campus Highlights", url: "https://files.catbox.moe/kd67bz.jpg" },
-      { id: 5, title: "Page 5", url: "https://files.catbox.moe/oufw8n.jpeg" },
-      { id: 6, title: "Page 6", url: "https://files.catbox.moe/akwhbu.jpeg" },
-      { id: 7, title: "Page 7", url: "https://files.catbox.moe/37l58s.jpeg" },
-      { id: 8, title: "Page 8", url: "https://files.catbox.moe/8gdmz9.jpeg" },
-      { id: 9, title: "Page 9", url: "https://files.catbox.moe/g432hd.jpeg" },
-      { id: 10, title: "Page 10", url: "https://files.catbox.moe/jglcy2.jpeg" },
-      { id: 11, title: "Page 11", url: "https://files.catbox.moe/bdqn95.jpeg" },
-      { id: 12, title: "Page 12", url: "https://files.catbox.moe/ejrj9r.jpeg" },
-      { id: 13, title: "Page 13", url: "https://files.catbox.moe/zqq17r.jpeg" },
-      { id: 14, title: "Page 14", url: "https://files.catbox.moe/380qn2.jpeg" },
-      { id: 15, title: "Page 15", url: "https://files.catbox.moe/sib2sj.jpeg" },
-      { id: 16, title: "Page 16", url: "https://files.catbox.moe/wbfuj2.jpeg" },
-      { id: 17, title: "Page 17", url: "https://files.catbox.moe/c3o5yv.jpeg" },
-      { id: 18, title: "Page 18 - Final Page", url: "https://files.catbox.moe/hzjlgn.jpeg" }
+      { id: 0, url: "https://files.catbox.moe/na3eeh.jpeg" },
+      { id: 1, url: "https://files.catbox.moe/sslv84.jpg" },
+      { id: 2, url: "https://files.catbox.moe/gosddd.jpg" },
+      { id: 3, url: "https://files.catbox.moe/xfi1wm.jpg" },
+      { id: 4, url: "https://files.catbox.moe/kd67bz.jpg" },
+      { id: 5, url: "https://files.catbox.moe/oufw8n.jpeg" },
+      { id: 6, url: "https://files.catbox.moe/akwhbu.jpeg" },
+      { id: 7, url: "https://files.catbox.moe/37l58s.jpeg" },
+      { id: 8, url: "https://files.catbox.moe/8gdmz9.jpeg" },
+      { id: 9, url: "https://files.catbox.moe/g432hd.jpeg" },
+      { id: 10, url: "https://files.catbox.moe/jglcy2.jpeg" },
+      { id: 11, url: "https://files.catbox.moe/bdqn95.jpeg" },
+      { id: 12, url: "https://files.catbox.moe/ejrj9r.jpeg" },
+      { id: 13, url: "https://files.catbox.moe/zqq17r.jpeg" },
+      { id: 14, url: "https://files.catbox.moe/380qn2.jpeg" },
+      { id: 15, url: "https://files.catbox.moe/sib2sj.jpeg" },
+      { id: 16, url: "https://files.catbox.moe/wbfuj2.jpeg" },
+      { id: 17, url: "https://files.catbox.moe/c3o5yv.jpeg" },
+      { id: 18, url: "https://files.catbox.moe/hzjlgn.jpeg" }
     ];
 
-    let currentIndex = 0;
     const container = document.getElementById('pages-container');
-    const navTabs = document.getElementById('nav-tabs');
-    const badge = document.getElementById('current-page-badge');
     const modal = document.getElementById('modal');
     const modalImg = document.getElementById('modal-img');
-    const toast = document.getElementById('toast');
 
-    // Render Cards and Tabs
     PAGES.forEach((page, index) => {
-      // Tab chip
-      const chip = document.createElement('button');
-      chip.className = `nav-chip ${index === 0 ? 'active' : ''}`;
-      chip.id = `tab-${page.id}`;
-      chip.innerText = `P-${page.id}`;
-      chip.onclick = () => scrollToPage(page.id);
-      navTabs.appendChild(chip);
-
-      // Card
       const card = document.createElement('div');
       card.className = 'page-card';
-      card.id = `page-card-${page.id}`;
       card.innerHTML = `
-        <div class="page-header">
-          <span class="page-label">
-            📄 Page ${page.id}
-          </span>
-          <span class="page-badge">${index + 1} of ${PAGES.length}</span>
-        </div>
         <div class="img-wrap" onclick="openModal('${page.url}')">
           <img src="${page.url}" alt="Page ${page.id}" loading="${index < 2 ? 'eager' : 'lazy'}">
           <div class="zoom-hint">🔍 Tap to Zoom</div>
@@ -428,51 +200,6 @@
       `;
       container.appendChild(card);
     });
-
-    // Scroll Detection
-    window.addEventListener('scroll', () => {
-      const scrollPos = window.scrollY + window.innerHeight / 3;
-      PAGES.forEach((page, index) => {
-        const el = document.getElementById(`page-card-${page.id}`);
-        if (!el) return;
-        const top = el.offsetTop;
-        const height = el.offsetHeight;
-        if (scrollPos >= top && scrollPos < top + height) {
-          currentIndex = index;
-          badge.innerText = `Page ${page.id} (${index + 1}/${PAGES.length})`;
-          document.querySelectorAll('.nav-chip').forEach(c => c.classList.remove('active'));
-          const currentTab = document.getElementById(`tab-${page.id}`);
-          if (currentTab) {
-            currentTab.classList.add('active');
-            currentTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          }
-        }
-      });
-    });
-
-    function scrollToPage(id) {
-      const el = document.getElementById(`page-card-${id}`);
-      if (el) {
-        const y = el.getBoundingClientRect().top + window.pageYOffset - 90;
-        window.scrollTo({ top: y, behavior: 'smooth' });
-      }
-    }
-
-    function scrollToTop() {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function prevPage() {
-      if (currentIndex > 0) {
-        scrollToPage(PAGES[currentIndex - 1].id);
-      }
-    }
-
-    function nextPage() {
-      if (currentIndex < PAGES.length - 1) {
-        scrollToPage(PAGES[currentIndex + 1].id);
-      }
-    }
 
     function openModal(url) {
       modalImg.src = url;
@@ -485,31 +212,8 @@
       document.body.style.overflow = '';
     }
 
-    function shareDocument() {
-      const url = window.location.href;
-      if (navigator.share) {
-        navigator.share({
-          title: 'College Document (19 Pages)',
-          text: 'View all 19 pages simply in one single scrollable link:',
-          url: url
-        }).catch(() => copyToClipboard(url));
-      } else {
-        copyToClipboard(url);
-      }
-    }
-
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2200);
-      });
-    }
-
-    // Keyboard support
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextPage();
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevPage();
     });
   </script>
 </body>

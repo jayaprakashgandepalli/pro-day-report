@@ -224,143 +224,51 @@ export default function PamphletPage() {
       backgroundColor: '#0F172A',
       color: '#FFFFFF',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      paddingBottom: '90px'
+      paddingBottom: '24px'
     }}>
-      {/* Top Floating Glass Header */}
+      {/* Top Eye-Catchy Header with College Name Only */}
       <header style={{
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        backgroundColor: 'rgba(15, 23, 42, 0.94)',
-        backdropFilter: 'blur(12px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        backdropFilter: 'blur(16px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '10px 14px',
+        padding: '14px 16px',
+        textAlign: 'center',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
       }}>
         <div style={{
           maxWidth: '560px',
           margin: '0 auto',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: 'center',
         }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                background: 'linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)',
-                color: '#FFFFFF',
-                fontSize: '11px',
-                fontWeight: 800,
-                padding: '2px 8px',
-                borderRadius: '6px',
-                letterSpacing: '0.5px'
-              }}>
-                2026 RESULTS
-              </span>
-              <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}>
-                Page {activePage} of 18
-              </span>
-            </div>
-            <h1 style={{
-              fontSize: '15px',
-              fontWeight: 800,
-              margin: '2px 0 0 0',
-              color: '#F8FAFC',
-              letterSpacing: '-0.3px',
-            }}>
-              శ్రీ వాత్సల్య జూనియర్ కళాశాల
-            </h1>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              onClick={handleShare}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                color: '#60A5FA',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                padding: '6px 12px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3"></circle>
-                <circle cx="6" cy="12" r="3"></circle>
-                <circle cx="18" cy="19" r="3"></circle>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-              </svg>
-              {copied ? 'Copied!' : 'Share'}
-            </button>
-
-            <a
-              href="https://files.catbox.moe/s8e22d.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#34D399',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '6px 12px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              PDF
-            </a>
-          </div>
-        </div>
-
-        {/* Page Switcher Tabs */}
-        <div style={{
-          maxWidth: '560px',
-          margin: '8px auto 0 auto',
-          display: 'flex',
-          gap: '6px',
-          overflowX: 'auto',
-          paddingBottom: '2px',
-          scrollbarWidth: 'none',
-        }}>
-          {PAGES.map((p) => {
-            const isCurrent = activePage === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => scrollToPage(p.id)}
-                style={{
-                  flex: '0 0 auto',
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  fontSize: '11px',
-                  fontWeight: isCurrent ? 800 : 600,
-                  border: isCurrent ? '1px solid #3B82F6' : '1px solid rgba(255, 255, 255, 0.08)',
-                  backgroundColor: isCurrent ? '#2563EB' : 'rgba(255, 255, 255, 0.05)',
-                  color: isCurrent ? '#FFFFFF' : '#94A3B8',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  textAlign: 'center',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                P-{p.id}
-              </button>
-            );
-          })}
+          <h1 style={{
+            fontSize: '22px',
+            fontWeight: 900,
+            margin: 0,
+            background: 'linear-gradient(135deg, #FBBF24 0%, #F59E0B 50%, #EF4444 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '0.3px',
+            textShadow: '0 2px 12px rgba(245, 158, 11, 0.3)',
+            lineHeight: 1.3,
+          }}>
+            🏛️ శ్రీ వాత్సల్య జూనియర్ కళాశాల
+          </h1>
+          <span style={{
+            fontSize: '11px',
+            color: '#94A3B8',
+            fontWeight: 600,
+            letterSpacing: '1px',
+            marginTop: '3px',
+            textTransform: 'uppercase',
+          }}>
+            Sri Vaatsalya Educational Institutions • Visakhapatnam
+          </span>
         </div>
       </header>
 
@@ -531,75 +439,6 @@ export default function PamphletPage() {
           </div>
         </div>
       </main>
-
-      {/* Floating Bottom Quick Action Bar */}
-      <footer style={{
-        position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 50,
-        backgroundColor: 'rgba(15, 23, 42, 0.95)',
-        backdropFilter: 'blur(12px)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-        padding: '10px 16px',
-      }}>
-        <div style={{
-          maxWidth: '520px',
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '10px',
-        }}>
-          <a
-            href="tel:9908353814"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              backgroundColor: '#2563EB',
-              color: '#FFFFFF',
-              padding: '12px',
-              borderRadius: '12px',
-              fontWeight: 800,
-              fontSize: '14px',
-              textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(37, 99, 235, 0.4)',
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-            </svg>
-            కాల్ చేయండి
-          </a>
-
-          <a
-            href="https://wa.me/919908353814?text=నమస్కారం,%20శ్రీ%20వాత్సల్య%20జూనియర్%20కళాశాల%20అడ్మిషన్ల%20వివరాలు%20తెలుసుకోవాలనుకుంటున్నాను."
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              backgroundColor: '#16A34A',
-              color: '#FFFFFF',
-              padding: '12px',
-              borderRadius: '12px',
-              fontWeight: 800,
-              fontSize: '14px',
-              textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(22, 163, 74, 0.4)',
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86.174.086.275.072.376-.044.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086s1.011.477 1.184.564.289.13.332.202c.043.073.043.419-.101.824z"/>
-            </svg>
-            వాట్సాప్ చాట్
-          </a>
-        </div>
-      </footer>
 
       {/* Full Screen Pinch & Zoom Modal */}
       {zoomedImage && (
