@@ -51,6 +51,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
     }
 
+    const userRole = (payload.role || '').toUpperCase();
+    if (userRole !== 'ADMIN' && userRole !== 'TELECALLER' && userRole !== 'COLLEGE') {
+      if (student.employeeId !== payload.employeeId) {
+        return NextResponse.json({ error: 'Forbidden: You can only record visits for your own students.' }, { status: 403 });
+      }
+    }
+
     const visitDate = data.visitDate ? new Date(data.visitDate) : new Date();
     
     let nextFollowUpDate = null;

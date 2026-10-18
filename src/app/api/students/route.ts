@@ -105,9 +105,13 @@ export async function GET(req: Request) {
 
     let whereClause: any = { AND: [] };
 
-    if (payload.role === 'EMPLOYEE') {
-      whereClause.AND.push({ employeeId: payload.employeeId });
-    } else if (payload.role === 'TELECALLER') {
+    const userRole = (payload.role || '').toUpperCase();
+
+    if (userRole === 'ADMIN') {
+      // Admin can view all or filter by specific employee
+      const employeeIdFilter = searchParams.get('employeeId') || searchParams.get('staffId');
+      if (employeeIdFilter) whereClause.AND.push({ employeeId: employeeIdFilter });
+    } else if (userRole === 'TELECALLER') {
       const user = await prisma.user.findUnique({
         where: { employeeId: payload.employeeId },
         select: { assignedEmployees: true }
@@ -116,7 +120,7 @@ export async function GET(req: Request) {
         whereClause.AND.push({ employeeId: { in: user.assignedEmployees } });
       }
       // If no specific assigned employees, telecaller sees all students
-    } else if (payload.role === 'COLLEGE') {
+    } else if (userRole === 'COLLEGE') {
       const user = await prisma.user.findUnique({
         where: { employeeId: payload.employeeId },
         select: { collegeId: true, allowedGroups: true, allowedLocations: true }
@@ -145,6 +149,11 @@ export async function GET(req: Request) {
            whereClause.AND.push({ id: 'none' }); // impossible condition
         }
       }
+    } else {
+      // For EMPLOYEE, AGM, TEAM_LEADER, PRO, or any employee portal user: STRICT DATA ISOLATION
+      // A person's data must NEVER be visible to another person!
+      whereClause.AND.push({ employeeId: payload.employeeId });
+    }
 
       // Hide students admitted to other colleges
       whereClause.AND.push({
@@ -160,7 +169,6 @@ export async function GET(req: Request) {
           leadStatus: 'Joined Other College'
         }
       });
-    }
     
     const callStatus = searchParams.get('callStatus');
     if (callStatus === 'not_called') {
@@ -310,8 +318,12 @@ export async function GET(req: Request) {
     if (interest) whereClause.AND.push({ studyInterestedAt: interest });
     if (fee) whereClause.AND.push({ ableToBearFee: fee });
 
-    const employeeIdFilter = searchParams.get('employeeId') || searchParams.get('staffId');
-    if (employeeIdFilter) whereClause.AND.push({ employeeId: employeeIdFilter });
+    if (userRole === 'ADMIN') {
+      const employeeIdFilter = searchParams.get('employeeId') || searchParams.get('staffId');
+      if (employeeIdFilter && !whereClause.AND.some((c: any) => c.employeeId)) {
+        whereClause.AND.push({ employeeId: employeeIdFilter });
+      }
+    }
 
     const agmIdFilter = searchParams.get('agmId');
     if (agmIdFilter) {

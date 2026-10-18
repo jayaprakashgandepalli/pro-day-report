@@ -16,13 +16,16 @@ export async function GET(req: Request) {
     const district = searchParams.get('district') || '';
     const mandal = searchParams.get('mandal') || '';
     const village = searchParams.get('village') || '';
+    const schoolName = searchParams.get('schoolName') || '';
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const limit = parseInt(searchParams.get('limit') || '50');
 
+    const userRole = (payload.role || '').toUpperCase();
     const where: any = {};
-    if (payload.role === 'EMPLOYEE') {
-      where.employeeId = payload.employeeId;
-    } else if (payload.role === 'TELECALLER') {
+    if (userRole === 'ADMIN') {
+      const empFilter = searchParams.get('employeeId');
+      if (empFilter) where.employeeId = empFilter;
+    } else if (userRole === 'TELECALLER') {
       const user = await prisma.user.findUnique({
         where: { employeeId: payload.employeeId },
         select: { assignedEmployees: true }
@@ -30,15 +33,20 @@ export async function GET(req: Request) {
       if (user && user.assignedEmployees && user.assignedEmployees.length > 0) {
         where.employeeId = { in: user.assignedEmployees };
       }
-      // If no specific employees assigned, telecaller sees all key persons
+    } else {
+      // Non-admin field employee: STRICT ISOLATION
+      where.employeeId = payload.employeeId;
     }
 
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search } }
+        { phone: { contains: search } },
+        { designation: { contains: search, mode: 'insensitive' } },
+        { schoolName: { contains: search, mode: 'insensitive' } },
       ];
     }
+    if (schoolName) where.schoolName = schoolName;
     if (district) where.district = district;
     if (mandal) where.mandal = mandal;
     if (village) where.village = village;
@@ -86,13 +94,15 @@ export async function POST(req: Request) {
 
     const newKeyPerson = await prisma.keyPerson.create({
       data: {
-        name: data.name,
-        phone: data.phone,
-        designation: data.designation,
-        district: data.district,
-        mandal: data.mandal,
-        village: data.village,
-        address: data.address,
+        name: data.name.trim(),
+        phone: data.phone.trim(),
+        designation: data.designation?.trim() || null,
+        schoolName: data.schoolName?.trim() || null,
+        schoolId: data.schoolId?.trim() || null,
+        district: data.district || null,
+        mandal: data.mandal || null,
+        village: data.village || null,
+        address: data.address?.trim() || null,
         employeeId: payload.employeeId
       }
     });

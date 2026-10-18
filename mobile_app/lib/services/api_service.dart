@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'offline_service.dart';
+import 'whatsapp_template_service.dart';
 
 class ApiService {
   // Live server URL (matches capacitor.config.ts)
@@ -42,6 +43,10 @@ class ApiService {
     await prefs.setString('user_identifier', idOrPhone);
     await prefs.setBool('user_is_logged_in', true);
 
+    // Enforce active user isolation across offline and template services
+    OfflineService.setActiveUser(idOrPhone);
+    await WhatsAppTemplateService.setActiveEmployee(idOrPhone);
+
     // If token is null, generate 10-year permanent token
     final validToken = (token != null && token.isNotEmpty)
         ? token
@@ -63,8 +68,12 @@ class ApiService {
     String? token = prefs.getString('auth_token');
     final cookie = prefs.getString('session_cookie');
 
-    // Auto-heal / refresh token to guarantee user stays logged in forever
+    // Ensure services know active employee ID
     if (identifier != null && identifier.isNotEmpty) {
+      OfflineService.setActiveUser(identifier);
+      await WhatsAppTemplateService.setActiveEmployee(identifier);
+
+      // Auto-heal / refresh token to guarantee user stays logged in forever
       if (token == null || token.isEmpty || _isTokenExpired(token)) {
         token = generateFallbackToken(
           employeeId: identifier,
@@ -93,7 +102,11 @@ class ApiService {
     await prefs.remove('auth_token');
     await prefs.remove('session_cookie');
     await prefs.remove('user_is_logged_in');
-    invalidateCache(keepConfig: true);
+    
+    // Purge local storage and active user memory to prevent cross-account data leaks
+    await OfflineService.clearAll();
+    await WhatsAppTemplateService.resetSession();
+    invalidateCache(keepConfig: false);
   }
 
   // ================= CONFIGS & RESOLVERS =================
@@ -446,6 +459,8 @@ class ApiService {
   static DateTime? _telecallerCacheTime;
   static List<dynamic>? _cachedKeyPersons;
   static DateTime? _keyPersonsCacheTime;
+  static List<dynamic>? _cachedRelatives;
+  static DateTime? _relativesCacheTime;
 
   static void invalidateCache({bool keepConfig = true}) {
     _cachedStudents = null;
@@ -457,6 +472,8 @@ class ApiService {
     _telecallerCacheTime = null;
     _cachedKeyPersons = null;
     _keyPersonsCacheTime = null;
+    _cachedRelatives = null;
+    _relativesCacheTime = null;
     if (!keepConfig) {
       _cachedColleges = null;
       _cachedConfigs = null;
@@ -896,7 +913,16 @@ class ApiService {
 
     try {
       final headers = await getAuthHeaders();
-      final uri = await buildUri('/api/students', {'followup': tab, 'limit': '200', 'minimal': 'true'});
+      final session = await getSession();
+      final queryParams = <String, String>{
+        'followup': tab,
+        'limit': '200',
+        'minimal': 'true',
+      };
+      if (session['identifier'] != null && session['identifier']!.isNotEmpty) {
+        queryParams['employeeId'] = session['identifier']!;
+      }
+      final uri = await buildUri('/api/students', queryParams);
       final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
@@ -1109,6 +1135,208 @@ class ApiService {
       } else {
         return {'success': false, 'error': data['error'] ?? 'Failed to add key person'};
       }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 12b. Update Key Person
+  static Future<Map<String, dynamic>> updateKeyPerson(String id, Map<String, dynamic> personData) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/key-persons/$id');
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(personData),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedKeyPersons = null;
+        _keyPersonsCacheTime = null;
+        return {'success': true, 'keyPerson': data['keyPerson']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to update key person'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 12c. Delete Key Person
+  static Future<Map<String, dynamic>> deleteKeyPerson(String id) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/key-persons/$id');
+      final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedKeyPersons = null;
+        _keyPersonsCacheTime = null;
+        return {'success': true};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to delete key person'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 13. Get Village Relatives (Relative of employee in village)
+  static Future<Map<String, dynamic>> getRelatives({
+    bool forceRefresh = false,
+    String? mandal,
+    String? village,
+    String? search,
+  }) async {
+    final local = OfflineService.getCachedRelatives();
+    if (!forceRefresh && mandal == null && village == null && search == null) {
+      if (_cachedRelatives != null && _relativesCacheTime != null) {
+        return {'success': true, 'relatives': _cachedRelatives!};
+      }
+      if (local != null) {
+        return {'success': true, 'relatives': local, 'offline': true};
+      }
+    }
+
+    try {
+      final headers = await getAuthHeaders();
+      final queryParams = <String, String>{};
+      if (mandal != null && mandal.isNotEmpty) queryParams['mandal'] = mandal;
+      if (village != null && village.isNotEmpty) queryParams['village'] = village;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final uri = await buildUri('/api/relatives', queryParams);
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final list = (data['relatives'] as List<dynamic>?) ?? [];
+        if (mandal == null && village == null && search == null) {
+          _cachedRelatives = list;
+          _relativesCacheTime = DateTime.now();
+          await OfflineService.saveRelatives(list);
+        }
+        return {'success': true, 'relatives': list, 'total': data['total'] ?? list.length};
+      } else {
+        if (local != null) return {'success': true, 'relatives': local, 'offline': true};
+        return {'success': false, 'error': data['error'] ?? 'Failed to load relatives'};
+      }
+    } catch (e) {
+      if (local != null) return {'success': true, 'relatives': local, 'offline': true};
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 14. Add Village Relative
+  static Future<Map<String, dynamic>> addRelative(Map<String, dynamic> relativeData) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/relatives');
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(relativeData),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _cachedRelatives = null;
+        _relativesCacheTime = null;
+        return {'success': true, 'relative': data['relative']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to add relative'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 15. Update Village Relative
+  static Future<Map<String, dynamic>> updateRelative(String id, Map<String, dynamic> relativeData) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/relatives/$id');
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(relativeData),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedRelatives = null;
+        _relativesCacheTime = null;
+        return {'success': true, 'relative': data['relative']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to update relative'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 16. Delete Village Relative
+  static Future<Map<String, dynamic>> deleteRelative(String id) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/relatives/$id');
+      final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedRelatives = null;
+        _relativesCacheTime = null;
+        return {'success': true};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to delete relative'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 17. WhatsApp Templates (Per-Employee Isolation)
+  static Future<Map<String, dynamic>> getEmployeeWhatsAppTemplates() async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/employee/whatsapp-templates');
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'success': true,
+          'templates': data['templates'],
+          'pamphletUrl': data['pamphletUrl'],
+        };
+      }
+      return {'success': false, 'error': 'Failed to fetch employee templates'};
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> saveEmployeeWhatsAppTemplates({
+    required List<Map<String, dynamic>> templates,
+    required String pamphletUrl,
+  }) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/employee/whatsapp-templates');
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode({
+          'templates': templates,
+          'pamphletUrl': pamphletUrl,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        return {'success': true};
+      }
+      return {'success': false, 'error': 'Failed to save employee templates'};
     } catch (e) {
       return {'success': false, 'error': 'Connection error: $e'};
     }

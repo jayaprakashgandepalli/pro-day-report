@@ -7,6 +7,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 export default function AddKeyPerson() {
   const router = useRouter();
   const [formData, setFormData] = useState({
+    schoolName: '',
     name: '',
     phone: '',
     designation: '',
@@ -43,8 +44,8 @@ export default function AddKeyPerson() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      alert('Name and Phone are required');
+    if (!formData.name || !formData.phone || !formData.schoolName) {
+      alert('School Name, Person Name, and Phone are required');
       return;
     }
 
@@ -74,12 +75,20 @@ export default function AddKeyPerson() {
         <button onClick={() => router.back()} className="btn-icon" style={{ background: 'none', border: 'none', color: '#0f172a', cursor: 'pointer' }}>
           <ArrowLeft size={24} />
         </button>
-        <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>Add Key Person</h1>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a' }}>Add School Key Person</h1>
+          <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Important person in school other than HM (Teacher, PD, Correspondent, Tuition Head)</p>
+        </div>
       </header>
 
       <form className="card" onSubmit={handleSave}>
         <div className="form-group">
-          <label className="form-label">Name *</label>
+          <label className="form-label">School Name *</label>
+          <input required type="text" name="schoolName" className="form-control" value={formData.schoolName} onChange={handleChange} placeholder="e.g. ZPHS Kothapeta / Sri Chaitanya School" />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Staff / Person Name *</label>
           <input required type="text" name="name" className="form-control" value={formData.name} onChange={handleChange} placeholder="Enter name" />
         </div>
 
@@ -89,8 +98,8 @@ export default function AddKeyPerson() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Designation</label>
-          <input type="text" name="designation" className="form-control" value={formData.designation} onChange={handleChange} placeholder="e.g. Principal, Private Agent" />
+          <label className="form-label">Designation in School</label>
+          <input type="text" name="designation" className="form-control" value={formData.designation} onChange={handleChange} placeholder="e.g. Senior Teacher, Physical Director (PD), Correspondent, Tuition Head" />
         </div>
 
         <div className="form-group">

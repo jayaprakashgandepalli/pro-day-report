@@ -12,9 +12,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
-    if (!payload || (payload.role !== 'EMPLOYEE' && payload.role !== 'ADMIN')) {
+    if (!payload) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const roleUpper = (payload.role || '').toUpperCase();
+    const isAdmin = roleUpper === 'ADMIN' || roleUpper === 'SUPERADMIN';
 
     // Verify ownership
     const existing = await prisma.relativeContact.findUnique({
@@ -25,7 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
     }
 
-    if (payload.role !== 'ADMIN' && existing.employeeId !== payload.employeeId) {
+    if (!isAdmin && existing.employeeId !== payload.employeeId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -75,9 +78,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
-    if (!payload || (payload.role !== 'EMPLOYEE' && payload.role !== 'ADMIN')) {
+    if (!payload) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const roleUpper = (payload.role || '').toUpperCase();
+    const isAdmin = roleUpper === 'ADMIN' || roleUpper === 'SUPERADMIN';
 
     // Verify ownership
     const existing = await prisma.relativeContact.findUnique({
@@ -88,7 +94,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
     }
 
-    if (payload.role !== 'ADMIN' && existing.employeeId !== payload.employeeId) {
+    if (!isAdmin && existing.employeeId !== payload.employeeId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

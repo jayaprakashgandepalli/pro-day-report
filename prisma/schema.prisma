@@ -242,6 +242,8 @@ model KeyPerson {
   name        String
   phone       String
   designation String?
+  schoolName  String?
+  schoolId    String?
   
   district    String?
   mandal      String?
@@ -259,6 +261,7 @@ model KeyPerson {
 
   @@index([employeeId])
   @@index([mandal])
+  @@index([schoolName])
 }
 
 model RelativeContact {

@@ -23,6 +23,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
     }
 
+    const userRole = (payload.role || '').toUpperCase();
+    if (userRole !== 'ADMIN' && userRole !== 'TELECALLER' && userRole !== 'COLLEGE') {
+      if (currentStudent.employeeId !== payload.employeeId) {
+        return NextResponse.json({ error: 'Forbidden: You can only edit your own students.' }, { status: 403 });
+      }
+    }
+
     const cleanPhone = data.phone !== undefined ? normalizePhoneNumber(data.phone) : undefined;
     const cleanWhatsapp = data.whatsapp !== undefined ? (data.whatsapp ? normalizePhoneNumber(data.whatsapp) : null) : undefined;
 
@@ -150,8 +157,20 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
-    if (!payload) {
-      return NextResponse.json({ error: 'Forbidden. Only authorized users can delete students.' }, { status: 403 });
+    if (!payload || !payload.employeeId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentStudent = await prisma.student.findUnique({ where: { id } });
+    if (!currentStudent) {
+      return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
+    }
+
+    const userRole = (payload.role || '').toUpperCase();
+    if (userRole !== 'ADMIN' && userRole !== 'TELECALLER') {
+      if (currentStudent.employeeId !== payload.employeeId) {
+        return NextResponse.json({ error: 'Forbidden: You can only delete your own students.' }, { status: 403 });
+      }
     }
 
     await prisma.student.delete({

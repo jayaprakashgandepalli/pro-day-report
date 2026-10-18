@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'api_service.dart';
 
 class WhatsAppTemplateItem {
   final String id;
@@ -39,8 +40,41 @@ class WhatsAppTemplateItem {
 class WhatsAppTemplateService {
   WhatsAppTemplateService._();
 
-  static const String _keyTemplates = 'custom_whatsapp_templates_v1';
-  static const String _keyPamphletUrl = 'custom_whatsapp_pamphlet_url_v1';
+  static String? _activeEmployeeId;
+
+  static Future<void> setActiveEmployee(String? employeeId) async {
+    final cleanId = employeeId?.trim();
+    if (_activeEmployeeId == cleanId && _cachedList != null) return;
+    _activeEmployeeId = cleanId;
+    _cachedList = null;
+    _cachedPamphletUrl = null;
+  }
+
+  static Future<void> resetSession() async {
+    _activeEmployeeId = null;
+    _cachedList = null;
+    _cachedPamphletUrl = null;
+  }
+
+  static Future<void> _ensureActiveEmployee() async {
+    if (_activeEmployeeId == null || _activeEmployeeId!.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final id = prefs.getString('user_identifier');
+        if (id != null && id.isNotEmpty) {
+          _activeEmployeeId = id;
+        }
+      } catch (_) {}
+    }
+  }
+
+  static String get _keyTemplates => (_activeEmployeeId != null && _activeEmployeeId!.isNotEmpty)
+      ? 'custom_whatsapp_templates_v2_$_activeEmployeeId'
+      : 'custom_whatsapp_templates_v2_common';
+
+  static String get _keyPamphletUrl => (_activeEmployeeId != null && _activeEmployeeId!.isNotEmpty)
+      ? 'custom_whatsapp_pamphlet_url_v2_$_activeEmployeeId'
+      : 'custom_whatsapp_pamphlet_url_v2_common';
 
   static const String defaultPamphletUrl = 'https://sri.uniknaturals.in/pamphlet';
   static const String defaultCollegeName = 'శ్రీ వాత్సల్య జూనియర్ కళాశాల';
@@ -122,6 +156,7 @@ class WhatsAppTemplateService {
 
   /// Get current pamphlet URL
   static Future<String> getPamphletUrl() async {
+    await _ensureActiveEmployee();
     if (_cachedPamphletUrl != null) return _cachedPamphletUrl!;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -134,14 +169,19 @@ class WhatsAppTemplateService {
 
   /// Save pamphlet URL
   static Future<void> savePamphletUrl(String url) async {
+    await _ensureActiveEmployee();
     _cachedPamphletUrl = url.trim().isEmpty ? defaultPamphletUrl : url.trim();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyPamphletUrl, _cachedPamphletUrl!);
+    _syncToBackend();
   }
 
-  /// Get all templates (defaults + user created)
-  static Future<List<WhatsAppTemplateItem>> getTemplates() async {
-    if (_cachedList != null) return List.from(_cachedList!);
+  /// Get all templates (defaults + user created) with strict employee isolation
+  static Future<List<WhatsAppTemplateItem>> getTemplates({bool forceSync = false}) async {
+    await _ensureActiveEmployee();
+    if (!forceSync && _cachedList != null) return List.from(_cachedList!);
+
+    // 1. Try to load from user-isolated local cache first
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_keyTemplates);
@@ -150,46 +190,34 @@ class WhatsAppTemplateService {
         _cachedList = decoded
             .map((e) => WhatsAppTemplateItem.fromMap(Map<String, dynamic>.from(e as Map)))
             .toList();
-
-        // Auto-upgrade existing templates to include {collegeName} if missing
-        bool needsSave = false;
-        for (int i = 0; i < _cachedList!.length; i++) {
-          final t = _cachedList![i];
-          if (!t.message.contains('{collegeName}')) {
-            String updatedMsg = t.message
-                .replaceAll('మా కాలేజీ యాజమాన్యం', 'మా *{collegeName}* యాజమాన్యం')
-                .replaceAll('మా కాలేజీ ప్రత్యేకతలు', 'మా {collegeName} ప్రత్యేకతలు')
-                .replaceAll('మా కాలేజీలో', 'మా *{collegeName}* లో')
-                .replaceAll('మా కాలేజీకి', 'మా {collegeName} కి')
-                .replaceAll('కాలేజీ అడ్మిషన్ల', '*{collegeName}* అడ్మిషన్ల');
-
-            if (!updatedMsg.contains('{collegeName}')) {
-              updatedMsg = updatedMsg.replaceAll(
-                '👤 {employeeName} (PRO)',
-                '👤 *{employeeName}* (PRO)\n🏫 *{collegeName}*',
-              );
-            }
-
-            if (updatedMsg != t.message) {
-              _cachedList![i] = WhatsAppTemplateItem(
-                id: t.id,
-                title: t.title,
-                message: updatedMsg,
-                isDefault: t.isDefault,
-              );
-              needsSave = true;
-            }
-          }
-        }
-
-        if (needsSave) {
-          await _persist();
-        }
-
-        return List.from(_cachedList!);
       }
     } catch (_) {}
 
+    // 2. Fetch employee's personal templates from backend
+    try {
+      final remote = await ApiService.getEmployeeWhatsAppTemplates();
+      if (remote['success'] == true && remote['templates'] != null) {
+        final rawList = remote['templates'] as List<dynamic>;
+        if (rawList.isNotEmpty) {
+          _cachedList = rawList
+              .map((e) => WhatsAppTemplateItem.fromMap(Map<String, dynamic>.from(e as Map)))
+              .toList();
+          if (remote['pamphletUrl'] != null && remote['pamphletUrl'].toString().isNotEmpty) {
+            _cachedPamphletUrl = remote['pamphletUrl'].toString();
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(_keyPamphletUrl, _cachedPamphletUrl!);
+          }
+          await _persistLocal();
+          return List.from(_cachedList!);
+        }
+      }
+    } catch (_) {}
+
+    if (_cachedList != null && _cachedList!.isNotEmpty) {
+      return List.from(_cachedList!);
+    }
+
+    // Fallback to default templates
     _cachedList = List.from(_defaultTemplates);
     await _persist();
     return List.from(_cachedList!);
@@ -201,6 +229,7 @@ class WhatsAppTemplateService {
     required String title,
     required String message,
   }) async {
+    await _ensureActiveEmployee();
     final list = await getTemplates();
     final cleanTitle = title.trim().isEmpty ? 'WhatsApp Message' : title.trim();
     final cleanMsg = message.trim();
@@ -236,14 +265,16 @@ class WhatsAppTemplateService {
 
   /// Delete a template
   static Future<void> deleteTemplate(String id) async {
+    await _ensureActiveEmployee();
     final list = await getTemplates();
     list.removeWhere((t) => t.id == id);
     _cachedList = list;
     await _persist();
   }
 
-  /// Reset all templates to original defaults
+  /// Reset all templates to original defaults for this employee
   static Future<void> resetToDefaults() async {
+    await _ensureActiveEmployee();
     _cachedList = List.from(_defaultTemplates);
     _cachedPamphletUrl = defaultPamphletUrl;
     final prefs = await SharedPreferences.getInstance();
@@ -252,13 +283,32 @@ class WhatsAppTemplateService {
     await _persist();
   }
 
-  static Future<void> _persist() async {
+  static Future<void> _persistLocal() async {
     if (_cachedList == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final maps = _cachedList!.map((e) => e.toMap()).toList();
       await prefs.setString(_keyTemplates, jsonEncode(maps));
     } catch (_) {}
+  }
+
+  static Future<void> _persist() async {
+    await _persistLocal();
+    _syncToBackend();
+  }
+
+  static void _syncToBackend() {
+    Future.microtask(() async {
+      try {
+        if (_cachedList == null) return;
+        final pamphlet = _cachedPamphletUrl ?? await getPamphletUrl();
+        final maps = _cachedList!.map((e) => e.toMap()).toList();
+        await ApiService.saveEmployeeWhatsAppTemplates(
+          templates: maps,
+          pamphletUrl: pamphlet,
+        );
+      } catch (_) {}
+    });
   }
 
   /// Replaces {studentName}, {parentName}, {collegeName}, {pamphletLink}, {employeeName}, {employeePhone}

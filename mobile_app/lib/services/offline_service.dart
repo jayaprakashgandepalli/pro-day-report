@@ -5,28 +5,48 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// OfflineService manages persistent caching of all application data
 /// and queues offline write actions (adding students, recording visits, etc.)
 /// so the app functions instantly and seamlessly even without internet.
+///
+/// Data is strictly partitioned per employeeId so one person's data
+/// is NEVER accessible or visible to another person.
 class OfflineService {
   OfflineService._();
 
-  static const String _keyStudents = 'offline_students_cache';
   static const String _keyConfigs = 'offline_configs_cache';
   static const String _keyColleges = 'offline_colleges_cache';
-  static const String _keyTasksPrefix = 'offline_tasks_';
-  static const String _keyFollowupsPrefix = 'offline_followups_';
-  static const String _keyTelecallerUpdates = 'offline_telecaller_updates';
-  static const String _keyKeyPersons = 'offline_key_persons';
-  static const String _keyDashboardStats = 'offline_dashboard_stats';
-  static const String _keyPendingActions = 'offline_pending_actions_queue';
 
   // Fast in-memory cache to guarantee 0ms instant UI responses
   static final Map<String, dynamic> _memoryCache = {};
   static bool _initialized = false;
+  static String? _currentUserId;
+
+  /// Set currently logged in employee to partition cache keys strictly
+  static void setActiveUser(String? userId) {
+    _currentUserId = userId?.trim().toLowerCase();
+  }
+
+  static String get _userPrefix => (_currentUserId != null && _currentUserId!.isNotEmpty)
+      ? '${_currentUserId}_'
+      : '';
+
+  static String get _keyStudents => 'offline_${_userPrefix}students_cache';
+  static String get _keyTasksPrefix => 'offline_${_userPrefix}tasks_';
+  static String get _keyFollowupsPrefix => 'offline_${_userPrefix}followups_';
+  static String get _keyTelecallerUpdates => 'offline_${_userPrefix}telecaller_updates';
+  static String get _keyKeyPersons => 'offline_${_userPrefix}key_persons';
+  static String get _keyRelatives => 'offline_${_userPrefix}relatives';
+  static String get _keyDashboardStats => 'offline_${_userPrefix}dashboard_stats';
+  static String get _keyPendingActions => 'offline_${_userPrefix}pending_actions_queue';
 
   /// Initialize and warm up in-memory cache from SharedPreferences
   static Future<void> init() async {
     if (_initialized) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      final identifier = prefs.getString('user_identifier');
+      if (identifier != null && identifier.isNotEmpty) {
+        setActiveUser(identifier);
+      }
+
       for (final key in prefs.getKeys()) {
         if (key.startsWith('offline_')) {
           final val = prefs.getString(key);
@@ -43,6 +63,13 @@ class OfflineService {
     } catch (e) {
       debugPrint('OfflineService.init error: $e');
     }
+  }
+
+  /// Wipe memory cache and user session on logout for maximum data integrity
+  static Future<void> clearAll() async {
+    _memoryCache.clear();
+    _currentUserId = null;
+    _initialized = false;
   }
 
   // Generic fast save to memory + async persist to disk
@@ -104,32 +131,30 @@ class OfflineService {
   /// Appends an offline-created student locally so it appears in lists immediately
   static Future<void> addOfflineStudentLocally(Map<String, dynamic> student) async {
     final list = getCachedStudents() ?? [];
-    // Ensure temporary id and offline flag
     final localStudent = Map<String, dynamic>.from(student);
     localStudent['id'] ??= 'offline_${DateTime.now().millisecondsSinceEpoch}';
     localStudent['_isOffline'] = true;
-    localStudent['createdAt'] ??= DateTime.now().toIso8601String();
     list.insert(0, localStudent);
-    await saveStudents(list);
+    await _save(_keyStudents, list);
   }
 
-  /// Updates a student locally
-  static Future<void> updateStudentLocally(String studentId, Map<String, dynamic> updateData) async {
+  /// Updates a student locally (e.g., when recording a visit offline)
+  static Future<void> updateStudentLocally(String id, Map<String, dynamic> changes) async {
     final list = getCachedStudents();
     if (list == null) return;
+
     for (int i = 0; i < list.length; i++) {
-      if (list[i] is Map && list[i]['id']?.toString() == studentId) {
-        final merged = Map<String, dynamic>.from(list[i]);
-        merged.addAll(updateData);
-        merged['_isOffline'] = true;
-        list[i] = merged;
+      if (list[i] is Map && list[i]['id']?.toString() == id) {
+        final updated = Map<String, dynamic>.from(list[i]);
+        updated.addAll(changes);
+        list[i] = updated;
         break;
       }
     }
-    await saveStudents(list);
+    await _save(_keyStudents, list);
   }
 
-  // ================= CONFIGS & COLLEGESS CACHE =================
+  // ================= CONFIGS & COLLEGES CACHE =================
 
   static Future<void> saveConfigs(List<dynamic> configs) async {
     await _save(_keyConfigs, configs);
@@ -173,7 +198,7 @@ class OfflineService {
     return null;
   }
 
-  // ================= TELECALLER & KEY PERSONS =================
+  // ================= TELECALLER, KEY PERSONS & RELATIVES =================
 
   static Future<void> saveTelecallerUpdates(Map<String, dynamic> data) async {
     await _save(_keyTelecallerUpdates, data);
@@ -191,6 +216,16 @@ class OfflineService {
 
   static List<dynamic>? getCachedKeyPersons() {
     final data = _get(_keyKeyPersons);
+    if (data is List) return List<dynamic>.from(data);
+    return null;
+  }
+
+  static Future<void> saveRelatives(List<dynamic> list) async {
+    await _save(_keyRelatives, list);
+  }
+
+  static List<dynamic>? getCachedRelatives() {
+    final data = _get(_keyRelatives);
     if (data is List) return List<dynamic>.from(data);
     return null;
   }

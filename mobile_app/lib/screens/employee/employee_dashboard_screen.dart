@@ -11,6 +11,7 @@ import 'followups_screen.dart';
 import 'tasks_screen.dart';
 import 'telecaller_updates_screen.dart';
 import 'key_persons_screen.dart';
+import 'village_relatives_screen.dart';
 import 'pdf_report_screen.dart';
 import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
@@ -144,7 +145,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         ApiService.getStudents(limit: 1000, minimal: false, forceRefresh: forceRefresh),
         ApiService.getTasks(forceRefresh: forceRefresh),
         ApiService.getFollowups('today', forceRefresh: forceRefresh),
-        ApiService.getKeyPersons(forceRefresh: forceRefresh),
+        ApiService.getRelatives(forceRefresh: forceRefresh),
         ApiService.getTelecallerUpdates(limit: 10, forceRefresh: forceRefresh),
         configFuture,
       ]);
@@ -154,7 +155,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       final studentsRes = results[0];
       final tasksRes = results[1];
       final followupsRes = results[2];
-      final keyPersonsRes = results[3];
+      final relativesRes = results[3];
       final updatesRes = results[4];
 
       int total = 0;
@@ -210,8 +211,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       }
 
       int relatives = 0;
-      if (keyPersonsRes['success'] == true && keyPersonsRes['keyPersons'] is List) {
-        relatives = (keyPersonsRes['keyPersons'] as List).length;
+      if (relativesRes['success'] == true && relativesRes['relatives'] is List) {
+        relatives = (relativesRes['total'] as num?)?.toInt() ?? (relativesRes['relatives'] as List).length;
       }
 
       int unread = 0;
@@ -594,8 +595,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           badgeCount: _relativesCount,
                           badgeColor: Colors.white,
                           badgeTextColor: const Color(0xFF0369A1),
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const KeyPersonsScreen()));
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const VillageRelativesScreen()),
+                            );
+                            _fetchDashboardData(forceRefresh: true);
                           },
                         ),
                       ),
@@ -1170,9 +1175,19 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildMobileMenuItem(
-                          icon: Icons.vpn_key_rounded,
+                          icon: Icons.handshake_rounded,
+                          iconColor: const Color(0xFF0284C7),
+                          title: 'Village Relatives (గ్రామ బంధువులు)',
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const VillageRelativesScreen()));
+                          },
+                        ),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMobileMenuItem(
+                          icon: Icons.school_rounded,
                           iconColor: const Color(0xFFD97706),
-                          title: 'Imp Persons',
+                          title: 'School Key Persons (Non-HM Staff)',
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const KeyPersonsScreen()));

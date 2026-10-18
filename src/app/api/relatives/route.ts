@@ -13,9 +13,12 @@ export async function GET(req: Request) {
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
-    if (!payload || (payload.role !== 'EMPLOYEE' && payload.role !== 'ADMIN')) {
+    if (!payload) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const roleUpper = (payload.role || '').toUpperCase();
+    const isAdmin = roleUpper === 'ADMIN' || roleUpper === 'SUPERADMIN';
 
     const { searchParams } = new URL(req.url);
     const mandal = searchParams.get('mandal');
@@ -24,9 +27,14 @@ export async function GET(req: Request) {
 
     const where: any = {};
 
-    // Employees only see their own relatives
-    if (payload.role === 'EMPLOYEE') {
+    // Strict data isolation: Non-admins can ONLY access their own relatives
+    if (!isAdmin) {
       where.employeeId = payload.employeeId;
+    } else {
+      const filterEmployeeId = searchParams.get('employeeId');
+      if (filterEmployeeId) {
+        where.employeeId = filterEmployeeId;
+      }
     }
 
     // Filter by mandal
@@ -113,9 +121,12 @@ export async function POST(req: Request) {
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const payload = verifyToken(token) as { employeeId: string; role: string } | null;
 
-    if (!payload || (payload.role !== 'EMPLOYEE' && payload.role !== 'ADMIN')) {
+    if (!payload) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const roleUpper = (payload.role || '').toUpperCase();
+    const isAdmin = roleUpper === 'ADMIN' || roleUpper === 'SUPERADMIN';
 
     const body = await req.json();
     const { name, phone, occupation, village, mandal, district, relation } = body;

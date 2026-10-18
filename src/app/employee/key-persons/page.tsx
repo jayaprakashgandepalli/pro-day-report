@@ -11,6 +11,7 @@ type KeyPerson = {
   name: string;
   phone: string;
   designation: string | null;
+  schoolName: string | null;
   district: string | null;
   mandal: string | null;
   village: string | null;
@@ -33,6 +34,7 @@ export default function KeyPersonsPage() {
   const [editingPerson, setEditingPerson] = useState<KeyPerson | null>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
+    schoolName: '',
     name: '',
     phone: '',
     designation: '',
@@ -127,6 +129,7 @@ export default function KeyPersonsPage() {
     }
 
     setFormData({
+      schoolName: kp.schoolName || '',
       name: kp.name || '',
       phone: kp.phone || '',
       designation: kp.designation || '',
@@ -217,6 +220,7 @@ export default function KeyPersonsPage() {
   const filteredKeyPersons = keyPersons.filter(kp => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
+    const schoolMatch = (kp.schoolName || '').toLowerCase().includes(q);
     const nameMatch = kp.name.toLowerCase().includes(q);
     const phoneMatch = kp.phone.includes(q);
     const desMatch = (kp.designation || '').toLowerCase().includes(q);
@@ -224,7 +228,7 @@ export default function KeyPersonsPage() {
     const vMatch = resolveConfigName(kp.village).toLowerCase().includes(q);
     const mMatch = resolveConfigName(kp.mandal).toLowerCase().includes(q);
     const dMatch = resolveConfigName(kp.district).toLowerCase().includes(q);
-    return nameMatch || phoneMatch || desMatch || addrMatch || vMatch || mMatch || dMatch;
+    return schoolMatch || nameMatch || phoneMatch || desMatch || addrMatch || vMatch || mMatch || dMatch;
   });
 
   return (
@@ -235,8 +239,8 @@ export default function KeyPersonsPage() {
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Imp Persons</h1>
-            <p style={{ margin: 0, fontSize: '0.65rem', color: '#bfdbfe', textTransform: 'uppercase' }}>Private Admissions Contacts</p>
+            <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>School Key Persons</h1>
+            <p style={{ margin: 0, fontSize: '0.65rem', color: '#bfdbfe', textTransform: 'uppercase' }}>School Staff other than HM</p>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -298,6 +302,11 @@ export default function KeyPersonsPage() {
               <div key={kp.id} className="card" style={{ padding: '1rem', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', borderRadius: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
+                    {kp.schoolName && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', backgroundColor: '#fef3c7', color: '#92400e', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                        🏫 {kp.schoolName}
+                      </div>
+                    )}
                     <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: '#0f172a', fontWeight: 600 }}>{kp.name}</h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.875rem', marginBottom: '0.5rem' }}>
                       <Phone size={14} /> {kp.phone}
@@ -407,7 +416,21 @@ export default function KeyPersonsPage() {
             <form onSubmit={handleSaveEdit} style={{ padding: '1.25rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
-                  Name *
+                  School Name *
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={formData.schoolName}
+                  onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
+                  style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  placeholder="e.g. ZPHS Kothapeta"
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '0.35rem' }}>
+                  Staff / Person Name *
                 </label>
                 <input
                   required
