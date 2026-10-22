@@ -2009,28 +2009,6 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                               ),
                             ),
                           ),
-                          if (isStarLead) ...[
-                            const SizedBox(width: 5),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEF3C7),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFCD34D)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.star_rounded, size: 12, color: Color(0xFFD97706)),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    'Star Lead',
-                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFFB45309)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                           if (isMetToday) ...[
                             const SizedBox(width: 4),
                             const CircleAvatar(
@@ -2200,7 +2178,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                       ),
                     ],
 
-                    // Doorstep GPS & Google Maps Navigation Box
+                    // Doorstep GPS & Google Maps Navigation Box (Compact single row)
                     Builder(builder: (ctx) {
                       final rawAddress = (s['address'] ?? '').toString();
                       final gps = LocationService.extractGps(rawAddress);
@@ -2208,8 +2186,8 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
 
                       return Container(
                         width: double.infinity,
-                        margin: const EdgeInsets.only(top: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: gps != null ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(10),
@@ -2217,23 +2195,23 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                             color: gps != null ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
-                                  size: 16,
-                                  color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
+                            Icon(
+                              gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
+                              size: 16,
+                              color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
                                     cleanLandmark.isNotEmpty
                                         ? cleanLandmark
-                                        : (gps != null ? 'Doorstep GPS Saved' : 'No Landmark / GPS tagged'),
+                                        : (gps != null ? 'Doorstep GPS Saved' : 'No Landmark / GPS'),
                                     style: GoogleFonts.inter(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -2242,87 +2220,72 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                if (gps != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(4),
+                                  if (gps != null)
+                                    Text(
+                                      '${gps['lat']!.toStringAsFixed(4)}, ${gps['lng']!.toStringAsFixed(4)}',
+                                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF15803D), fontWeight: FontWeight.w500),
                                     ),
-                                    child: Text(
-                                      'GPS PINNED',
-                                      style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: const Color(0xFF15803D)),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (gps != null)
-                              Row(
-                                children: [
-                                  // Navigate on Google Maps button
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF0F766E),
-                                        foregroundColor: Colors.white,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                      icon: const Icon(Icons.navigation_rounded, size: 14),
-                                      label: Text(
-                                        'Route on Maps',
-                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
-                                      ),
-                                      onPressed: () {
-                                        LocationService.openGoogleMapsRoute(
-                                          lat: gps['lat']!,
-                                          lng: gps['lng']!,
-                                          studentName: name,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Re-pin Doorstep GPS button
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF0D9488),
-                                      side: const BorderSide(color: Color(0xFF99F6E4)),
-                                      backgroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    icon: const Icon(Icons.my_location_rounded, size: 14),
-                                    label: Text(
-                                      'Re-pin',
-                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
-                                    ),
-                                    onPressed: () => _pinStudentLocation(s),
-                                  ),
                                 ],
-                              )
-                            else
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0D9488),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            if (gps != null) ...[
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0F766E),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.navigation_rounded, size: 13),
+                                label: Text(
+                                  'Route',
+                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () {
+                                  LocationService.openGoogleMapsRoute(
+                                    lat: gps['lat']!,
+                                    lng: gps['lng']!,
+                                    studentName: name,
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () => _pinStudentLocation(s),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF99F6E4)),
                                   ),
-                                  icon: const Icon(Icons.my_location_rounded, size: 15),
-                                  label: Text(
-                                    'Pin Door GPS',
-                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
-                                  ),
-                                  onPressed: () => _pinStudentLocation(s),
+                                  child: const Icon(Icons.my_location_rounded, size: 14, color: Color(0xFF0D9488)),
                                 ),
                               ),
+                            ] else ...[
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0D9488),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: const Icon(Icons.my_location_rounded, size: 13),
+                                label: Text(
+                                  'Pin GPS',
+                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () => _pinStudentLocation(s),
+                              ),
+                            ],
                           ],
                         ),
                       );
