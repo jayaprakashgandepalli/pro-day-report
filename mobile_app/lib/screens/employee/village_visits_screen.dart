@@ -8,7 +8,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/whatsapp_template_service.dart';
-import '../../services/caller_id_service.dart';
 import '../../services/location_service.dart';
 import 'add_student_screen.dart';
 
@@ -77,7 +76,6 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
         _configParentMap = cfgParentMap;
         _colleges = collegesList;
         _isLoading = false;
-        CallerIdService.updateStudentsCache(_students, _configMap);
         _recomputeAllFilters();
         setState(() {});
       } else {
@@ -1159,7 +1157,6 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
         setState(() {
           s['address'] = newAddress;
         });
-        CallerIdService.updateStudentsCache(_students, _configMap);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('📍 $studentName house GPS pinned successfully!'),

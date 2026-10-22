@@ -58,9 +58,28 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     });
 
+    const villageConfig = await prisma.configValue.findFirst({
+      where: { id: updated.village },
+      select: { value: true, parent: { select: { value: true } } }
+    });
+    const mandalConfig = updated.mandal
+      ? await prisma.configValue.findFirst({
+          where: { id: updated.mandal },
+          select: { value: true }
+        })
+      : null;
+
+    const resolvedUpdated = {
+      ...updated,
+      villageId: updated.village,
+      mandalId: updated.mandal,
+      village: villageConfig?.value || updated.village,
+      mandal: mandalConfig?.value || villageConfig?.parent?.value || updated.mandal
+    };
+
     return NextResponse.json({ 
       message: 'Relative contact updated successfully', 
-      relative: updated 
+      relative: resolvedUpdated 
     }, { status: 200 });
 
   } catch (error) {

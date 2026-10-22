@@ -38,7 +38,6 @@ export default function EditStudent() {
   const [configs, setConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [sameAsPhone, setSameAsPhone] = useState(false);
   const [visits, setVisits] = useState<any[]>([]);
   const [schoolStats, setSchoolStats] = useState<{ collected: number } | null>(null);
 
@@ -116,9 +115,6 @@ export default function EditStudent() {
           schoolVillage: '',
           doorstepCompleted: s.doorstepCompleted || false,
         });
-        if (s.phone && s.phone === s.whatsapp) {
-          setSameAsPhone(true);
-        }
       } else {
         alert("Failed to load student details");
         router.back();
@@ -185,7 +181,7 @@ export default function EditStudent() {
     setSaving(true);
     const submitData = {
       ...formData,
-      whatsapp: sameAsPhone ? formData.phone : formData.whatsapp
+      whatsapp: formData.whatsapp
     };
 
     try {
@@ -244,10 +240,15 @@ export default function EditStudent() {
 
           <div className="form-group">
             <label className="form-label" htmlFor="occupation">Occupation</label>
-            <select id="occupation" name="occupation" className="form-control" value={formData.occupation} onChange={handleChange}>
-              <option value="">Select Occupation</option>
-              {getByType('OCCUPATION').map(c => <option key={c.id} value={c.value}>{c.value}</option>)}
-            </select>
+            <input 
+              type="text" 
+              id="occupation" 
+              name="occupation" 
+              className="form-control" 
+              placeholder="e.g. Farmer, Business, Teacher, Driver" 
+              value={formData.occupation} 
+              onChange={handleChange} 
+            />
           </div>
 
 
@@ -288,13 +289,7 @@ export default function EditStudent() {
           </div>
 
           <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              WhatsApp Number
-              <label style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 'normal', cursor: 'pointer' }}>
-                <input type="checkbox" checked={sameAsPhone} onChange={(e) => setSameAsPhone(e.target.checked)} style={{ margin: 0, cursor: 'pointer' }} />
-                Same as Phone
-              </label>
-            </label>
+            <label className="form-label" htmlFor="whatsapp">Alternate Number (Optional)</label>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{
                 padding: '0.625rem 0.85rem',
@@ -314,15 +309,11 @@ export default function EditStudent() {
                 id="whatsapp" 
                 name="whatsapp" 
                 className="form-control" 
-                placeholder="10-digit WhatsApp number"
+                placeholder="10-digit alternate mobile number"
                 maxLength={10}
-                value={sameAsPhone ? formData.phone : formData.whatsapp} 
+                value={formData.whatsapp} 
                 onChange={handleChange} 
-                disabled={sameAsPhone}
-                style={{
-                  borderRadius: '0 8px 8px 0',
-                  ...(sameAsPhone ? { backgroundColor: 'var(--bg-color)', color: 'var(--text-muted)' } : {})
-                }}
+                style={{ borderRadius: '0 8px 8px 0' }}
               />
             </div>
           </div>

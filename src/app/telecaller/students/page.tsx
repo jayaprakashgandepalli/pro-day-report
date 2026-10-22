@@ -589,11 +589,11 @@ export default function AllStudents() {
                     </a>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                    <span style={{ fontWeight: 700, color: '#334155' }}>WhatsApp:</span>
+                    <span style={{ fontWeight: 700, color: '#334155' }}>Alt Phone:</span>
                     <span style={{ color: '#1e293b', fontWeight: 500 }}>{viewStudent.whatsapp || 'N/A'}</span>
                     {viewStudent.whatsapp && (
-                      <a href={`https://wa.me/${viewStudent.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#059669', padding: '0.25rem' }}>
-                        <MessageCircle size={14} />
+                      <a href={`tel:${viewStudent.whatsapp.replace(/\D/g,'')}`} style={{ color: '#116d66', padding: '0.25rem' }}>
+                        <Phone size={14} />
                       </a>
                     )}
                   </div>

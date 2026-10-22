@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/whatsapp_template_service.dart';
-import '../../services/caller_id_service.dart';
 import '../../services/location_service.dart';
 import 'add_student_screen.dart';
 import 'pdf_report_screen.dart';
@@ -95,7 +94,6 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
         _isOffline = res['offline'] == true;
         final list = (res['students'] as List<dynamic>?) ?? [];
         _allStudents = list;
-        CallerIdService.updateStudentsCache(list, _configMap);
 
         if (widget.isStarLeads) {
           _baseStudents = list.where((s) {
@@ -1519,7 +1517,6 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
         setState(() {
           s['address'] = newAddress;
         });
-        CallerIdService.updateStudentsCache(_allStudents, _configMap);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('📍 $studentName house GPS pinned successfully!'),
@@ -1679,6 +1676,8 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                 children: [
                   _buildDetailRow(Icons.school_outlined, 'School', _resolveName(s['schoolName'])),
                   _buildDetailRow(Icons.person_outline, "Father's Name", s['fatherName']),
+                  if ((s['whatsapp'] ?? '').toString().isNotEmpty && s['whatsapp'] != s['phone'])
+                    _buildDetailRow(Icons.phone_iphone_outlined, 'Alternate Phone', s['whatsapp']),
                   _buildDetailRow(Icons.work_outline, 'Occupation', _resolveName(s['occupation'])),
                   _buildDetailRow(Icons.location_on_outlined, 'Village / Mandal', '${_resolveName(s['village'])} ${_resolveName(s['mandal'])}'.trim()),
                   _buildDetailRow(

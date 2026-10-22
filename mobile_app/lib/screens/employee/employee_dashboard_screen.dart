@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,7 +16,6 @@ import 'pdf_report_screen.dart';
 import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
 import 'whatsapp_templates_screen.dart';
-import '../../services/caller_id_service.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   final String employeeName;
@@ -33,7 +31,7 @@ class EmployeeDashboardScreen extends StatefulWidget {
   State<EmployeeDashboardScreen> createState() => _EmployeeDashboardScreenState();
 }
 
-class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with WidgetsBindingObserver {
+class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _totalStudents = 0;
   int _pendingTasks = 0;
@@ -44,22 +42,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
   bool _isLoading = false;
   String _userRole = 'EMPLOYEE';
   String? _displayName;
-  bool _callerIdPermGranted = true;
-
-  Future<void> _checkCallerId() async {
-    if (kIsWeb) return;
-    final granted = await CallerIdService.hasPermissions();
-    if (mounted) {
-      setState(() => _callerIdPermGranted = granted);
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkCallerId();
-    }
-  }
 
   String get _currentEmployeeName {
     try {
@@ -97,16 +79,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
       'Other Groups': 0,
       'Doorstep Pending': 0,
     };
-    WidgetsBinding.instance.addObserver(this);
     _loadCachedStats();
     _fetchDashboardData();
-    _checkCallerId();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
   }
 
   Future<void> _loadCachedStats() async {
@@ -166,14 +140,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
       setState(() => _isLoading = true);
     }
     try {
-      final configFuture = ApiService.getConfigMap();
       final results = await Future.wait([
         ApiService.getStudents(limit: 1000, minimal: false, forceRefresh: forceRefresh),
         ApiService.getTasks(forceRefresh: forceRefresh),
         ApiService.getFollowups('today', forceRefresh: forceRefresh),
         ApiService.getRelatives(forceRefresh: forceRefresh),
         ApiService.getTelecallerUpdates(limit: 10, forceRefresh: forceRefresh),
-        configFuture,
       ]);
 
       if (!mounted) return;
@@ -214,8 +186,6 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
             }
           }
         }
-        final cfgMap = (results[5] is Map<String, String>) ? results[5] as Map<String, String> : <String, String>{};
-        CallerIdService.updateStudentsCache(list, cfgMap);
       }
 
       int tasks = 0;
@@ -303,95 +273,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
     );
   }
 
-  void _showCallerIdSettingsDialog(BuildContext context) async {
-    final hasPerm = await CallerIdService.hasPermissions();
-    if (!context.mounted) return;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF10B981), size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text('Caller ID Alert', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 18)),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'స్టూడెంట్ లేదా పేరెంట్ కాల్ చేసినప్పుడు, మీ పర్సనల్ కాంటాక్ట్స్ పెరగకుండా ఫోన్ రింగ్ అవుతున్నప్పుడే స్క్రీన్ పైన స్టూడెంట్ వివరాలు (పేరు, స్కూల్, ఊరు) డిస్‌ప్లే అవుతాయి.',
-                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF475569), height: 1.4),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: hasPerm ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: hasPerm ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      hasPerm ? Icons.check_circle_rounded : Icons.info_outline_rounded,
-                      color: hasPerm ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        hasPerm
-                            ? 'Caller ID Active & Ready (ఆల్రెడీ యాక్టివ్)'
-                            : 'Permissions required for Call Detection',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: hasPerm ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Close', style: GoogleFonts.inter(color: const Color(0xFF64748B))),
-            ),
-            if (!hasPerm)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () async {
-                  await CallerIdService.requestPermissions();
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: Text('Grant Permission', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -581,69 +463,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
               ),
             ),
 
-            // Caller ID Permission Prompt Banner (When inactive on Android)
-            if (!_callerIdPermGranted && !kIsWeb) ...[
-              Container(
-                margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.blue.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDBEAFE),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF2563EB), size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Enable Caller ID Alert',
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: const Color(0xFF1E40AF)),
-                          ),
-                          Text(
-                            'కాల్ రాగానే స్టూడెంట్ వివరాలు స్క్రీన్ పైన కనిపించేందుకు పర్మిషన్ ఇవ్వండి.',
-                            style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF3B82F6)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      onTap: () async {
-                        await CallerIdService.requestPermissions();
-                        await Future.delayed(const Duration(seconds: 1));
-                        _checkCallerId();
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Enable',
-                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+
 
             const SizedBox(height: 18),
 
@@ -1348,16 +1168,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with 
                             );
                           },
                         ),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMobileMenuItem(
-                          icon: Icons.phone_in_talk_rounded,
-                          iconColor: const Color(0xFF10B981),
-                          title: 'Caller ID Alert (ఇన్‌కమింగ్ కాల్ అలర్ట్)',
-                          onTap: () {
-                            Navigator.pop(context);
-                            _showCallerIdSettingsDialog(context);
-                          },
-                        ),
+
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildMobileMenuItem(
                           icon: Icons.handshake_rounded,

@@ -297,7 +297,7 @@ export default function FollowUpsPage() {
               <div><strong style={{ color: '#475569' }}>Name:</strong> <span style={{ fontSize: '1.1rem', fontWeight: 600 }}>{viewStudent.studentName}</span> {viewStudent.gender ? `(${viewStudent.gender})` : ''}</div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}><strong style={{ color: '#475569' }}>Phone:</strong> {viewStudent.phone}</div>
-                <div style={{ flex: 1 }}><strong style={{ color: '#475569' }}>WhatsApp:</strong> {viewStudent.whatsapp || 'N/A'}</div>
+                <div style={{ flex: 1 }}><strong style={{ color: '#475569' }}>Alt Phone:</strong> {viewStudent.whatsapp || 'N/A'}</div>
               </div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div style={{ flex: 1 }}><strong style={{ color: '#475569' }}>Father:</strong> {viewStudent.fatherName || 'N/A'}</div>

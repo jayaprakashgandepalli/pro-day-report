@@ -25,6 +25,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   // Form Controllers
   final _nameController = TextEditingController();
   final _fatherNameController = TextEditingController();
+  final _occupationController = TextEditingController();
   final _phoneController = TextEditingController();
   final _whatsappController = TextEditingController();
   final _marksController = TextEditingController();
@@ -34,7 +35,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
 
   // Selection state
   String _gender = 'Male';
-  String? _occupation;
   String? _group;
 
   // Previous School cascading state
@@ -53,7 +53,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   String? _educationStage;
   String? _ableToBearFee;
 
-  bool _sameAsPhone = true;
   bool _doorstepCompleted = false;
   bool _isLoading = false;
   bool _isFetchingGps = false;
@@ -89,7 +88,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       _phoneController.text = rawPhone;
       final rawWa = (s['whatsapp']?.toString() ?? '').replaceAll(RegExp(r'\D'), '');
       _whatsappController.text = rawWa;
-      _sameAsPhone = (rawWa.isEmpty || rawWa == rawPhone);
       _marksController.text = s['marks']?.toString() ?? '';
       _landmarkController.text = s['address']?.toString() ?? '';
       _visitNumberController.text = s['visitNumber']?.toString() ?? '';
@@ -97,7 +95,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       final visitsList = s['visits'] as List<dynamic>?;
       final hasVisits = visitsList != null && visitsList.isNotEmpty;
       _doorstepCompleted = (s['doorstepCompleted'] == true) || hasVisits;
-      _occupation = s['occupation']?.toString();
+      _occupationController.text = ApiService.resolveConfig(s['occupation']);
       _group = s['group']?.toString();
       _studyInterestedAt = s['studyInterestedAt']?.toString();
       _educationStage = s['educationStage']?.toString();
@@ -118,6 +116,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     _scrollController.dispose();
     _nameController.dispose();
     _fatherNameController.dispose();
+    _occupationController.dispose();
     _phoneController.dispose();
     _whatsappController.dispose();
     _marksController.dispose();
@@ -398,6 +397,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     _formKey.currentState?.reset();
     _nameController.clear();
     _fatherNameController.clear();
+    _occupationController.clear();
     _phoneController.clear();
     _whatsappController.clear();
     _marksController.clear();
@@ -407,7 +407,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
 
     setState(() {
       _gender = 'Male';
-      _occupation = null;
       _group = null;
       _schoolDistrict = null;
       _schoolMandal = null;
@@ -420,7 +419,6 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       _studyInterestedAt = null;
       _educationStage = null;
       _ableToBearFee = null;
-      _sameAsPhone = true;
       _doorstepCompleted = false;
       _phoneExistsError = null;
       _isCheckingPhone = false;
@@ -469,13 +467,13 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     setState(() => _isLoading = true);
 
     final studentName = _nameController.text.trim();
-    final whatsapp = _sameAsPhone ? cleanPhone : _whatsappController.text.replaceAll(RegExp(r'\D'), '');
+    final whatsapp = _whatsappController.text.replaceAll(RegExp(r'\D'), '');
 
     final payload = {
       'studentName': studentName,
       'gender': _gender,
       'fatherName': _fatherNameController.text.trim(),
-      'occupation': _occupation ?? '',
+      'occupation': _occupationController.text.trim(),
       'phone': cleanPhone,
       'whatsapp': whatsapp,
       'group': _group ?? '',
@@ -735,18 +733,11 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Occupation Dropdown from configs
-                        _buildDropdownField(
+                        // Occupation Text Field
+                        _buildTextField(
                           label: 'Occupation',
-                          hint: 'Select Occupation',
-                          value: _occupation,
-                          items: _getByType('OCCUPATION')
-                              .map((c) => DropdownMenuItem(
-                                    value: c['value'].toString(),
-                                    child: Text(c['value'].toString()),
-                                  ))
-                              .toList(),
-                          onChanged: (val) => setState(() => _occupation = val),
+                          hint: 'e.g. Farmer, Business, Teacher, Driver',
+                          controller: _occupationController,
                         ),
                       ],
                     ),
@@ -859,47 +850,13 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // WhatsApp Number + Same as Phone Toggle
+                        // Alternate Number (Optional)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'WhatsApp Number',
-                                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
-                                ),
-                                InkWell(
-                                  onTap: () {
-                                    setState(() => _sameAsPhone = !_sameAsPhone);
-                                  },
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: Checkbox(
-                                            value: _sameAsPhone,
-                                            activeColor: const Color(0xFF3B82F6),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                                            onChanged: (val) => setState(() => _sameAsPhone = val ?? true),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Same as Phone',
-                                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF3B82F6)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              'Alternate Number (Optional)',
+                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
                             ),
                             const SizedBox(height: 6),
                             Row(
@@ -926,20 +883,19 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                 ),
                                 Expanded(
                                   child: TextFormField(
-                                    controller: _sameAsPhone ? _phoneController : _whatsappController,
-                                    enabled: !_sameAsPhone,
+                                    controller: _whatsappController,
                                     keyboardType: TextInputType.phone,
                                     maxLength: 10,
                                     style: GoogleFonts.inter(
                                       fontSize: 14,
-                                      color: _sameAsPhone ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                                      color: const Color(0xFF0F172A),
                                     ),
                                     decoration: InputDecoration(
                                       counterText: '',
-                                      hintText: '10-digit WhatsApp number',
+                                      hintText: '10-digit alternate mobile number',
                                       hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
                                       filled: true,
-                                      fillColor: _sameAsPhone ? const Color(0xFFF1F5F9) : const Color(0xFFF8FAFC),
+                                      fillColor: const Color(0xFFF8FAFC),
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                       border: const OutlineInputBorder(
                                         borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
@@ -949,9 +905,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                         borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
                                         borderSide: BorderSide(color: Color(0xFFCBD5E1)),
                                       ),
-                                      disabledBorder: const OutlineInputBorder(
+                                      focusedBorder: const OutlineInputBorder(
                                         borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
-                                        borderSide: BorderSide(color: Color(0xFFE2E8F0)),
+                                        borderSide: BorderSide(color: Color(0xFF2563EB), width: 1.5),
                                       ),
                                     ),
                                   ),

@@ -34,7 +34,7 @@ export default function GeneratePDFPage() {
     { id: 'occupation', label: 'Occupation' },
     { id: 'address', label: 'Address' },
     { id: 'phone', label: 'Phone' },
-    { id: 'whatsapp', label: 'WhatsApp' },
+    { id: 'whatsapp', label: 'Alt. Phone' },
     { id: 'group', label: 'Group' },
     { id: 'visitNumber', label: 'Visit No.' },
     { id: 'schoolName', label: 'School Name' },

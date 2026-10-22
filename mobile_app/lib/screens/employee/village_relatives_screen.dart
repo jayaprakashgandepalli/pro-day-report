@@ -49,6 +49,7 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
       _error = null;
     });
 
+    await ApiService.getConfigMap();
     final res = await ApiService.getRelatives(forceRefresh: forceRefresh);
 
     if (!mounted) return;
@@ -79,14 +80,18 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
           final phone = (r['phone'] ?? '').toString().toLowerCase();
           final relation = (r['relation'] ?? '').toString().toLowerCase();
           final occupation = (r['occupation'] ?? '').toString().toLowerCase();
-          final village = (r['village'] ?? '').toString().toLowerCase();
-          final mandal = (r['mandal'] ?? '').toString().toLowerCase();
+          final rawVillage = (r['village'] ?? '').toString().toLowerCase();
+          final rawMandal = (r['mandal'] ?? '').toString().toLowerCase();
+          final resolvedVillage = ApiService.resolveConfig(r['village']).toLowerCase();
+          final resolvedMandal = ApiService.resolveConfig(r['mandal']).toLowerCase();
           return name.contains(query) ||
               phone.contains(query) ||
               relation.contains(query) ||
               occupation.contains(query) ||
-              village.contains(query) ||
-              mandal.contains(query);
+              rawVillage.contains(query) ||
+              rawMandal.contains(query) ||
+              resolvedVillage.contains(query) ||
+              resolvedMandal.contains(query);
         }).toList();
       });
     }
@@ -106,8 +111,8 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
     final nameCtrl = TextEditingController(text: item?['name']?.toString() ?? '');
     final phoneCtrl = TextEditingController(text: item?['phone']?.toString() ?? '');
     final occupationCtrl = TextEditingController(text: item?['occupation']?.toString() ?? '');
-    final villageCtrl = TextEditingController(text: item?['village']?.toString() ?? '');
-    final mandalCtrl = TextEditingController(text: item?['mandal']?.toString() ?? '');
+    final villageCtrl = TextEditingController(text: ApiService.resolveConfig(item?['village']));
+    final mandalCtrl = TextEditingController(text: ApiService.resolveConfig(item?['mandal']));
     String selectedRelation = item?['relation']?.toString() ?? _commonRelations.first;
     bool isSaving = false;
 
@@ -535,8 +540,7 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
                                 final phone = (r['phone'] ?? '').toString();
                                 final relation = (r['relation'] ?? '').toString();
                                 final occupation = (r['occupation'] ?? '').toString();
-                                final village = (r['village'] ?? '').toString();
-                                final mandal = (r['mandal'] ?? '').toString();
+                                final locationText = ApiService.formatLocation(r['village'], r['mandal']);
 
                                 return Container(
                                   padding: const EdgeInsets.all(16),
@@ -671,9 +675,7 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
                                           const SizedBox(width: 4),
                                           Expanded(
                                             child: Text(
-                                              village.isNotEmpty
-                                                  ? (mandal.isNotEmpty ? '$village, $mandal' : village)
-                                                  : 'Village not specified',
+                                              locationText,
                                               style: GoogleFonts.inter(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w500,

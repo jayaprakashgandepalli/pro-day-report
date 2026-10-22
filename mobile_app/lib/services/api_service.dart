@@ -220,6 +220,35 @@ class ApiService {
     return _configMap[str] ?? str;
   }
 
+  static String? getParentConfigId(dynamic id) {
+    if (id == null) return null;
+    final str = id.toString().trim();
+    if (_configParentMap.isEmpty) {
+      final local = OfflineService.getCachedConfigs();
+      if (local != null) _populateConfigMaps(local);
+    }
+    return _configParentMap[str];
+  }
+
+  /// Formats location string from village and mandal (resolves config IDs automatically)
+  static String formatLocation(dynamic villageVal, dynamic mandalVal) {
+    final v = resolveConfig(villageVal);
+    var m = resolveConfig(mandalVal);
+    if (m.isEmpty && villageVal != null) {
+      final pId = getParentConfigId(villageVal);
+      if (pId != null) {
+        m = resolveConfig(pId);
+      }
+    }
+    if (v.isNotEmpty && m.isNotEmpty) {
+      if (v.toLowerCase() == m.toLowerCase()) return v;
+      return '$v, $m';
+    }
+    if (v.isNotEmpty) return v;
+    if (m.isNotEmpty) return m;
+    return 'Village not specified';
+  }
+
   // Live duplicate phone check
   static Future<bool> checkPhoneExists(String phone) async {
     try {

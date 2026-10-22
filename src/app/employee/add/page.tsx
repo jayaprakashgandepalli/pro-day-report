@@ -38,7 +38,6 @@ export default function AddStudentPage() {
   const [error, setError] = useState('');
   const [isSuccessScreen, setIsSuccessScreen] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-  const [sameAsPhone, setSameAsPhone] = useState(true);
   const [schoolStats, setSchoolStats] = useState<{ collected: number } | null>(null);
   const [phoneExistsError, setPhoneExistsError] = useState('');
   const [isCheckingPhone, setIsCheckingPhone] = useState(false);
@@ -143,7 +142,7 @@ export default function AddStudentPage() {
         ...formData,
         // Save the village as the schoolArea string since it's a string in the DB
         schoolArea: formData.schoolVillage || '',
-        whatsapp: sameAsPhone ? formData.phone : formData.whatsapp,
+        whatsapp: formData.whatsapp,
       };
       
       const res = await fetch('/api/students', {
@@ -182,7 +181,6 @@ export default function AddStudentPage() {
           });
           window.scrollTo(0, 0);
           setSuccessMsg('Student added successfully! You can add another.');
-          setSameAsPhone(true);
         } else {
           setIsSuccessScreen(true);
         }
@@ -238,7 +236,6 @@ export default function AddStudentPage() {
                 });
                 setIsSuccessScreen(false);
                 setSuccessMsg('');
-                setSameAsPhone(true);
                 window.scrollTo(0, 0);
               }}
             >
@@ -281,10 +278,15 @@ export default function AddStudentPage() {
 
             <div className="form-group">
               <label className="form-label" htmlFor="occupation">Occupation</label>
-              <select id="occupation" name="occupation" className="form-control" value={formData.occupation} onChange={handleChange}>
-                <option value="">Select Occupation</option>
-                {getByType('OCCUPATION').map(c => <option key={c.id} value={c.value}>{c.value}</option>)}
-              </select>
+              <input 
+                type="text"
+                id="occupation" 
+                name="occupation" 
+                className="form-control" 
+                placeholder="e.g. Farmer, Business, Teacher, Driver"
+                value={formData.occupation} 
+                onChange={handleChange} 
+              />
             </div>
           </div>
 
@@ -339,13 +341,7 @@ export default function AddStudentPage() {
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="whatsapp" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>WhatsApp Number</span>
-                <label style={{ fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 'normal', cursor: 'pointer', color: '#3b82f6' }}>
-                  <input type="checkbox" checked={sameAsPhone} onChange={(e) => setSameAsPhone(e.target.checked)} style={{ margin: 0, cursor: 'pointer' }} />
-                  Same as Phone
-                </label>
-              </label>
+              <label className="form-label" htmlFor="whatsapp">Alternate Number (Optional)</label>
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 <span style={{
                   padding: '0.625rem 0.85rem',
@@ -365,15 +361,11 @@ export default function AddStudentPage() {
                   id="whatsapp" 
                   name="whatsapp" 
                   className="form-control" 
-                  placeholder="10-digit WhatsApp number"
+                  placeholder="10-digit alternate mobile number"
                   maxLength={10}
-                  value={sameAsPhone ? formData.phone : formData.whatsapp} 
+                  value={formData.whatsapp} 
                   onChange={handleChange} 
-                  disabled={sameAsPhone}
-                  style={{
-                    borderRadius: '0 8px 8px 0',
-                    ...(sameAsPhone ? { backgroundColor: '#f1f5f9', color: '#94a3b8' } : {})
-                  }}
+                  style={{ borderRadius: '0 8px 8px 0' }}
                 />
               </div>
             </div>

@@ -101,8 +101,47 @@ export async function GET(req: Request) {
       });
     }
 
+    // Resolve config IDs for village, mandal, district to human-readable names
+    const configIds = new Set<string>();
+    for (const r of relatives) {
+      if (r.village) configIds.add(r.village);
+      if (r.mandal) configIds.add(r.mandal);
+      if (r.district) configIds.add(r.district);
+    }
+
+    const configs = configIds.size > 0
+      ? await prisma.configValue.findMany({
+          where: { id: { in: Array.from(configIds) } },
+          select: { id: true, value: true, parent: { select: { id: true, value: true } } }
+        })
+      : [];
+
+    const configMap = new Map<string, string>();
+    const parentMap = new Map<string, string>();
+    for (const c of configs) {
+      configMap.set(c.id, c.value);
+      if (c.parent) {
+        parentMap.set(c.id, c.parent.value);
+      }
+    }
+
+    const resolvedRelatives = relatives.map(r => {
+      const villageName = configMap.get(r.village) || r.village;
+      let mandalName = r.mandal ? (configMap.get(r.mandal) || r.mandal) : null;
+      if ((!mandalName || mandalName.startsWith('c')) && parentMap.has(r.village)) {
+        mandalName = parentMap.get(r.village)!;
+      }
+      return {
+        ...r,
+        villageId: r.village,
+        mandalId: r.mandal,
+        village: villageName,
+        mandal: mandalName,
+      };
+    });
+
     return NextResponse.json({ 
-      relatives, 
+      relatives: resolvedRelatives, 
       total,
       pagination 
     }, { status: 200 });
@@ -171,9 +210,28 @@ export async function POST(req: Request) {
       }
     });
 
+    const villageConfig = await prisma.configValue.findFirst({
+      where: { id: relative.village },
+      select: { value: true, parent: { select: { value: true } } }
+    });
+    const mandalConfig = relative.mandal
+      ? await prisma.configValue.findFirst({
+          where: { id: relative.mandal },
+          select: { value: true }
+        })
+      : null;
+
+    const resolvedRelative = {
+      ...relative,
+      villageId: relative.village,
+      mandalId: relative.mandal,
+      village: villageConfig?.value || relative.village,
+      mandal: mandalConfig?.value || villageConfig?.parent?.value || relative.mandal
+    };
+
     return NextResponse.json({ 
       message: 'Relative contact added successfully', 
-      relative 
+      relative: resolvedRelative 
     }, { status: 201 });
 
   } catch (error) {
