@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
+import '../../services/location_service.dart';
 
 class AddStudentScreen extends StatefulWidget {
   final Map<String, dynamic>? student;
@@ -55,6 +56,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   bool _sameAsPhone = true;
   bool _doorstepCompleted = false;
   bool _isLoading = false;
+  bool _isFetchingGps = false;
 
   // Phone duplication check
   Timer? _phoneDebounce;
@@ -340,6 +342,56 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         _isLoadingSchoolStats = false;
       });
     }
+  }
+
+  Future<void> _captureDoorstepGps() async {
+    setState(() => _isFetchingGps = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Detecting current GPS coordinates...'),
+          ],
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    final pos = await LocationService.getCurrentLocation();
+    if (!mounted) return;
+    setState(() => _isFetchingGps = false);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (pos == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not access GPS. Please check Location permission in phone Settings.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    final currentText = _landmarkController.text.trim();
+    final clean = LocationService.getCleanLandmark(currentText);
+    final updatedText = LocationService.formatWithGps(clean, pos.latitude, pos.longitude);
+
+    setState(() {
+      _landmarkController.text = updatedText;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📍 Doorstep GPS tagged successfully!'),
+        backgroundColor: Color(0xFF10B981),
+      ),
+    );
   }
 
   void _clearForm() {
@@ -1103,10 +1155,120 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                         // Landmark Details (shown when village selected)
                         if (_residenceVillage != null) ...[
                           const SizedBox(height: 16),
-                          _buildTextField(
-                            label: 'Landmark',
-                            hint: 'Enter landmark details',
-                            controller: _landmarkController,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Landmark / Doorstep Address',
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                                  ),
+                                  TextButton.icon(
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      foregroundColor: const Color(0xFF0F766E),
+                                    ),
+                                    icon: _isFetchingGps
+                                        ? const SizedBox(
+                                            width: 12,
+                                            height: 12,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F766E)),
+                                          )
+                                        : const Icon(Icons.my_location_rounded, size: 14),
+                                    label: Text(
+                                      LocationService.extractGps(_landmarkController.text) != null ? 'Re-pin GPS' : '📍 Pin Door GPS',
+                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                    ),
+                                    onPressed: _isFetchingGps ? null : _captureDoorstepGps,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _landmarkController,
+                                style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF0F172A)),
+                                decoration: InputDecoration(
+                                  hintText: 'e.g. Near Ramalayam, 2nd house left',
+                                  hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8FAFC),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                                  ),
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                              if (LocationService.extractGps(_landmarkController.text) != null) ...[
+                                const SizedBox(height: 6),
+                                Builder(builder: (ctx) {
+                                  final gps = LocationService.extractGps(_landmarkController.text)!;
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF0FDF4),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFF86EFAC)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.pin_drop_rounded, size: 14, color: Color(0xFF16A34A)),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Pinned: ${gps['lat']!.toStringAsFixed(5)}, ${gps['lng']!.toStringAsFixed(5)}',
+                                            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF166534)),
+                                          ),
+                                        ),
+                                        InkWell(
+                                          onTap: () {
+                                            LocationService.openGoogleMapsRoute(
+                                              lat: gps['lat']!,
+                                              lng: gps['lng']!,
+                                              studentName: _nameController.text.trim(),
+                                            );
+                                          },
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.navigation_rounded, size: 12, color: Color(0xFF0F766E)),
+                                                const SizedBox(width: 3),
+                                                Text('Test', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF0F766E))),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        InkWell(
+                                          onTap: () {
+                                            final clean = LocationService.getCleanLandmark(_landmarkController.text);
+                                            setState(() {
+                                              _landmarkController.text = clean;
+                                            });
+                                          },
+                                          child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF94A3B8)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ],
                           ),
                         ],
                         const SizedBox(height: 16),

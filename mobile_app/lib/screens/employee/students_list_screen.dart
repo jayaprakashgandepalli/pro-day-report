@@ -3,9 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/whatsapp_template_service.dart';
+import '../../services/caller_id_service.dart';
+import '../../services/location_service.dart';
 import 'add_student_screen.dart';
 import 'pdf_report_screen.dart';
-import '../../services/caller_id_service.dart';
 
 class StudentsListScreen extends StatefulWidget {
   final bool isStarLeads;
@@ -957,6 +958,108 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                                   ),
                                                 ),
 
+                                              // Doorstep GPS & Google Maps Navigation Box
+                                              Builder(builder: (ctx) {
+                                                final rawAddress = (s['address'] ?? '').toString();
+                                                final gps = LocationService.extractGps(rawAddress);
+                                                final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
+                                                final vName = _resolveName(s['village']);
+                                                final mName = _resolveName(s['mandal']);
+
+                                                return Container(
+                                                  width: double.infinity,
+                                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                                  decoration: BoxDecoration(
+                                                    color: gps != null ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                                                    borderRadius: BorderRadius.circular(10),
+                                                    border: Border.all(
+                                                      color: gps != null ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                                                    ),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          Icon(
+                                                            gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
+                                                            size: 15,
+                                                            color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                                                          ),
+                                                          const SizedBox(width: 5),
+                                                          Expanded(
+                                                            child: Text(
+                                                              cleanLandmark.isNotEmpty
+                                                                  ? cleanLandmark
+                                                                  : (gps != null ? 'Doorstep GPS Saved' : 'No Landmark / GPS'),
+                                                              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                          if (gps != null)
+                                                            Container(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                              decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
+                                                              child: Text('GPS PINNED', style: GoogleFonts.inter(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF15803D))),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 6),
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: ElevatedButton.icon(
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: gps != null ? const Color(0xFF0F766E) : const Color(0xFF475569),
+                                                                foregroundColor: Colors.white,
+                                                                elevation: 0,
+                                                                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                                                minimumSize: Size.zero,
+                                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                              ),
+                                                              icon: const Icon(Icons.navigation_rounded, size: 12),
+                                                              label: Text(
+                                                                gps != null ? 'Route on Maps' : 'Search Maps',
+                                                                style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                                              ),
+                                                              onPressed: () {
+                                                                if (gps != null) {
+                                                                  LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: name);
+                                                                } else {
+                                                                  final query = [vName, mName, cleanLandmark].where((e) => e.isNotEmpty).join(', ');
+                                                                  LocationService.searchLocationInMaps(query.isNotEmpty ? query : vName);
+                                                                }
+                                                              },
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 6),
+                                                          OutlinedButton.icon(
+                                                            style: OutlinedButton.styleFrom(
+                                                              foregroundColor: const Color(0xFF0D9488),
+                                                              side: const BorderSide(color: Color(0xFF99F6E4)),
+                                                              backgroundColor: Colors.white,
+                                                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                                              minimumSize: Size.zero,
+                                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                            ),
+                                                            icon: const Icon(Icons.my_location_rounded, size: 12),
+                                                            label: Text(
+                                                              gps != null ? 'Re-pin' : 'Pin Door GPS',
+                                                              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                                            ),
+                                                            onPressed: () => _pinStudentLocation(s),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }),
+
                                               // If Admitted
                                               if (isAdmitted)
                                                 Container(
@@ -1367,6 +1470,78 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     );
   }
 
+  Future<void> _pinStudentLocation(Map<String, dynamic> s) async {
+    final studentId = s['id'].toString();
+    final studentName = s['studentName'] ?? 'Student';
+    final existingAddress = (s['address'] ?? '').toString();
+    final cleanLandmark = LocationService.getCleanLandmark(existingAddress);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Fetching doorstep GPS location...'),
+          ],
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
+
+    final pos = await LocationService.getCurrentLocation();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (pos == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not access GPS. Please ensure Location is enabled in Settings.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    final newAddress = LocationService.formatWithGps(cleanLandmark, pos.latitude, pos.longitude);
+
+    try {
+      final res = await ApiService.updateStudent(studentId, {'address': newAddress});
+      if (!mounted) return;
+      if (res['success'] == true) {
+        setState(() {
+          s['address'] = newAddress;
+        });
+        CallerIdService.updateStudentsCache(_allStudents, _configMap);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📍 $studentName house GPS pinned successfully!'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['error'] ?? 'Failed to save GPS pin'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving GPS: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
   void _showStudentDetails(Map<String, dynamic> s) {
     showModalBottomSheet(
       context: context,
@@ -1503,7 +1678,81 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                   _buildDetailRow(Icons.person_outline, "Father's Name", s['fatherName']),
                   _buildDetailRow(Icons.work_outline, 'Occupation', _resolveName(s['occupation'])),
                   _buildDetailRow(Icons.location_on_outlined, 'Village / Mandal', '${_resolveName(s['village'])} ${_resolveName(s['mandal'])}'.trim()),
-                  _buildDetailRow(Icons.home_outlined, 'Address', s['address']),
+                  _buildDetailRow(
+                    Icons.home_outlined,
+                    'Address',
+                    LocationService.getCleanLandmark(s['address']).isNotEmpty
+                        ? LocationService.getCleanLandmark(s['address'])
+                        : (s['address'] != null && s['address'].toString().contains('GPS:') ? 'Doorstep GPS Saved' : s['address']),
+                  ),
+                  Builder(builder: (ctx) {
+                    final rawAddr = (s['address'] ?? '').toString();
+                    final gps = LocationService.extractGps(rawAddr);
+                    final stName = s['studentName'] ?? 'Student';
+                    final vName = _resolveName(s['village']);
+                    final mName = _resolveName(s['mandal']);
+                    final cleanL = LocationService.getCleanLandmark(rawAddr);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Row(
+                        children: [
+                          Icon(
+                            gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
+                            size: 18,
+                            color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              'Doorstep GPS',
+                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    gps != null
+                                        ? '${gps['lat']!.toStringAsFixed(4)}, ${gps['lng']!.toStringAsFixed(4)}'
+                                        : 'Not Pinned',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: gps != null ? const Color(0xFF166534) : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0F766E),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  icon: const Icon(Icons.navigation_rounded, size: 11),
+                                  label: Text(gps != null ? 'Route' : 'Maps', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+                                  onPressed: () {
+                                    if (gps != null) {
+                                      LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: stName);
+                                    } else {
+                                      final query = [vName, mName, cleanL].where((e) => e.isNotEmpty).join(', ');
+                                      LocationService.searchLocationInMaps(query.isNotEmpty ? query : vName);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
                   _buildDetailRow(Icons.grade_outlined, 'Marks', s['marks']),
                   _buildDetailRow(Icons.interests_outlined, 'Interested At', _resolveName(s['studyInterestedAt'])),
                   _buildDetailRow(Icons.school_outlined, 'Education Stage', _resolveName(s['educationStage'])),

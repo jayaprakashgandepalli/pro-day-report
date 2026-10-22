@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
+import '../../services/location_service.dart';
 import '../../utils/pdf_downloader.dart';
 
 class PdfReportScreen extends StatefulWidget {
@@ -280,8 +281,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
       String finalAddress = addressParts.join(', ');
       final rawAddress = s['address']?.toString().trim() ?? '';
-      if (rawAddress.isNotEmpty) {
-        finalAddress = finalAddress.isNotEmpty ? '$finalAddress\nLandmark: $rawAddress' : rawAddress;
+      final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
+      if (cleanLandmark.isNotEmpty) {
+        finalAddress = finalAddress.isNotEmpty ? '$finalAddress\nLandmark: $cleanLandmark' : cleanLandmark;
       }
       if (finalAddress.isEmpty) finalAddress = '-';
 
