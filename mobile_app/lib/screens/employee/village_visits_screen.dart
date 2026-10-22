@@ -27,6 +27,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
   String _searchQuery = '';
   String? _selectedMandalId;
   String? _selectedVillageId;
+  String? _selectedSchool;
   String? _expandedStudentId;
 
   Map<String, String> _configMap = {};
@@ -147,27 +148,73 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
   // Precomputed cached filters for 60fps performance
   List<MapEntry<String, String>> _uniqueMandals = [];
   List<MapEntry<String, String>> _uniqueVillages = [];
-  Map<String, int> _filterCounts = {'all': 0, 'pending': 0, 'met': 0, 'never': 0};
+  List<String> _uniqueSchools = [];
+  Map<String, int> _schoolCounts = {};
+  Map<String, int> _villageCounts = {};
+  Map<String, int> _filterCounts = {'all': 0, 'pending': 0, 'met': 0, 'never': 0, 'star': 0};
   List<dynamic> _filteredStudents = [];
 
+  bool _doesStudentMatchMandal(dynamic item, String? mandalId) {
+    if (mandalId == null || mandalId.isEmpty) return true;
+    if (item is! Map) return false;
+    final s = item;
+    final selMName = _resolveName(mandalId).trim().toLowerCase();
+
+    final vId = (s['village'] ?? '').toString();
+    final parentMId = _configParentMap[vId] ?? '';
+    final sMandal = (s['mandal'] ?? '').toString();
+
+    if (sMandal == mandalId || parentMId == mandalId) return true;
+    if (_resolveName(sMandal).trim().toLowerCase() == selMName) return true;
+    if (parentMId.isNotEmpty && _resolveName(parentMId).trim().toLowerCase() == selMName) return true;
+    return false;
+  }
+
+  bool _doesStudentMatchVillage(dynamic item, String? villageId) {
+    if (villageId == null || villageId.isEmpty) return true;
+    if (item is! Map) return false;
+    final s = item;
+    final selVName = _resolveName(villageId).trim().toLowerCase();
+
+    final vId = (s['village'] ?? '').toString();
+    if (vId == villageId) return true;
+    if (_resolveName(vId).trim().toLowerCase() == selVName) return true;
+    return false;
+  }
+
+  bool _doesStudentMatchSchool(dynamic item, String? school) {
+    if (school == null || school.isEmpty) return true;
+    if (item is! Map) return false;
+    final s = item;
+    final selSchName = school.trim().toLowerCase();
+
+    final rawSchool = (s['schoolName'] ?? '').toString();
+    final schName = _resolveName(rawSchool).trim().toLowerCase();
+    return schName == selSchName;
+  }
+
   void _recomputeAllFilters() {
-    _recomputeMandalsAndVillages();
+    _recomputeMandals();
+    _recomputeVillagesAndSchools();
     _recomputeFilteredStudents();
   }
 
-  void _recomputeMandalsAndVillages() {
+  void _recomputeMandals() {
     final mandalMap = <String, String>{};
     final seenMandalNames = <String>{};
+
     for (final item in _students) {
       if (item is! Map) continue;
-      final s = item;
+      final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item);
+      if (_isStudentClosed(s)) continue;
+
       final vId = (s['village'] ?? '').toString();
       String mId = _configParentMap[vId] ?? '';
       if (mId.isEmpty) {
         mId = (s['mandal'] ?? '').toString();
       }
       if (mId.isNotEmpty) {
-        final mName = _resolveName(mId);
+        final mName = _resolveName(mId).trim();
         final lower = mName.toLowerCase();
         if (mName.isNotEmpty && !seenMandalNames.contains(lower)) {
           seenMandalNames.add(lower);
@@ -179,36 +226,75 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     mEntries.sort((a, b) => a.value.compareTo(b.value));
     _uniqueMandals = mEntries;
 
+    if (_selectedMandalId != null && !_uniqueMandals.any((m) => m.key == _selectedMandalId)) {
+      _selectedMandalId = null;
+    }
+  }
+
+  void _recomputeVillagesAndSchools() {
     final villageMap = <String, String>{};
     final seenVillageNames = <String>{};
+    final villageCounts = <String, int>{};
+
     for (final item in _students) {
       if (item is! Map) continue;
-      final s = item;
-      final vId = (s['village'] ?? '').toString();
+      final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item);
+      if (_isStudentClosed(s)) continue;
+
+      // Filter by selected mandal: only show villages belonging to this mandal
+      if (!_doesStudentMatchMandal(s, _selectedMandalId)) continue;
+
+      final vId = (s['village'] ?? '').toString().trim();
       if (vId.isNotEmpty) {
-        String mId = _configParentMap[vId] ?? '';
-        if (mId.isEmpty) {
-          mId = (s['mandal'] ?? '').toString();
-        }
-        if (_selectedMandalId != null && _selectedMandalId!.isNotEmpty) {
-          final selMName = _resolveName(_selectedMandalId).toLowerCase();
-          final isMatch = (mId == _selectedMandalId) ||
-              (s['mandal']?.toString() == _selectedMandalId) ||
-              (_resolveName(mId).toLowerCase() == selMName) ||
-              (_resolveName(s['mandal']).toLowerCase() == selMName);
-          if (!isMatch) continue;
-        }
-        final vName = _resolveName(vId);
+        final vName = _resolveName(vId).trim();
         final lower = vName.toLowerCase();
-        if (vName.isNotEmpty && !seenVillageNames.contains(lower)) {
-          seenVillageNames.add(lower);
-          villageMap[vId] = vName;
+        if (vName.isNotEmpty) {
+          villageCounts[lower] = (villageCounts[lower] ?? 0) + 1;
+          if (!seenVillageNames.contains(lower)) {
+            seenVillageNames.add(lower);
+            villageMap[vId] = vName;
+          }
         }
       }
     }
     final vEntries = villageMap.entries.toList();
     vEntries.sort((a, b) => a.value.compareTo(b.value));
     _uniqueVillages = vEntries;
+    _villageCounts = villageCounts;
+
+    if (_selectedVillageId != null && !_uniqueVillages.any((v) => v.key == _selectedVillageId)) {
+      _selectedVillageId = null;
+    }
+
+    _recomputeSchools();
+  }
+
+  void _recomputeSchools() {
+    final schoolCounts = <String, int>{};
+
+    for (final item in _students) {
+      if (item is! Map) continue;
+      final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item);
+      if (_isStudentClosed(s)) continue;
+
+      // Filter by selected mandal AND selected village: only show schools for this village
+      if (!_doesStudentMatchMandal(s, _selectedMandalId)) continue;
+      if (!_doesStudentMatchVillage(s, _selectedVillageId)) continue;
+
+      final rawSchool = (s['schoolName'] ?? '').toString();
+      final schName = _resolveName(rawSchool).trim();
+      if (schName.isNotEmpty) {
+        schoolCounts[schName] = (schoolCounts[schName] ?? 0) + 1;
+      }
+    }
+    final sList = schoolCounts.keys.toList();
+    sList.sort((a, b) => a.compareTo(b));
+    _uniqueSchools = sList;
+    _schoolCounts = schoolCounts;
+
+    if (_selectedSchool != null && !_uniqueSchools.contains(_selectedSchool)) {
+      _selectedSchool = null;
+    }
   }
 
   // Check if student is closed (matches web logic)
@@ -245,23 +331,10 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
       // Search match
       if (q.isNotEmpty && !name.contains(q) && !phone.contains(q)) return false;
 
-      // Mandal match
-      if (_selectedMandalId != null && _selectedMandalId!.isNotEmpty) {
-        final selMName = _resolveName(_selectedMandalId).toLowerCase();
-        final isMatch = (mId == _selectedMandalId) ||
-            (s['mandal']?.toString() == _selectedMandalId) ||
-            (_resolveName(mId).toLowerCase() == selMName) ||
-            (_resolveName(s['mandal']).toLowerCase() == selMName);
-        if (!isMatch) return false;
-      }
-
-      // Village match
-      if (_selectedVillageId != null && _selectedVillageId!.isNotEmpty) {
-        final selVName = _resolveName(_selectedVillageId).toLowerCase();
-        final isMatch = (vId == _selectedVillageId) ||
-            (_resolveName(vId).toLowerCase() == selVName);
-        if (!isMatch) return false;
-      }
+      // Cascading matches
+      if (!_doesStudentMatchMandal(s, _selectedMandalId)) return false;
+      if (!_doesStudentMatchVillage(s, _selectedVillageId)) return false;
+      if (!_doesStudentMatchSchool(s, _selectedSchool)) return false;
 
       return true;
     }).toList();
@@ -270,6 +343,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     int pending = 0;
     int met = 0;
     int never = 0;
+    int stars = 0;
 
     for (final item in base) {
       final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item as Map);
@@ -277,6 +351,8 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
       final isMet = _wasVisitedOnDate(s, dateStr);
       final visits = s['visits'] as List<dynamic>? ?? [];
       final hasAnyVisit = visits.isNotEmpty;
+      final status = (s['leadStatus'] ?? '').toString().toLowerCase();
+      final isStar = status.contains('star') || status.contains('prime');
 
       if (isMet) {
         met++;
@@ -286,21 +362,78 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
       if (!hasAnyVisit) {
         never++;
       }
+      if (isStar) {
+        stars++;
+      }
     }
 
-    _filterCounts = {'all': all, 'pending': pending, 'met': met, 'never': never};
+    _filterCounts = {'all': all, 'pending': pending, 'met': met, 'never': never, 'star': stars};
 
     _filteredStudents = base.where((item) {
       final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item as Map);
       final isMet = _wasVisitedOnDate(s, dateStr);
       final visits = s['visits'] as List<dynamic>? ?? [];
       final hasAnyVisit = visits.isNotEmpty;
+      final status = (s['leadStatus'] ?? '').toString().toLowerCase();
+      final isStar = status.contains('star') || status.contains('prime');
 
       if (_statusFilter == 'pending') return !isMet;
       if (_statusFilter == 'met') return isMet;
       if (_statusFilter == 'never') return !hasAnyVisit;
+      if (_statusFilter == 'star') return isStar;
       return true;
     }).toList();
+  }
+
+  Future<void> _toggleStarLead(Map<String, dynamic> student) async {
+    final studentId = student['id']?.toString() ?? '';
+    if (studentId.isEmpty) return;
+
+    final currentStatus = (student['leadStatus'] ?? '').toString().toLowerCase();
+    final currentlyStar = currentStatus.contains('star') || currentStatus.contains('prime');
+    final newStatus = currentlyStar ? 'Following Up' : 'Star Lead';
+
+    setState(() {
+      student['leadStatus'] = newStatus;
+      _recomputeFilteredStudents();
+    });
+
+    try {
+      await ApiService.updateStudent(studentId, {'leadStatus': newStatus});
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: currentlyStar ? const Color(0xFF475569) : const Color(0xFFD97706),
+            duration: const Duration(seconds: 2),
+            content: Row(
+              children: [
+                Icon(currentlyStar ? Icons.star_border_rounded : Icons.star_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    currentlyStar
+                        ? '${student['studentName']} removed from Star Leads'
+                        : '⭐ ${student['studentName']} marked as Star Lead!',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          student['leadStatus'] = currentlyStar ? 'Star Lead' : 'Following Up';
+          _recomputeFilteredStudents();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update: $e')),
+        );
+      }
+    }
   }
 
   // Direct Phone Call Launcher
@@ -900,21 +1033,24 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                       String? apiFollowUpType;
                                       String? apiStudentStatus;
 
+                                      final currentStatus = (student['leadStatus'] ?? '').toString().toLowerCase();
+                                      final isAlreadyStar = currentStatus.contains('star') || currentStatus.contains('prime');
+
                                       if (outcome == 'after_exams') {
                                         apiFollowUpType = 'After Exams';
-                                        apiStudentStatus = 'Following Up';
+                                        apiStudentStatus = isAlreadyStar ? 'Star Lead' : 'Following Up';
                                       } else if (outcome == 'after_results') {
                                         apiFollowUpType = 'After Results';
-                                        apiStudentStatus = 'Following Up';
+                                        apiStudentStatus = isAlreadyStar ? 'Star Lead' : 'Following Up';
                                       } else if (outcome == 'specific_date') {
                                         apiFollowUpType = 'Date';
-                                        apiStudentStatus = 'Following Up';
+                                        apiStudentStatus = isAlreadyStar ? 'Star Lead' : 'Following Up';
                                       } else if (outcome == 'joined_other') {
                                         apiStudentStatus = 'Joined Other College';
                                       } else if (outcome == 'not_interested') {
                                         apiStudentStatus = 'Not Interested';
                                       } else if (outcome == 'following_up') {
-                                        apiStudentStatus = 'Following Up';
+                                        apiStudentStatus = isAlreadyStar ? 'Star Lead' : 'Following Up';
                                       } else if (outcome == 'admitted') {
                                         apiStudentStatus = 'Admitted';
                                       }
@@ -1399,8 +1535,10 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                                     onChanged: (val) {
                                                       setState(() {
                                                         _selectedMandalId = (val != null && val.isNotEmpty) ? val : null;
-                                                        _selectedVillageId = null; // reset village when mandal changes
-                                                        _recomputeAllFilters();
+                                                        _selectedVillageId = null;
+                                                        _selectedSchool = null;
+                                                        _recomputeVillagesAndSchools();
+                                                        _recomputeFilteredStudents();
                                                       });
                                                     },
                                                   ),
@@ -1434,14 +1572,23 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                                     icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
                                                     items: [
                                                       const DropdownMenuItem(value: '', child: Text('All Villages', style: TextStyle(fontSize: 12))),
-                                                      ..._uniqueVillages.map((v) => DropdownMenuItem(
-                                                            value: v.key,
-                                                            child: Text(v.value, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                                                          )),
+                                                      ..._uniqueVillages.map((v) {
+                                                        final count = _villageCounts[v.value.toLowerCase()] ?? 0;
+                                                        return DropdownMenuItem(
+                                                          value: v.key,
+                                                          child: Text(
+                                                            count > 0 ? '${v.value} ($count)' : v.value,
+                                                            style: const TextStyle(fontSize: 12),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        );
+                                                      }),
                                                     ],
                                                     onChanged: (val) {
                                                       setState(() {
                                                         _selectedVillageId = (val != null && val.isNotEmpty) ? val : null;
+                                                        _selectedSchool = null;
+                                                        _recomputeSchools();
                                                         _recomputeFilteredStudents();
                                                       });
                                                     },
@@ -1455,7 +1602,71 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                     ),
                                     const SizedBox(height: 14),
 
-                                    // 3. Segmented 4-Filter Tab Row (All, Pending, Met Today, Never Met)
+                                    const SizedBox(height: 10),
+
+                                    // School Dropdown
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text('SELECT SCHOOL', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF475569), letterSpacing: 0.5)),
+                                            if (_selectedSchool != null && _selectedSchool!.isNotEmpty)
+                                              GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedSchool = null;
+                                                    _recomputeFilteredStudents();
+                                                  });
+                                                },
+                                                child: Text('Clear', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7))),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<String>(
+                                              value: (_selectedSchool != null && _uniqueSchools.contains(_selectedSchool))
+                                                  ? _selectedSchool
+                                                  : '',
+                                              isExpanded: true,
+                                              icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                                              items: [
+                                                const DropdownMenuItem(value: '', child: Text('All Schools', style: TextStyle(fontSize: 12))),
+                                                ..._uniqueSchools.map((sch) {
+                                                  final count = _schoolCounts[sch] ?? 0;
+                                                  return DropdownMenuItem(
+                                                    value: sch,
+                                                    child: Text(
+                                                      count > 0 ? '$sch ($count)' : sch,
+                                                      style: const TextStyle(fontSize: 12),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  );
+                                                }),
+                                              ],
+                                              onChanged: (val) {
+                                                setState(() {
+                                                  _selectedSchool = (val != null && val.isNotEmpty) ? val : null;
+                                                  _recomputeFilteredStudents();
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+
+                                    // 3. Segmented 5-Filter Tab Row (All, Pending, Met Today, Never Met, Stars)
                                     Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
@@ -1468,6 +1679,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                           _buildSegmentTab('Pending', counts['pending'] ?? 0, 'pending', const Color(0xFFB45309)),
                                           _buildSegmentTab('Met Today', counts['met'] ?? 0, 'met', const Color(0xFF047857)),
                                           _buildSegmentTab('Never Met', counts['never'] ?? 0, 'never', const Color(0xFF4338CA)),
+                                          _buildSegmentTab('★ Stars', counts['star'] ?? 0, 'star', const Color(0xFFD97706)),
                                         ],
                                       ),
                                     ),
@@ -1586,6 +1798,8 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     final father = (s['fatherName'] ?? 'N/A').toString();
     final group = _resolveName(s['group']);
     final village = _resolveName(s['village']);
+    final school = _resolveName(s['schoolName']);
+    final schoolArea = _resolveName(s['schoolArea']);
     final isMetToday = _wasVisitedOnDate(s, dateStr);
 
     final visits = (s['visits'] as List<dynamic>?) ?? [];
@@ -1593,20 +1807,29 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     final hasPastVisit = !isMetToday && latestVisit != null;
     final isExpanded = _expandedStudentId == studentId;
 
+    final status = (s['leadStatus'] ?? '').toString().toLowerCase();
+    final isStarLead = status.contains('star') || status.contains('prime');
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isMetToday
-              ? const Color(0xFF10B981)
-              : hasPastVisit
-                  ? const Color(0xFF93C5FD)
-                  : const Color(0xFFE2E8F0),
-          width: (isMetToday || hasPastVisit) ? 1.5 : 1,
+          color: isStarLead
+              ? const Color(0xFFF59E0B)
+              : isMetToday
+                  ? const Color(0xFF10B981)
+                  : hasPastVisit
+                      ? const Color(0xFF93C5FD)
+                      : const Color(0xFFE2E8F0),
+          width: (isStarLead || isMetToday || hasPastVisit) ? 1.5 : 1,
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: isStarLead ? const Color(0xFFF59E0B).withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.02),
+            blurRadius: isStarLead ? 10 : 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: ClipRRect(
@@ -1615,7 +1838,9 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Colored Top Indicator Bar
-            if (isMetToday)
+            if (isStarLead)
+              Container(height: 4, width: double.infinity, color: const Color(0xFFF59E0B))
+            else if (isMetToday)
               Container(height: 4, width: double.infinity, color: const Color(0xFF10B981))
             else if (hasPastVisit)
               Container(height: 3, width: double.infinity, color: const Color(0xFF3B82F6)),
@@ -1646,6 +1871,28 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                               ),
                             ),
                           ),
+                          if (isStarLead) ...[
+                            const SizedBox(width: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFFCD34D)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.star_rounded, size: 12, color: Color(0xFFD97706)),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Star Lead',
+                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFFB45309)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (isMetToday) ...[
                             const SizedBox(width: 4),
                             const CircleAvatar(
@@ -1678,7 +1925,19 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                         decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFE0E7FF))),
                         child: Text('Never Met', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF4338CA))),
                       ),
-                    const SizedBox(width: 6),
+                    // Non-clickable Star Lead Identity Icon (Indicator only - No tap action)
+                    if (isStarLead) ...[
+                      const SizedBox(width: 4),
+                      const Tooltip(
+                        message: 'Star Lead',
+                        child: Icon(
+                          Icons.star_rounded,
+                          size: 20,
+                          color: Color(0xFFF59E0B),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 4),
 
                     // Direct Phone Call Button
                     IconButton(
@@ -1717,6 +1976,22 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                         ],
                       ),
                     ),
+                    if (school.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      RichText(
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                          children: [
+                            const TextSpan(text: 'School: '),
+                            TextSpan(
+                              text: '$school${schoolArea.isNotEmpty ? " ($schoolArea)" : ""}',
+                              style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
 
                     // Group & Village Badges
@@ -1818,6 +2093,26 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                               ),
                             const SizedBox(width: 6),
 
+                            // Star Lead Button
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                foregroundColor: isStarLead ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                                backgroundColor: isStarLead ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+                              ),
+                              icon: Icon(
+                                isStarLead ? Icons.star_rounded : Icons.star_outline_rounded,
+                                size: 14,
+                                color: isStarLead ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                              ),
+                              label: Text(
+                                isStarLead ? 'Star Lead' : 'Mark Star',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                              onPressed: () => _toggleStarLead(s),
+                            ),
+                            const SizedBox(width: 6),
+
                             // Full Details Button
                             TextButton.icon(
                               style: TextButton.styleFrom(
@@ -1905,7 +2200,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
@@ -1920,8 +2215,11 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
             children: [
               Text(
                 title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected ? activeColor : const Color(0xFF64748B),
                 ),

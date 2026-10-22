@@ -1,0 +1,87 @@
+{
+  "executedAt": "2026-10-18T14:15:29.434Z",
+  "database": "postgres@127.0.0.1:5432/shop_db",
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0
+  },
+  "tests": [
+    {
+      "testId": "TEST-01",
+      "title": "Workspace-wide compliance hold serialization & revocation",
+      "verdict": "PASS",
+      "measuredLockWaitMs": 602,
+      "details": {
+        "ay1RemainingLeads": 300,
+        "ay2RemainingLeads": 500,
+        "batchRunsCount": 1,
+        "workerAy1Halted": true,
+        "workerAy2Halted": true
+      }
+    },
+    {
+      "testId": "TEST-02",
+      "title": "Academic-year-specific hold & cross-cohort serialization bottleneck",
+      "verdict": "PASS",
+      "details": {
+        "ay1RemainingLeads": 500,
+        "ay2RemainingLeads": 300,
+        "ay1Halted": true,
+        "ay2Allowed": true,
+        "ay2BlockedWaitMs": 393
+      }
+    },
+    {
+      "testId": "TEST-03",
+      "title": "Mutation after archive export (including telecall edit coverage & manifest SHA-256)",
+      "verdict": "PASS",
+      "details": {
+        "exportSha256": "0ac5f1d5127f3e0a184d04949966292d23f343ee8c975cbb4024846dfaa57118",
+        "leadAExists": true,
+        "leadBExists": true,
+        "leadCExists": true,
+        "leadDExists": true,
+        "leadEExists": true,
+        "admittedLeadsCount": 10,
+        "exclusionRowsCount": 5,
+        "ay1TotalLeads": 495
+      }
+    },
+    {
+      "testId": "TEST-04",
+      "title": "Freshness-check vs. delete race condition & explicit conflict enforcement",
+      "verdict": "PASS",
+      "details": {
+        "lead4APreserved": true,
+        "clientWaitMs": 598,
+        "clientApplicationConflictRaised": true,
+        "clientErrorMessage": "ARCHIVE_CONCURRENT_DELETION_CONFLICT: Target lead was archived/deleted concurrently. Changes aborted.",
+        "engineSerializationFailureRaised": true
+      }
+    },
+    {
+      "testId": "TEST-05",
+      "title": "Authorization revocation mid-cleanup",
+      "verdict": "PASS",
+      "details": {
+        "batch2Halted": true,
+        "remainingLeads": 300,
+        "batchRunsCount": 1
+      }
+    },
+    {
+      "testId": "TEST-06",
+      "title": "Worker crash failure recovery & durable checkpoint resumption",
+      "verdict": "PASS",
+      "details": {
+        "worker1Terminated": true,
+        "midLeadsCount": 300,
+        "finalAy1Leads": 10,
+        "finalAdmittedLeads": 10,
+        "finalAyStatus": "ARCHIVED",
+        "finalAuthStatus": "CONSUMED"
+      }
+    }
+  ]
+}

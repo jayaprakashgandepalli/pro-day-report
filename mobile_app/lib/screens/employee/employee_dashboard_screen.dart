@@ -183,15 +183,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               doorstepPending++;
             }
             final status = (s['leadStatus'] ?? '').toString().toLowerCase();
-            final interest = (s['studyInterestedAt'] ?? '').toString().toLowerCase();
-            final fee = (s['ableToBearFee'] ?? '').toString().toLowerCase();
-            final g = (s['group'] ?? '').toString().toUpperCase();
-
-            final isVizag = interest.contains('vizag') || interest.contains('visakha');
-            final isBearable = fee.contains('yes') || fee.contains('bearable');
-            final isTargetGroup = g.contains('MPC') || g.contains('BIPC');
-
-            if (status.contains('star') || status.contains('prime') || (isVizag && isBearable && isTargetGroup)) {
+            if (status.contains('star') || status.contains('prime')) {
               starLeads++;
             }
           }

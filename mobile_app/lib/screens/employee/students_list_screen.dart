@@ -96,15 +96,8 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 
         if (widget.isStarLeads) {
           _baseStudents = list.where((s) {
-            final interest = ApiService.resolveConfig(s['studyInterestedAt']).toLowerCase();
-            final fee = ApiService.resolveConfig(s['ableToBearFee']).toLowerCase();
-            final g = ApiService.resolveConfig(s['group']).toUpperCase();
-
-            final isVizag = interest.contains('vizag') || interest.contains('visakha');
-            final isBearable = fee.contains('yes') || fee.contains('bearable');
-            final isTargetGroup = g.contains('MPC') || g.contains('BIPC');
-
-            return isVizag && isBearable && isTargetGroup;
+            final status = (s['leadStatus'] ?? '').toString().toLowerCase();
+            return status.contains('star') || status.contains('prime');
           }).toList();
         } else {
           _baseStudents = list;
@@ -134,57 +127,43 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     return _configMap[str] ?? ApiService.resolveConfig(str);
   }
 
-  String _getStudentMandalId(dynamic s) {
-    if (s is! Map) return '';
-    final m = (s['mandal'] ?? '').toString().trim();
-    if (m.isNotEmpty) return m;
-    final v = (s['village'] ?? '').toString().trim();
-    if (v.isNotEmpty) {
-      final p = _configParentMap[v] ?? '';
-      if (p.isNotEmpty) return p;
-    }
-    return '';
-  }
+  bool _matchesMandal(dynamic item, String? mandalId) {
+    if (mandalId == null || mandalId.isEmpty) return true;
+    if (item is! Map) return false;
+    final s = item;
+    final selMName = _resolveName(mandalId).trim().toLowerCase();
 
-  String _getStudentVillageId(dynamic s) {
-    if (s is! Map) return '';
-    return (s['village'] ?? '').toString().trim();
-  }
+    final vId = (s['village'] ?? '').toString();
+    final parentMId = _configParentMap[vId] ?? '';
+    final sMandal = (s['mandal'] ?? '').toString();
 
-  String _getStudentSchoolName(dynamic s) {
-    if (s is! Map) return '';
-    return (s['schoolName'] ?? '').toString().trim();
-  }
-
-  bool _matchesMandal(dynamic s, String filterMandal) {
-    if (filterMandal.isEmpty) return true;
-    final mId = _getStudentMandalId(s);
-    if (mId == filterMandal) return true;
-    final filterName = _resolveName(filterMandal).toLowerCase();
-    if (filterName.isNotEmpty) {
-      if (_resolveName(mId).toLowerCase() == filterName) return true;
-      final raw = (s['mandal'] ?? '').toString().trim();
-      if (_resolveName(raw).toLowerCase() == filterName) return true;
-    }
+    if (sMandal == mandalId || parentMId == mandalId) return true;
+    if (sMandal.isNotEmpty && _resolveName(sMandal).trim().toLowerCase() == selMName) return true;
+    if (parentMId.isNotEmpty && _resolveName(parentMId).trim().toLowerCase() == selMName) return true;
     return false;
   }
 
-  bool _matchesVillage(dynamic s, String filterVillage) {
-    if (filterVillage.isEmpty) return true;
-    final vId = _getStudentVillageId(s);
-    if (vId == filterVillage) return true;
-    final filterName = _resolveName(filterVillage).toLowerCase();
-    if (filterName.isNotEmpty && _resolveName(vId).toLowerCase() == filterName) return true;
+  bool _matchesVillage(dynamic item, String? villageId) {
+    if (villageId == null || villageId.isEmpty) return true;
+    if (item is! Map) return false;
+    final s = item;
+    final selVName = _resolveName(villageId).trim().toLowerCase();
+
+    final vId = (s['village'] ?? '').toString();
+    if (vId == villageId) return true;
+    if (vId.isNotEmpty && _resolveName(vId).trim().toLowerCase() == selVName) return true;
     return false;
   }
 
-  bool _matchesSchool(dynamic s, String filterSchool) {
-    if (filterSchool.isEmpty) return true;
-    final sch = _getStudentSchoolName(s);
-    if (sch.toLowerCase() == filterSchool.toLowerCase()) return true;
-    final res = _resolveName(sch).toLowerCase();
-    if (res.isNotEmpty && res == filterSchool.toLowerCase()) return true;
-    return false;
+  bool _matchesSchool(dynamic item, String? school) {
+    if (school == null || school.isEmpty) return true;
+    if (item is! Map) return false;
+    final s = item;
+    final selSchName = school.trim().toLowerCase();
+
+    final rawSchool = (s['schoolName'] ?? '').toString();
+    final schName = _resolveName(rawSchool).trim().toLowerCase();
+    return schName == selSchName;
   }
 
   bool _matchesStatus(dynamic s, String status) {
@@ -222,17 +201,36 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 
   void _recomputeFilters() {
     // 1. Mandals computation from all base students
-    final Map<String, int> mandalCounts = {};
-    for (final s in _baseStudents) {
-      final mId = _getStudentMandalId(s);
+    final mandalMap = <String, String>{};
+    final seenMandalNames = <String>{};
+    final mandalCounts = <String, int>{};
+
+    for (final item in _baseStudents) {
+      if (item is! Map) continue;
+      final s = item;
+
+      final vId = (s['village'] ?? '').toString();
+      String mId = _configParentMap[vId] ?? '';
+      if (mId.isEmpty) {
+        mId = (s['mandal'] ?? '').toString();
+      }
       if (mId.isNotEmpty) {
-        mandalCounts[mId] = (mandalCounts[mId] ?? 0) + 1;
+        final mName = _resolveName(mId).trim();
+        final lower = mName.toLowerCase();
+        if (mName.isNotEmpty) {
+          mandalCounts[lower] = (mandalCounts[lower] ?? 0) + 1;
+          if (!seenMandalNames.contains(lower)) {
+            seenMandalNames.add(lower);
+            mandalMap[mId] = mName;
+          }
+        }
       }
     }
-    final List<Map<String, dynamic>> mandals = mandalCounts.entries.map((e) {
+    final List<Map<String, dynamic>> mandals = mandalMap.entries.map((e) {
       final id = e.key;
-      final name = _resolveName(id);
-      return {'id': id, 'name': name.isNotEmpty ? name : id, 'count': e.value};
+      final name = e.value;
+      final count = mandalCounts[name.toLowerCase()] ?? 0;
+      return {'id': id, 'name': name, 'count': count};
     }).toList();
     mandals.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
     _mandals = mandals;
@@ -241,19 +239,34 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       _filterMandal = '';
     }
 
-    // 2. Villages computation (within selected mandal)
-    final Map<String, int> villageCounts = {};
-    for (final s in _baseStudents) {
-      if (_filterMandal.isNotEmpty && !_matchesMandal(s, _filterMandal)) continue;
-      final vId = _getStudentVillageId(s);
+    // 2. Villages computation (cascaded from selected mandal)
+    final villageMap = <String, String>{};
+    final seenVillageNames = <String>{};
+    final villageCounts = <String, int>{};
+
+    for (final item in _baseStudents) {
+      if (item is! Map) continue;
+      final s = item;
+      if (!_matchesMandal(s, _filterMandal)) continue;
+
+      final vId = (s['village'] ?? '').toString().trim();
       if (vId.isNotEmpty) {
-        villageCounts[vId] = (villageCounts[vId] ?? 0) + 1;
+        final vName = _resolveName(vId).trim();
+        final lower = vName.toLowerCase();
+        if (vName.isNotEmpty) {
+          villageCounts[lower] = (villageCounts[lower] ?? 0) + 1;
+          if (!seenVillageNames.contains(lower)) {
+            seenVillageNames.add(lower);
+            villageMap[vId] = vName;
+          }
+        }
       }
     }
-    final List<Map<String, dynamic>> villages = villageCounts.entries.map((e) {
+    final List<Map<String, dynamic>> villages = villageMap.entries.map((e) {
       final id = e.key;
-      final name = _resolveName(id);
-      return {'id': id, 'name': name.isNotEmpty ? name : id, 'count': e.value};
+      final name = e.value;
+      final count = villageCounts[name.toLowerCase()] ?? 0;
+      return {'id': id, 'name': name, 'count': count};
     }).toList();
     villages.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
     _villages = villages;
@@ -262,14 +275,19 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       _filterVillage = '';
     }
 
-    // 3. Schools computation (within selected mandal & village)
-    final Map<String, int> schoolCounts = {};
-    for (final s in _baseStudents) {
-      if (_filterMandal.isNotEmpty && !_matchesMandal(s, _filterMandal)) continue;
-      if (_filterVillage.isNotEmpty && !_matchesVillage(s, _filterVillage)) continue;
-      final sch = _getStudentSchoolName(s);
-      if (sch.isNotEmpty) {
-        schoolCounts[sch] = (schoolCounts[sch] ?? 0) + 1;
+    // 3. Schools computation (cascaded from selected mandal & village)
+    final schoolCounts = <String, int>{};
+
+    for (final item in _baseStudents) {
+      if (item is! Map) continue;
+      final s = item;
+      if (!_matchesMandal(s, _filterMandal)) continue;
+      if (!_matchesVillage(s, _filterVillage)) continue;
+
+      final rawSchool = (s['schoolName'] ?? '').toString();
+      final schName = _resolveName(rawSchool).trim();
+      if (schName.isNotEmpty) {
+        schoolCounts[schName] = (schoolCounts[schName] ?? 0) + 1;
       }
     }
     final List<Map<String, dynamic>> schools = schoolCounts.entries.map((e) {
@@ -581,13 +599,13 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                 border: Border.all(color: const Color(0xFFFDE68A)),
               ),
               child: Text(
-                'Showing students interested in Vizag, can bear fee, and studying MPC/BIPC.',
+                'Showing verified Star Leads marked for high-priority admission.',
                 style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFD97706)),
               ),
             ),
 
           // Status Filter Tabs
-          if (!widget.isStarLeads) ...[
+          if (!widget.isStarLeads)
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
@@ -605,60 +623,8 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
               ),
             ),
 
-            // Location Filters Dropdowns (Mandals, Villages, Schools)
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildLocationDropdown(
-                      value: _filterMandal,
-                      hint: 'All Mandals',
-                      items: _mandals,
-                      onChanged: (val) {
-                        setState(() {
-                          _filterMandal = val ?? '';
-                          _filterVillage = '';
-                          _filterSchool = '';
-                          _recomputeFilters();
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildLocationDropdown(
-                      value: _filterVillage,
-                      hint: 'All Villages',
-                      items: _villages,
-                      onChanged: (val) {
-                        setState(() {
-                          _filterVillage = val ?? '';
-                          _filterSchool = '';
-                          _recomputeFilters();
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildLocationDropdown(
-                      value: _filterSchool,
-                      hint: 'All Schools',
-                      items: _schools,
-                      onChanged: (val) {
-                        setState(() {
-                          _filterSchool = val ?? '';
-                          _recomputeFilters();
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // Location Filters Card (Mandal, Village, School) - Available on BOTH Star Leads & All Students
+          _buildLocationFilterCard(),
 
           // Search Box & Reset Filters row
           Container(
@@ -1166,65 +1132,235 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     );
   }
 
-  Widget _buildLocationDropdown({
-    required String value,
-    required String hint,
-    required List<Map<String, dynamic>> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    final bool hasValue = value.isNotEmpty && items.any((m) => m['id']?.toString() == value);
-    final String currentValue = hasValue ? value : '';
-
+  Widget _buildLocationFilterCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      height: 38,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: currentValue.isNotEmpty ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1),
-          width: currentValue.isNotEmpty ? 1.5 : 1.0,
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: currentValue,
-          isExpanded: true,
-          style: GoogleFonts.inter(
-            fontSize: 11,
-            color: currentValue.isNotEmpty ? const Color(0xFF4338CA) : const Color(0xFF334155),
-            fontWeight: currentValue.isNotEmpty ? FontWeight.w600 : FontWeight.w500,
-          ),
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 18,
-            color: currentValue.isNotEmpty ? const Color(0xFF6366F1) : const Color(0xFF64748B),
-          ),
-          items: [
-            DropdownMenuItem(
-              value: '',
-              child: Text(
-                hint,
-                style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B), fontSize: 11),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            ...items.map((m) {
-              final id = m['id']?.toString() ?? '';
-              final name = m['name']?.toString() ?? id;
-              final count = m['count'] ?? 0;
-              return DropdownMenuItem(
-                value: id,
-                child: Text(
-                  '$name ($count)',
-                  style: GoogleFonts.inter(fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Mandal & Village 2-Column Grid
+          Row(
+            children: [
+              // Mandal Dropdown
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SELECT MANDAL',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF475569),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _filterMandal.isNotEmpty ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: (_filterMandal.isNotEmpty && _mandals.any((m) => m['id'] == _filterMandal))
+                              ? _filterMandal
+                              : '',
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                          items: [
+                            const DropdownMenuItem(value: '', child: Text('All Mandals', style: TextStyle(fontSize: 12))),
+                            ..._mandals.map((m) {
+                              final id = m['id'] as String;
+                              final name = m['name'] as String;
+                              final count = m['count'] as int;
+                              return DropdownMenuItem(
+                                value: id,
+                                child: Text(
+                                  count > 0 ? '$name ($count)' : name,
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) {
+                            setState(() {
+                              _filterMandal = val ?? '';
+                              _filterVillage = '';
+                              _filterSchool = '';
+                              _recomputeFilters();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              );
-            }),
-          ],
-          onChanged: onChanged,
-        ),
+              ),
+              const SizedBox(width: 10),
+
+              // Village Dropdown
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SELECT VILLAGE',
+                      style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF475569),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: _filterVillage.isNotEmpty ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1),
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: (_filterVillage.isNotEmpty && _villages.any((v) => v['id'] == _filterVillage))
+                              ? _filterVillage
+                              : '',
+                          isExpanded: true,
+                          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                          items: [
+                            const DropdownMenuItem(value: '', child: Text('All Villages', style: TextStyle(fontSize: 12))),
+                            ..._villages.map((v) {
+                              final id = v['id'] as String;
+                              final name = v['name'] as String;
+                              final count = v['count'] as int;
+                              return DropdownMenuItem(
+                                value: id,
+                                child: Text(
+                                  count > 0 ? '$name ($count)' : name,
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) {
+                            setState(() {
+                              _filterVillage = val ?? '';
+                              _filterSchool = '';
+                              _recomputeFilters();
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 2. School Dropdown
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SELECT SCHOOL',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  if (_filterSchool.isNotEmpty)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _filterSchool = '';
+                          _recomputeFilters();
+                        });
+                      },
+                      child: Text(
+                        'Clear',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0284C7),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _filterSchool.isNotEmpty ? const Color(0xFF6366F1) : const Color(0xFFCBD5E1),
+                  ),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: (_filterSchool.isNotEmpty && _schools.any((sc) => sc['id'] == _filterSchool))
+                        ? _filterSchool
+                        : '',
+                    isExpanded: true,
+                    icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                    items: [
+                      const DropdownMenuItem(value: '', child: Text('All Schools', style: TextStyle(fontSize: 12))),
+                      ..._schools.map((sc) {
+                        final id = sc['id'] as String;
+                        final name = sc['name'] as String;
+                        final count = sc['count'] as int;
+                        return DropdownMenuItem(
+                          value: id,
+                          child: Text(
+                            count > 0 ? '$name ($count)' : name,
+                            style: const TextStyle(fontSize: 12),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) {
+                      setState(() {
+                        _filterSchool = val ?? '';
+                        _recomputeFilters();
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
