@@ -963,8 +963,6 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                                 final rawAddress = (s['address'] ?? '').toString();
                                                 final gps = LocationService.extractGps(rawAddress);
                                                 final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
-                                                final vName = _resolveName(s['village']);
-                                                final mName = _resolveName(s['mandal']);
 
                                                 return Container(
                                                   width: double.infinity,
@@ -1007,54 +1005,71 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                                         ],
                                                       ),
                                                       const SizedBox(height: 6),
-                                                      Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: ElevatedButton.icon(
-                                                              style: ElevatedButton.styleFrom(
-                                                                backgroundColor: gps != null ? const Color(0xFF0F766E) : const Color(0xFF475569),
-                                                                foregroundColor: Colors.white,
-                                                                elevation: 0,
+                                                      if (gps != null)
+                                                        Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: ElevatedButton.icon(
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: const Color(0xFF0F766E),
+                                                                  foregroundColor: Colors.white,
+                                                                  elevation: 0,
+                                                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                                                  minimumSize: Size.zero,
+                                                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                                                ),
+                                                                icon: const Icon(Icons.navigation_rounded, size: 12),
+                                                                label: Text(
+                                                                  'Route on Maps',
+                                                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                                                ),
+                                                                onPressed: () {
+                                                                  LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: name);
+                                                                },
+                                                              ),
+                                                            ),
+                                                            const SizedBox(width: 6),
+                                                            OutlinedButton.icon(
+                                                              style: OutlinedButton.styleFrom(
+                                                                foregroundColor: const Color(0xFF0D9488),
+                                                                side: const BorderSide(color: Color(0xFF99F6E4)),
+                                                                backgroundColor: Colors.white,
                                                                 padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
                                                                 minimumSize: Size.zero,
                                                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                                               ),
-                                                              icon: const Icon(Icons.navigation_rounded, size: 12),
+                                                              icon: const Icon(Icons.my_location_rounded, size: 12),
                                                               label: Text(
-                                                                gps != null ? 'Route on Maps' : 'Search Maps',
+                                                                'Re-pin',
                                                                 style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
                                                               ),
-                                                              onPressed: () {
-                                                                if (gps != null) {
-                                                                  LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: name);
-                                                                } else {
-                                                                  final query = [vName, mName, cleanLandmark].where((e) => e.isNotEmpty).join(', ');
-                                                                  LocationService.searchLocationInMaps(query.isNotEmpty ? query : vName);
-                                                                }
-                                                              },
+                                                              onPressed: () => _pinStudentLocation(s),
                                                             ),
-                                                          ),
-                                                          const SizedBox(width: 6),
-                                                          OutlinedButton.icon(
-                                                            style: OutlinedButton.styleFrom(
-                                                              foregroundColor: const Color(0xFF0D9488),
-                                                              side: const BorderSide(color: Color(0xFF99F6E4)),
-                                                              backgroundColor: Colors.white,
-                                                              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                                          ],
+                                                        )
+                                                      else
+                                                        SizedBox(
+                                                          width: double.infinity,
+                                                          child: ElevatedButton.icon(
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: const Color(0xFF0D9488),
+                                                              foregroundColor: Colors.white,
+                                                              elevation: 0,
+                                                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
                                                               minimumSize: Size.zero,
                                                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                                             ),
-                                                            icon: const Icon(Icons.my_location_rounded, size: 12),
+                                                            icon: const Icon(Icons.my_location_rounded, size: 13),
                                                             label: Text(
-                                                              gps != null ? 'Re-pin' : 'Pin Door GPS',
+                                                              'Pin Door GPS',
                                                               style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
                                                             ),
                                                             onPressed: () => _pinStudentLocation(s),
                                                           ),
-                                                        ],
-                                                      ),
+                                                        ),
                                                     ],
                                                   ),
                                                 );
@@ -1689,9 +1704,6 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                     final rawAddr = (s['address'] ?? '').toString();
                     final gps = LocationService.extractGps(rawAddr);
                     final stName = s['studentName'] ?? 'Student';
-                    final vName = _resolveName(s['village']);
-                    final mName = _resolveName(s['mandal']);
-                    final cleanL = LocationService.getCleanLandmark(rawAddr);
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 14),
@@ -1725,27 +1737,23 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                     ),
                                   ),
                                 ),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0F766E),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                  icon: const Icon(Icons.navigation_rounded, size: 11),
-                                  label: Text(gps != null ? 'Route' : 'Maps', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
-                                  onPressed: () {
-                                    if (gps != null) {
+                                if (gps != null)
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0F766E),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    ),
+                                    icon: const Icon(Icons.navigation_rounded, size: 11),
+                                    label: Text('Route', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+                                    onPressed: () {
                                       LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: stName);
-                                    } else {
-                                      final query = [vName, mName, cleanL].where((e) => e.isNotEmpty).join(', ');
-                                      LocationService.searchLocationInMaps(query.isNotEmpty ? query : vName);
-                                    }
-                                  },
-                                ),
+                                    },
+                                  ),
                               ],
                             ),
                           ),

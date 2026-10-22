@@ -1348,36 +1348,30 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                   ),
                                 ),
                               ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0F766E),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                ),
-                                icon: const Icon(Icons.navigation_rounded, size: 12),
-                                label: Text(
-                                  gps != null ? 'Route' : 'Search',
-                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
-                                ),
-                                onPressed: () {
-                                  if (gps != null) {
+                              if (gps != null)
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0F766E),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  icon: const Icon(Icons.navigation_rounded, size: 12),
+                                  label: Text(
+                                    'Route',
+                                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                  ),
+                                  onPressed: () {
                                     LocationService.openGoogleMapsRoute(
                                       lat: gps['lat']!,
                                       lng: gps['lng']!,
                                       studentName: name,
                                     );
-                                  } else {
-                                    final query = [village, schoolArea, LocationService.getCleanLandmark(landmark)]
-                                        .where((e) => e.isNotEmpty)
-                                        .join(', ');
-                                    LocationService.searchLocationInMaps(query.isNotEmpty ? query : village);
-                                  }
-                                },
-                              ),
+                                  },
+                                ),
                             ],
                           ),
                         );
@@ -2264,56 +2258,71 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                // Navigate on Google Maps button
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: gps != null ? const Color(0xFF0F766E) : const Color(0xFF475569),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    ),
-                                    icon: const Icon(Icons.navigation_rounded, size: 14),
-                                    label: Text(
-                                      gps != null ? 'Route on Maps' : 'Search Maps',
-                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
-                                    ),
-                                    onPressed: () {
-                                      if (gps != null) {
+                            if (gps != null)
+                              Row(
+                                children: [
+                                  // Navigate on Google Maps button
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF0F766E),
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      icon: const Icon(Icons.navigation_rounded, size: 14),
+                                      label: Text(
+                                        'Route on Maps',
+                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+                                      ),
+                                      onPressed: () {
                                         LocationService.openGoogleMapsRoute(
                                           lat: gps['lat']!,
                                           lng: gps['lng']!,
                                           studentName: name,
                                         );
-                                      } else {
-                                        final query = [village, schoolArea, cleanLandmark].where((e) => e.isNotEmpty).join(', ');
-                                        LocationService.searchLocationInMaps(query.isNotEmpty ? query : village);
-                                      }
-                                    },
+                                      },
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Pin My Doorstep GPS button
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF0D9488),
-                                    side: const BorderSide(color: Color(0xFF99F6E4)),
-                                    backgroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                  const SizedBox(width: 8),
+                                  // Re-pin Doorstep GPS button
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0D9488),
+                                      side: const BorderSide(color: Color(0xFF99F6E4)),
+                                      backgroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    icon: const Icon(Icons.my_location_rounded, size: 14),
+                                    label: Text(
+                                      'Re-pin',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
+                                    ),
+                                    onPressed: () => _pinStudentLocation(s),
+                                  ),
+                                ],
+                              )
+                            else
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0D9488),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 12),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  icon: const Icon(Icons.my_location_rounded, size: 14),
+                                  icon: const Icon(Icons.my_location_rounded, size: 15),
                                   label: Text(
-                                    gps != null ? 'Re-pin' : 'Pin Door GPS',
+                                    'Pin Door GPS',
                                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
                                   ),
                                   onPressed: () => _pinStudentLocation(s),
                                 ),
-                              ],
-                            ),
+                              ),
                           ],
                         ),
                       );
