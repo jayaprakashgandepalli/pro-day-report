@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,7 +33,7 @@ class EmployeeDashboardScreen extends StatefulWidget {
   State<EmployeeDashboardScreen> createState() => _EmployeeDashboardScreenState();
 }
 
-class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
+class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _totalStudents = 0;
   int _pendingTasks = 0;
@@ -43,6 +44,22 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   bool _isLoading = false;
   String _userRole = 'EMPLOYEE';
   String? _displayName;
+  bool _callerIdPermGranted = true;
+
+  Future<void> _checkCallerId() async {
+    if (kIsWeb) return;
+    final granted = await CallerIdService.hasPermissions();
+    if (mounted) {
+      setState(() => _callerIdPermGranted = granted);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkCallerId();
+    }
+  }
 
   String get _currentEmployeeName {
     try {
@@ -80,8 +97,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       'Other Groups': 0,
       'Doorstep Pending': 0,
     };
+    WidgetsBinding.instance.addObserver(this);
     _loadCachedStats();
     _fetchDashboardData();
+    _checkCallerId();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadCachedStats() async {
@@ -555,7 +580,72 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+
+            // Caller ID Permission Prompt Banner (When inactive on Android)
+            if (!_callerIdPermGranted && !kIsWeb) ...[
+              Container(
+                margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.blue.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDBEAFE),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF2563EB), size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Enable Caller ID Alert',
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12, color: const Color(0xFF1E40AF)),
+                          ),
+                          Text(
+                            'కాల్ రాగానే స్టూడెంట్ వివరాలు స్క్రీన్ పైన కనిపించేందుకు పర్మిషన్ ఇవ్వండి.',
+                            style: GoogleFonts.inter(fontSize: 10.5, color: const Color(0xFF3B82F6)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      onTap: () async {
+                        await CallerIdService.requestPermissions();
+                        await Future.delayed(const Duration(seconds: 1));
+                        _checkCallerId();
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Enable',
+                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 18),
 
             // 2. 3x3 App Icons Grid (Exact match to old UI, tight compact spacing)
             Padding(
