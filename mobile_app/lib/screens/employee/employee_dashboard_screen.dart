@@ -16,6 +16,7 @@ import 'pdf_report_screen.dart';
 import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
 import 'whatsapp_templates_screen.dart';
+import '../../services/caller_id_service.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   final String employeeName;
@@ -188,6 +189,8 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             }
           }
         }
+        final cfgMap = (results[5] is Map<String, String>) ? results[5] as Map<String, String> : <String, String>{};
+        CallerIdService.updateStudentsCache(list, cfgMap);
       }
 
       int tasks = 0;
@@ -271,6 +274,96 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             child: const Text('Logout'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showCallerIdSettingsDialog(BuildContext context) async {
+    final hasPerm = await CallerIdService.hasPermissions();
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF10B981), size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Caller ID Alert', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 18)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'స్టూడెంట్ లేదా పేరెంట్ కాల్ చేసినప్పుడు, మీ పర్సనల్ కాంటాక్ట్స్ పెరగకుండా ఫోన్ రింగ్ అవుతున్నప్పుడే స్క్రీన్ పైన స్టూడెంట్ వివరాలు (పేరు, స్కూల్, ఊరు) డిస్‌ప్లే అవుతాయి.',
+                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF475569), height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: hasPerm ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: hasPerm ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasPerm ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                      color: hasPerm ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        hasPerm
+                            ? 'Caller ID Active & Ready (ఆల్రెడీ యాక్టివ్)'
+                            : 'Permissions required for Call Detection',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: hasPerm ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Close', style: GoogleFonts.inter(color: const Color(0xFF64748B))),
+            ),
+            if (!hasPerm)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () async {
+                  await CallerIdService.requestPermissions();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: Text('Grant Permission', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1163,6 +1256,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                                 ],
                               ),
                             );
+                          },
+                        ),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMobileMenuItem(
+                          icon: Icons.phone_in_talk_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          title: 'Caller ID Alert (ఇన్‌కమింగ్ కాల్ అలర్ట్)',
+                          onTap: () {
+                            Navigator.pop(context);
+                            _showCallerIdSettingsDialog(context);
                           },
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),

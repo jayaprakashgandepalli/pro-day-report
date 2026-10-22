@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../services/whatsapp_template_service.dart';
 import 'add_student_screen.dart';
 import 'pdf_report_screen.dart';
+import '../../services/caller_id_service.dart';
 
 class StudentsListScreen extends StatefulWidget {
   final bool isStarLeads;
@@ -93,6 +94,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
         _isOffline = res['offline'] == true;
         final list = (res['students'] as List<dynamic>?) ?? [];
         _allStudents = list;
+        CallerIdService.updateStudentsCache(list, _configMap);
 
         if (widget.isStarLeads) {
           _baseStudents = list.where((s) {
