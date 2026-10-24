@@ -33,6 +33,7 @@ export default function GeneratePDFPage() {
     { id: 'fatherName', label: "Father's Name" },
     { id: 'occupation', label: 'Occupation' },
     { id: 'address', label: 'Address' },
+    { id: 'gps', label: 'GPS' },
     { id: 'phone', label: 'Phone' },
     { id: 'whatsapp', label: 'Alt. Phone' },
     { id: 'group', label: 'Group' },
@@ -42,7 +43,7 @@ export default function GeneratePDFPage() {
     { id: 'remarks', label: 'Remarks' }
   ];
   const [selectedColumns, setSelectedColumns] = useState<string[]>(
-    ['sno', 'studentName', 'fatherName', 'phone', 'group', 'schoolName', 'doorstep', 'remarks']
+    ['sno', 'studentName', 'fatherName', 'phone', 'group', 'schoolName', 'doorstep', 'remarks', 'gps']
   );
 
   const router = useRouter();
@@ -216,11 +217,20 @@ export default function GeneratePDFPage() {
 
       const tableData = data.students.map((s: any, index: number) => {
         const addressParts = [getConfigName(s.village), getConfigName(s.mandal), getConfigName(s.district)].filter(Boolean).join(', ');
+        const cleanLandmark = s.address ? s.address.replace(/\[?GPS:\s*-?\d+\.?\d*\s*,\s*-?\d+\.?\d*\]?/gi, '').trim() : '';
         let finalAddress = addressParts;
-        if (s.address) {
-          finalAddress = finalAddress ? `${finalAddress}\nLandmark: ${s.address}` : s.address;
+        if (cleanLandmark) {
+          finalAddress = finalAddress ? `${finalAddress}\nLandmark: ${cleanLandmark}` : cleanLandmark;
         }
         if (!finalAddress) finalAddress = '-';
+
+        let gpsDisplay = '-';
+        if (s.address) {
+          const match = s.address.match(/\[?GPS:\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\]?/i);
+          if (match) {
+            gpsDisplay = `${parseFloat(match[1]).toFixed(4)}, ${parseFloat(match[2]).toFixed(4)}`;
+          }
+        }
         
         let extraRemarks = '';
         const visit = s.visits && s.visits.length > 0 ? s.visits[0] : null;
@@ -250,6 +260,7 @@ export default function GeneratePDFPage() {
             else if (c.id === 'fatherName') rowData.push(s.fatherName || '-');
             else if (c.id === 'occupation') rowData.push(s.occupation || '-');
             else if (c.id === 'address') rowData.push(finalAddress);
+            else if (c.id === 'gps') rowData.push(gpsDisplay);
             else if (c.id === 'phone') rowData.push(s.phone);
             else if (c.id === 'whatsapp') rowData.push(s.whatsapp || '-');
             else if (c.id === 'group') rowData.push(s.group);
@@ -497,7 +508,26 @@ export default function GeneratePDFPage() {
 
       {data && (
         <div className="card" style={{ marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.1rem', margin: '0 0 1rem 0' }}>Select Columns to Download</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.1rem', margin: 0 }}>Select Columns to Download ({selectedColumns.length}/{availableColumns.length})</h2>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button 
+                type="button" 
+                onClick={() => setSelectedColumns(availableColumns.map(c => c.id))}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-color)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Select All
+              </button>
+              <span style={{ color: '#cbd5e1' }}>|</span>
+              <button 
+                type="button" 
+                onClick={() => setSelectedColumns([])}
+                style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.75rem', padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
             {availableColumns.map(col => (
               <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>

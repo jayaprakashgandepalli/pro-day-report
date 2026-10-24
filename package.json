@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "backup": "tsx scripts/db-backup.ts",
     "backup:cron": "tsx scripts/db-backup.ts --cron",
-    "restore": "tsx scripts/db-restore.ts"
+    "restore": "tsx scripts/db-restore.ts",
+    "proxy": "node mobile_app/proxy.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

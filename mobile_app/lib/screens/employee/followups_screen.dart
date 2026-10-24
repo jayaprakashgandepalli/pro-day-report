@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
+import '../../services/remarks_preset_service.dart';
 
 class FollowupsScreen extends StatefulWidget {
   const FollowupsScreen({super.key});
@@ -60,13 +61,16 @@ class _FollowupsScreenState extends State<FollowupsScreen> with SingleTickerProv
     }
   }
 
-  void _openUpdateModal(Map<String, dynamic> student) {
+  void _openUpdateModal(Map<String, dynamic> student) async {
     final studentId = student['id'].toString();
     final studentName = student['studentName'] ?? 'Student';
     final remarksController = TextEditingController();
     String followUpType = 'Date';
     DateTime? nextDate = DateTime.now().add(const Duration(days: 3));
     bool isSaving = false;
+
+    List<String> presets = await RemarksPresetService.getPresets();
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -106,14 +110,131 @@ class _FollowupsScreenState extends State<FollowupsScreen> with SingleTickerProv
                     ),
                     const Divider(height: 20),
 
-                    Text(
-                      'Follow-up Remarks *',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                    // Remarks Header with Quick Tag & Clear
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Follow-up Remarks *',
+                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFC7D2FE)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.bolt_rounded, size: 12, color: Color(0xFF4F46E5)),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Quick 1-Tap',
+                                    style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (remarksController.text.trim().isNotEmpty)
+                          InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                remarksController.clear();
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.clear_rounded, size: 12, color: Color(0xFFEF4444)),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Clear',
+                                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFEF4444)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
+
+                    // Sleek Horizontal Presets Slider
+                    SizedBox(
+                      height: 34,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: presets.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(width: 6),
+                        itemBuilder: (context, idx) {
+                          final preset = presets[idx];
+                          final isIncluded = remarksController.text.contains(preset);
+
+                          return FilterChip(
+                            selected: isIncluded,
+                            showCheckmark: false,
+                            avatar: Icon(
+                              isIncluded ? Icons.check_circle_rounded : Icons.add_rounded,
+                              size: 13,
+                              color: isIncluded ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                            ),
+                            label: Text(
+                              preset,
+                              style: GoogleFonts.inter(
+                                fontSize: 11.5,
+                                fontWeight: isIncluded ? FontWeight.w700 : FontWeight.w500,
+                                color: isIncluded ? const Color(0xFF4F46E5) : const Color(0xFF334155),
+                              ),
+                            ),
+                            backgroundColor: const Color(0xFFF8FAFC),
+                            selectedColor: const Color(0xFFEEF2FF),
+                            side: BorderSide(
+                              color: isIncluded ? const Color(0xFF818CF8) : const Color(0xFFE2E8F0),
+                              width: isIncluded ? 1.3 : 1,
+                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            visualDensity: VisualDensity.compact,
+                            onSelected: (selected) {
+                              setModalState(() {
+                                if (selected) {
+                                  final current = remarksController.text.trim();
+                                  if (current.isEmpty) {
+                                    remarksController.text = preset;
+                                  } else if (!current.contains(preset)) {
+                                    final sep = current.endsWith('.') || current.endsWith(',') ? ' ' : '. ';
+                                    remarksController.text = '$current$sep$preset';
+                                  }
+                                } else {
+                                  String current = remarksController.text;
+                                  current = current.replaceAll('$preset. ', '');
+                                  current = current.replaceAll('. $preset', '');
+                                  current = current.replaceAll(preset, '');
+                                  remarksController.text = current.trim();
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
                     TextField(
                       controller: remarksController,
                       maxLines: 3,
+                      onChanged: (_) => setModalState(() {}),
                       decoration: InputDecoration(
                         hintText: 'Spoke over phone / visited student...',
                         filled: true,

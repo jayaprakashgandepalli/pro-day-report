@@ -646,6 +646,7 @@ async function runTest6() {
 
     console.log('Worker 1 begins provisioning seat #10 and acquires parent subscription lock...');
     await worker1.query('BEGIN;');
+    await worker1.query(`SELECT poc_db_01.set_tenant_context('${USER_W1_ADMIN}', '${W1_ID}');`);
     await worker1.query(`
         SELECT id, total_allocated_seats 
         FROM poc_db_01.workspace_subscriptions 
@@ -663,6 +664,7 @@ async function runTest6() {
 
     const worker2Promise = (async () => {
         await worker2.query('BEGIN;');
+        await worker2.query(`SELECT poc_db_01.set_tenant_context('${USER_W1_ADMIN}', '${W1_ID}');`);
         const lockRes = await worker2.query(`
             SELECT id, total_allocated_seats 
             FROM poc_db_01.workspace_subscriptions 

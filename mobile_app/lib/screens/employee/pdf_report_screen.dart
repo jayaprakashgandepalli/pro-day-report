@@ -47,6 +47,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     {'id': 'fatherName', 'label': "Father's Name"},
     {'id': 'occupation', 'label': 'Occupation'},
     {'id': 'address', 'label': 'Address'},
+    {'id': 'gps', 'label': 'GPS'},
     {'id': 'phone', 'label': 'Phone'},
     {'id': 'whatsapp', 'label': 'Alt. Phone'},
     {'id': 'group', 'label': 'Group'},
@@ -62,6 +63,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     'fatherName',
     'occupation',
     'address',
+    'gps',
     'phone',
     'whatsapp',
     'group',
@@ -228,7 +230,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         } else if (id == 'occupation') {
           columnWidths[colIdx] = const pw.FlexColumnWidth(1.4);
         } else if (id == 'address') {
-          columnWidths[colIdx] = const pw.FlexColumnWidth(3.3);
+          columnWidths[colIdx] = const pw.FlexColumnWidth(3.0);
+        } else if (id == 'gps') {
+          columnWidths[colIdx] = const pw.FixedColumnWidth(64);
         } else if (id == 'phone') {
           columnWidths[colIdx] = const pw.FixedColumnWidth(64);
         } else if (id == 'whatsapp') {
@@ -351,6 +355,13 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             row.add(s['occupation']?.toString() ?? '-');
           } else if (id == 'address') {
             row.add(finalAddress);
+          } else if (id == 'gps') {
+            final coords = LocationService.extractGps(rawAddress);
+            if (coords != null) {
+              row.add('${coords['lat']!.toStringAsFixed(4)},\n${coords['lng']!.toStringAsFixed(4)}');
+            } else {
+              row.add('-');
+            }
           } else if (id == 'phone') {
             row.add(s['phone']?.toString() ?? '-');
           } else if (id == 'whatsapp') {

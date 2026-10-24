@@ -53,11 +53,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     return widget.employeeName;
   }
 
-  // Breakdown of groups
+  // Breakdown of groups & doorsteps
   Map<String, int> _groupCounts = {
     'BIPC': 0,
     'MPC': 0,
-    'Other Groups': 0,
+    'Doorstep Completed': 0,
     'Doorstep Pending': 0,
   };
 
@@ -76,7 +76,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     _groupCounts = {
       'BIPC': 0,
       'MPC': 0,
-      'Other Groups': 0,
+      'Doorstep Completed': 0,
       'Doorstep Pending': 0,
     };
     _loadCachedStats();
@@ -99,7 +99,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           _groupCounts = {
             'BIPC': prefs.getInt('dash_grp_bipc_${widget.employeeId}') ?? 0,
             'MPC': prefs.getInt('dash_grp_mpc_${widget.employeeId}') ?? 0,
-            'Other Groups': prefs.getInt('dash_grp_others_${widget.employeeId}') ?? 0,
+            'Doorstep Completed': prefs.getInt('dash_grp_doorstep_done_${widget.employeeId}') ?? 0,
             'Doorstep Pending': prefs.getInt('dash_grp_doorstep_${widget.employeeId}') ?? 0,
           };
           _isLoading = false;
@@ -130,7 +130,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       await prefs.setInt('dash_relatives_${widget.employeeId}', _relativesCount);
       await prefs.setInt('dash_grp_bipc_${widget.employeeId}', _groupCounts['BIPC'] ?? 0);
       await prefs.setInt('dash_grp_mpc_${widget.employeeId}', _groupCounts['MPC'] ?? 0);
-      await prefs.setInt('dash_grp_others_${widget.employeeId}', _groupCounts['Other Groups'] ?? 0);
+      await prefs.setInt('dash_grp_doorstep_done_${widget.employeeId}', _groupCounts['Doorstep Completed'] ?? 0);
       await prefs.setInt('dash_grp_doorstep_${widget.employeeId}', _groupCounts['Doorstep Pending'] ?? 0);
     } catch (_) {}
   }
@@ -159,7 +159,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       int total = 0;
       int bipc = 0;
       int mpc = 0;
-      int others = 0;
+      int doorstepCompleted = 0;
       int doorstepPending = 0;
       int starLeads = 0;
 
@@ -174,10 +174,10 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
               bipc++;
             } else if (group.contains('MPC')) {
               mpc++;
-            } else {
-              others++;
             }
-            if (s['doorstepCompleted'] != true) {
+            if (s['doorstepCompleted'] == true) {
+              doorstepCompleted++;
+            } else {
               doorstepPending++;
             }
             final status = (s['leadStatus'] ?? '').toString().toLowerCase();
@@ -222,7 +222,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         _groupCounts = {
           'BIPC': bipc,
           'MPC': mpc,
-          'Other Groups': others,
+          'Doorstep Completed': doorstepCompleted,
           'Doorstep Pending': doorstepPending,
         };
       });
@@ -743,12 +743,12 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildGroupRow(
-                          abbr: 'OT',
-                          title: 'OTHER GROUPS',
-                          subtitle: 'CEC, HEC & Miscellaneous groups',
-                          count: _getCount('Other Groups'),
-                          circleBg: const Color(0xFFF1F5F9),
-                          circleColor: const Color(0xFF475569),
+                          abbr: 'DC',
+                          title: 'COMPLETED DOORSTEPS',
+                          subtitle: 'Visits successfully completed',
+                          count: _getCount('Doorstep Completed'),
+                          circleBg: const Color(0xFFECFDF5),
+                          circleColor: const Color(0xFF10B981),
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildGroupRow(
@@ -1134,46 +1134,9 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildMobileMenuItem(
-                          icon: Icons.info_outline_rounded,
-                          iconColor: const Color(0xFF64748B),
-                          title: 'About App',
-                          onTap: () {
-                            showDialog(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                title: Row(
-                                  children: [
-                                    const Icon(Icons.info_outline_rounded, color: Color(0xFF6366F1), size: 22),
-                                    const SizedBox(width: 8),
-                                    Text('About App', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-                                  ],
-                                ),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('App Version 1.0.4', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
-                                    const SizedBox(height: 4),
-                                    Text('Field Portal • Sri Vaatsalya Educational Society', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13)),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx),
-                                    child: const Text('OK'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMobileMenuItem(
                           icon: Icons.handshake_rounded,
                           iconColor: const Color(0xFF0284C7),
-                          title: 'Village Relatives (గ్రామ బంధువులు)',
+                          title: 'Village Relatives',
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const VillageRelativesScreen()));
@@ -1215,6 +1178,42 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
+                          },
+                        ),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMobileMenuItem(
+                          icon: Icons.info_outline_rounded,
+                          iconColor: const Color(0xFF64748B),
+                          title: 'About App',
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: Row(
+                                  children: [
+                                    const Icon(Icons.info_outline_rounded, color: Color(0xFF6366F1), size: 22),
+                                    const SizedBox(width: 8),
+                                    Text('About App', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('App Version 1.0.4', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+                                    const SizedBox(height: 4),
+                                    Text('Field Portal • Sri Vaatsalya Educational Society', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13)),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
                           },
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -1264,26 +1263,35 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   }) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: iconColor),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
                 title,
                 style: GoogleFonts.inter(
                   fontSize: 14,
-                  fontWeight: titleColor != null ? FontWeight.w700 : FontWeight.w500,
-                  color: titleColor ?? const Color(0xFF334155),
+                  fontWeight: titleColor != null ? FontWeight.w700 : FontWeight.w600,
+                  color: titleColor ?? const Color(0xFF1E293B),
                 ),
               ),
             ),
             Icon(
               Icons.chevron_right_rounded,
-              size: 18,
-              color: chevronColor ?? const Color(0xFF94A3B8),
+              size: 20,
+              color: chevronColor ?? const Color(0xFFCBD5E1),
             ),
           ],
         ),

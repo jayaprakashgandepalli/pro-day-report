@@ -1,0 +1,10 @@
+{
+  "executedAt": "2026-10-24T04:40:14.120Z",
+  "database": "postgres@127.0.0.1:5432/shop_db",
+  "summary": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0
+  },
+  "tests": []
+}

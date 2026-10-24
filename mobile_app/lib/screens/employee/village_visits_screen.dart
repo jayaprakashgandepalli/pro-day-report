@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 import '../../services/whatsapp_template_service.dart';
 import '../../services/location_service.dart';
+import '../../services/remarks_preset_service.dart';
 import 'add_student_screen.dart';
 
 class VillageVisitsScreen extends StatefulWidget {
@@ -462,7 +463,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
   }
 
   // Record / Update Visit Modal
-  void _openVisitModal(Map<String, dynamic> student) {
+  void _openVisitModal(Map<String, dynamic> student) async {
     final studentId = student['id'].toString();
     final studentName = student['studentName'] ?? 'Student';
     final fatherName = student['fatherName'] ?? '';
@@ -513,6 +514,115 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     XFile? attachedPhoto;
     Uint8List? attachedPhotoBytes;
     bool isSharing = false;
+
+    List<String> presets = await RemarksPresetService.getPresets();
+    if (!mounted) return;
+
+    void showAddPresetDialog(BuildContext parentCtx, StateSetter setModalState) {
+      final customCtrl = TextEditingController();
+      showDialog(
+        context: parentCtx,
+        builder: (dialogCtx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.bolt_rounded, color: Color(0xFF4F46E5), size: 22),
+              const SizedBox(width: 8),
+              Text('Add Custom Preset', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Create a quick remark you use frequently. It will be saved for your login.',
+                style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: customCtrl,
+                autofocus: true,
+                maxLines: 2,
+                style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF1E293B)),
+                decoration: InputDecoration(
+                  hintText: 'e.g. Discussing with family / uncle',
+                  hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F46E5),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                final txt = customCtrl.text.trim();
+                if (txt.isNotEmpty) {
+                  await RemarksPresetService.addCustomPreset(txt);
+                  final updated = await RemarksPresetService.getPresets();
+                  setModalState(() {
+                    presets = updated;
+                    final current = remarksController.text.trim();
+                    if (current.isEmpty) {
+                      remarksController.text = txt;
+                    } else if (!current.contains(txt)) {
+                      final sep = current.endsWith('.') || current.endsWith(',') ? ' ' : '. ';
+                      remarksController.text = '$current$sep$txt';
+                    }
+                  });
+                }
+                if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              },
+              child: Text('Save & Use', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    void showDeletePresetDialog(BuildContext parentCtx, String preset, StateSetter setModalState) {
+      if (RemarksPresetService.isDefaultPreset(preset)) return;
+      showDialog(
+        context: parentCtx,
+        builder: (dialogCtx) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text('Delete Custom Preset?', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Text('Remove "$preset" from your presets list?', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF475569))),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Keep', style: GoogleFonts.inter(color: const Color(0xFF64748B))),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
+              onPressed: () async {
+                await RemarksPresetService.deleteCustomPreset(preset);
+                final updated = await RemarksPresetService.getPresets();
+                setModalState(() {
+                  presets = updated;
+                });
+                if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+              },
+              child: Text('Delete', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+    }
 
     showModalBottomSheet(
       context: context,
@@ -888,12 +998,152 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                         ),
                       ),
                     ] else ...[
-                      // Remarks Textarea (Optional)
-                      Text('Remarks (Optional)', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
-                      const SizedBox(height: 6),
+                      // Remarks Header & Presets Section
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Remarks (Optional)',
+                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEEF2FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFC7D2FE)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.bolt_rounded, size: 12, color: Color(0xFF4F46E5)),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'Quick 1-Tap',
+                                      style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (remarksController.text.trim().isNotEmpty)
+                            InkWell(
+                              onTap: () {
+                                setModalState(() {
+                                  remarksController.clear();
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.clear_rounded, size: 12, color: Color(0xFFEF4444)),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'Clear',
+                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFFEF4444)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Sleek Horizontal Presets Slider
+                      SizedBox(
+                        height: 34,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: presets.length + 1,
+                          separatorBuilder: (ctx, i) => const SizedBox(width: 6),
+                          itemBuilder: (context, idx) {
+                            if (idx == presets.length) {
+                              return ActionChip(
+                                avatar: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF4F46E5)),
+                                label: Text(
+                                  '+ Custom',
+                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
+                                ),
+                                backgroundColor: const Color(0xFFF5F3FF),
+                                side: const BorderSide(color: Color(0xFFDDD6FE)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () => showAddPresetDialog(ctx, setModalState),
+                              );
+                            }
+
+                            final preset = presets[idx];
+                            final isIncluded = remarksController.text.contains(preset);
+                            final isDefault = RemarksPresetService.isDefaultPreset(preset);
+
+                            return GestureDetector(
+                              onLongPress: isDefault ? null : () => showDeletePresetDialog(ctx, preset, setModalState),
+                              child: FilterChip(
+                                selected: isIncluded,
+                                showCheckmark: false,
+                                avatar: Icon(
+                                  isIncluded ? Icons.check_circle_rounded : Icons.add_rounded,
+                                  size: 13,
+                                  color: isIncluded ? const Color(0xFF4F46E5) : const Color(0xFF64748B),
+                                ),
+                                label: Text(
+                                  preset,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11.5,
+                                    fontWeight: isIncluded ? FontWeight.w700 : FontWeight.w500,
+                                    color: isIncluded ? const Color(0xFF4F46E5) : const Color(0xFF334155),
+                                  ),
+                                ),
+                                backgroundColor: const Color(0xFFF8FAFC),
+                                selectedColor: const Color(0xFFEEF2FF),
+                                side: BorderSide(
+                                  color: isIncluded ? const Color(0xFF818CF8) : const Color(0xFFE2E8F0),
+                                  width: isIncluded ? 1.3 : 1,
+                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                visualDensity: VisualDensity.compact,
+                                onSelected: (selected) {
+                                  setModalState(() {
+                                    if (selected) {
+                                      final current = remarksController.text.trim();
+                                      if (current.isEmpty) {
+                                        remarksController.text = preset;
+                                      } else if (!current.contains(preset)) {
+                                        final sep = current.endsWith('.') || current.endsWith(',') ? ' ' : '. ';
+                                        remarksController.text = '$current$sep$preset';
+                                      }
+                                    } else {
+                                      String current = remarksController.text;
+                                      current = current.replaceAll('$preset. ', '');
+                                      current = current.replaceAll('. $preset', '');
+                                      current = current.replaceAll(preset, '');
+                                      remarksController.text = current.trim();
+                                    }
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Remarks Textarea
                       TextField(
                         controller: remarksController,
                         maxLines: 3,
+                        onChanged: (_) => setModalState(() {}),
                         decoration: InputDecoration(
                           hintText: 'What was discussed? (Optional)',
                           hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
@@ -1192,6 +1442,14 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     final school = _resolveName(s['schoolName']);
     final schoolArea = _resolveName(s['schoolArea']);
     final village = _resolveName(s['village']);
+    String mandal = _resolveName(s['mandal']);
+    if (mandal.isEmpty) {
+      final vId = (s['village'] ?? '').toString();
+      final parentMandalId = _configParentMap[vId] ?? '';
+      if (parentMandalId.isNotEmpty) {
+        mandal = _resolveName(parentMandalId);
+      }
+    }
     final landmark = (s['address'] ?? 'N/A').toString();
     final fee = _resolveName(s['ableToBearFee']);
     final visits = (s['visits'] as List<dynamic>?) ?? [];
@@ -1288,7 +1546,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                       _buildDetailRow('Father:', father),
                       const Divider(height: 20),
 
-                      // Academic & Location Info
+                      // Academic & Group Info
                       Row(
                         children: [
                           Text('Group: ', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: const Color(0xFF334155))),
@@ -1299,80 +1557,179 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: const Color(0xFFCBD5E1)),
                             ),
-                            child: Text(group, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                            child: Text(group.isNotEmpty ? group : 'N/A', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
 
-                      _buildDetailRow('School:', '$school ${schoolArea.isNotEmpty ? "($schoolArea)" : ""}'),
-                      const SizedBox(height: 8),
-                      _buildDetailRow('Location (Village):', village.isNotEmpty ? village : 'N/A'),
-                      const SizedBox(height: 8),
-                      _buildDetailRow(
-                        'Landmark / Address:',
-                        LocationService.getCleanLandmark(landmark).isNotEmpty
-                            ? LocationService.getCleanLandmark(landmark)
-                            : (landmark.contains('GPS:') ? 'Doorstep GPS Saved' : 'N/A'),
+                      // SECTION 1: School Location & Info
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.school_outlined, size: 16, color: Color(0xFF4F46E5)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'School Information',
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            _buildDetailRow('School Name:', school.isNotEmpty ? school : 'N/A'),
+                            const SizedBox(height: 6),
+                            _buildDetailRow('School Location / Area:', schoolArea.isNotEmpty ? schoolArea : 'N/A'),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 8),
-                      Builder(builder: (ctx) {
-                        final gps = LocationService.extractGps(landmark);
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: gps != null ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: gps != null ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
-                                size: 16,
-                                color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  gps != null
-                                      ? 'GPS: ${gps['lat']!.toStringAsFixed(4)}, ${gps['lng']!.toStringAsFixed(4)}'
-                                      : 'No Doorstep GPS pinned yet',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: gps != null ? const Color(0xFF166534) : const Color(0xFF64748B),
-                                  ),
+                      const SizedBox(height: 12),
+
+                      // SECTION 2: Student Residence (Home Location)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.home_outlined, size: 16, color: Color(0xFF16A34A)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Student Residence (Home)',
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF166534)),
                                 ),
-                              ),
-                              if (gps != null)
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0F766E),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
-                                  icon: const Icon(Icons.navigation_rounded, size: 12),
-                                  label: Text(
-                                    'Route',
-                                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
-                                  ),
-                                  onPressed: () {
-                                    LocationService.openGoogleMapsRoute(
-                                      lat: gps['lat']!,
-                                      lng: gps['lng']!,
-                                      studentName: name,
-                                    );
-                                  },
-                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            _buildDetailRow(
+                              'Residential Village:',
+                              village.isNotEmpty ? village : 'N/A',
+                              isBold: true,
+                            ),
+                            if (mandal.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              _buildDetailRow('Mandal:', mandal),
                             ],
-                          ),
-                        );
-                      }),
+                            const SizedBox(height: 6),
+                            _buildDetailRow(
+                              'Landmark / Address:',
+                              LocationService.getCleanLandmark(landmark).isNotEmpty
+                                  ? LocationService.getCleanLandmark(landmark)
+                                  : (landmark.contains('GPS:') ? 'Doorstep GPS Saved' : 'N/A'),
+                            ),
+                            const SizedBox(height: 8),
+                            Builder(builder: (ctx) {
+                              final gps = LocationService.extractGps(landmark);
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: gps != null ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
+                                      size: 16,
+                                      color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        gps != null
+                                            ? 'Doorstep GPS Saved'
+                                            : 'No Doorstep GPS pinned yet',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: gps != null ? const Color(0xFF166534) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                    if (gps != null) ...[
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF0F766E),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        icon: const Icon(Icons.navigation_rounded, size: 12),
+                                        label: Text(
+                                          'Route',
+                                          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
+                                        ),
+                                        onPressed: () {
+                                          LocationService.openGoogleMapsRoute(
+                                            lat: gps['lat']!,
+                                            lng: gps['lng']!,
+                                            studentName: name,
+                                          );
+                                        },
+                                      ),
+                                      const SizedBox(width: 6),
+                                      OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(0xFF0D9488),
+                                          side: const BorderSide(color: Color(0xFF99F6E4)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        icon: const Icon(Icons.my_location_rounded, size: 12),
+                                        label: Text('Re-pin', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600)),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _pinStudentLocation(s);
+                                        },
+                                      ),
+                                    ] else ...[
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF0D9488),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                        ),
+                                        icon: const Icon(Icons.my_location_rounded, size: 12),
+                                        label: Text('Pin GPS', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          _pinStudentLocation(s);
+                                        },
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      ),
                       const Divider(height: 20),
 
                       _buildDetailRow('Fee Capacity:', fee.isNotEmpty ? fee : 'N/A'),
@@ -1936,6 +2293,10 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     final school = _resolveName(s['schoolName']);
     final schoolArea = _resolveName(s['schoolArea']);
     final isMetToday = _wasVisitedOnDate(s, dateStr);
+    final rawAddress = (s['address'] ?? '').toString();
+    final gps = LocationService.extractGps(rawAddress);
+    final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
+    final homeDisplay = village.isNotEmpty ? village : cleanLandmark;
 
     final visits = (s['visits'] as List<dynamic>?) ?? [];
     final latestVisit = visits.isNotEmpty ? visits.first as Map<String, dynamic> : null;
@@ -2098,7 +2459,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                           children: [
                             const TextSpan(text: 'School: '),
                             TextSpan(
-                              text: '$school${schoolArea.isNotEmpty ? " ($schoolArea)" : ""}',
+                              text: '$school${schoolArea.isNotEmpty ? " (Area: $schoolArea)" : ""}',
                               style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF334155)),
                             ),
                           ],
@@ -2120,8 +2481,8 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                             ),
                             child: Text(group, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF334155))),
                           ),
-                        if (group.isNotEmpty && village.isNotEmpty) const SizedBox(width: 6),
-                        if (village.isNotEmpty)
+                        if (group.isNotEmpty && homeDisplay.isNotEmpty) const SizedBox(width: 6),
+                        if (homeDisplay.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -2132,9 +2493,9 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFF4338CA)),
+                                const Icon(Icons.home_rounded, size: 12, color: Color(0xFF4338CA)),
                                 const SizedBox(width: 3),
-                                Text(village, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF4338CA))),
+                                Text('Home: $homeDisplay', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF4338CA))),
                               ],
                             ),
                           ),
@@ -2175,234 +2536,236 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                       ),
                     ],
 
-                    // Doorstep GPS & Google Maps Navigation Box (Compact single row)
-                    Builder(builder: (ctx) {
-                      final rawAddress = (s['address'] ?? '').toString();
-                      final gps = LocationService.extractGps(rawAddress);
-                      final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
+                    const SizedBox(height: 10),
 
-                      return Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(top: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: gps != null ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: gps != null ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+                    // Utility Actions Row (WhatsApp, Star Lead, Full Details, Navigation/Route, Edit Profile)
+                    Row(
+                      children: [
+                        // WhatsApp Button
+                        if (whatsapp.isNotEmpty || phone.isNotEmpty) ...[
+                          IconButton(
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFECFDF5),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF059669)),
+                            tooltip: 'WhatsApp Message / Pamphlet',
+                            onPressed: () async {
+                              final session = await ApiService.getSession();
+                              final empName = session['name'] ?? 'PRO Officer';
+                              final empPhone = session['identifier'] ?? '';
+                              if (mounted) {
+                                WhatsAppTemplateService.showTemplateSelector(
+                                  context,
+                                  student: Map<String, dynamic>.from(s),
+                                  employeeName: empName,
+                                  employeePhone: empPhone,
+                                );
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+
+                        // Star Lead Button
+                        InkWell(
+                          onTap: () => _toggleStarLead(s),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: isStarLead ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: isStarLead ? const Color(0xFFFDE68A) : const Color(0xFFE2E8F0)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isStarLead ? Icons.star_rounded : Icons.star_outline_rounded,
+                                  size: 15,
+                                  color: isStarLead ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isStarLead ? 'Star Lead' : 'Mark Star',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: isStarLead ? const Color(0xFFD97706) : const Color(0xFF475569),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
-                              size: 16,
-                              color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                        const SizedBox(width: 6),
+
+                        // Full Details Button
+                        InkWell(
+                          onTap: () => _openStudentDetailsModal(s),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0F9FF),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFBAE6FD)),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    cleanLandmark.isNotEmpty
-                                        ? cleanLandmark
-                                        : (gps != null ? 'Doorstep GPS Saved' : 'No Landmark / GPS'),
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF1E293B),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.visibility_outlined, size: 14, color: Color(0xFF0284C7)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Details',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0284C7),
                                   ),
-                                  if (gps != null)
-                                    Text(
-                                      '${gps['lat']!.toStringAsFixed(4)}, ${gps['lng']!.toStringAsFixed(4)}',
-                                      style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF15803D), fontWeight: FontWeight.w500),
-                                    ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            if (gps != null) ...[
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0F766E),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                icon: const Icon(Icons.navigation_rounded, size: 13),
-                                label: Text(
-                                  'Route',
-                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
-                                ),
-                                onPressed: () {
-                                  LocationService.openGoogleMapsRoute(
-                                    lat: gps['lat']!,
-                                    lng: gps['lng']!,
-                                    studentName: name,
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 6),
-                              InkWell(
-                                onTap: () => _pinStudentLocation(s),
-                                borderRadius: BorderRadius.circular(6),
-                                child: Container(
-                                  padding: const EdgeInsets.all(5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFF99F6E4)),
-                                  ),
-                                  child: const Icon(Icons.my_location_rounded, size: 14, color: Color(0xFF0D9488)),
-                                ),
-                              ),
-                            ] else ...[
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0D9488),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                icon: const Icon(Icons.my_location_rounded, size: 13),
-                                label: Text(
-                                  'Pin GPS',
-                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700),
-                                ),
-                                onPressed: () => _pinStudentLocation(s),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    }),
-
-                    const Divider(height: 20),
-
-                    // Actions Row (WhatsApp, Full Details, Edit Profile, Record/Update Visit)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            // WhatsApp Button
-                            if (whatsapp.isNotEmpty || phone.isNotEmpty)
-                              IconButton(
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                style: IconButton.styleFrom(backgroundColor: const Color(0xFFECFDF5)),
-                                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF059669)),
-                                tooltip: 'WhatsApp Message / Pamphlet',
-                                onPressed: () async {
-                                  final session = await ApiService.getSession();
-                                  final empName = session['name'] ?? 'PRO Officer';
-                                  final empPhone = session['identifier'] ?? '';
-                                  if (mounted) {
-                                    WhatsAppTemplateService.showTemplateSelector(
-                                      context,
-                                      student: Map<String, dynamic>.from(s),
-                                      employeeName: empName,
-                                      employeePhone: empPhone,
-                                    );
-                                  }
-                                },
-                              ),
-                            const SizedBox(width: 6),
-
-                            // Star Lead Button
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                foregroundColor: isStarLead ? const Color(0xFFD97706) : const Color(0xFF64748B),
-                                backgroundColor: isStarLead ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
-                              ),
-                              icon: Icon(
-                                isStarLead ? Icons.star_rounded : Icons.star_outline_rounded,
-                                size: 14,
-                                color: isStarLead ? const Color(0xFFD97706) : const Color(0xFF64748B),
-                              ),
-                              label: Text(
-                                isStarLead ? 'Star Lead' : 'Mark Star',
-                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
-                              ),
-                              onPressed: () => _toggleStarLead(s),
-                            ),
-                            const SizedBox(width: 6),
-
-                            // Full Details Button
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                foregroundColor: const Color(0xFF0EA5E9),
-                              ),
-                              icon: const Icon(Icons.visibility_outlined, size: 14),
-                              label: Text('Full Details', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700)),
-                              onPressed: () => _openStudentDetailsModal(s),
-                            ),
-                          ],
+                          ),
                         ),
 
-                        Row(
-                          children: [
-                            // Edit Profile Button
-                            IconButton(
-                              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                              style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
-                              icon: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF475569)),
-                              tooltip: 'Edit Profile',
-                              onPressed: () async {
-                                final added = await Navigator.push(context, MaterialPageRoute(builder: (_) => AddStudentScreen(student: s)));
-                                if (added == true && mounted) {
-                                  _fetchInitialData(forceRefresh: true);
-                                }
+                        // Navigation Route / Pin GPS Button (placed directly next to Details)
+                        if (gps != null) ...[
+                          const SizedBox(width: 6),
+                          Tooltip(
+                            message: 'Open Google Maps Navigation (Long press to update GPS)',
+                            child: InkWell(
+                              onTap: () {
+                                LocationService.openGoogleMapsRoute(
+                                  lat: gps['lat']!,
+                                  lng: gps['lng']!,
+                                  studentName: name,
+                                );
                               },
-                            ),
-                            const SizedBox(width: 8),
-
-                            // Record / Edit Visit Button
-                            ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isMetToday
-                                    ? const Color(0xFFECFDF5)
-                                    : hasPastVisit
-                                        ? const Color(0xFFEFF6FF)
-                                        : const Color(0xFF4F46E5),
-                                foregroundColor: isMetToday
-                                    ? const Color(0xFF059669)
-                                    : hasPastVisit
-                                        ? const Color(0xFF1D4ED8)
-                                        : Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                elevation: 0,
-                                side: BorderSide(
-                                  color: isMetToday
-                                      ? const Color(0xFFA7F3D0)
-                                      : hasPastVisit
-                                          ? const Color(0xFFBFDBFE)
-                                          : Colors.transparent,
+                              onLongPress: () => _pinStudentLocation(s),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F766E),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.navigation_rounded, size: 13, color: Colors.white),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Route',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              icon: Icon(isMetToday ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded, size: 16),
-                              label: Text(
-                                isMetToday ? 'Update Visit' : 'Add Visit',
-                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700),
-                              ),
-                              onPressed: () => _openVisitModal(s),
                             ),
-                          ],
+                          ),
+                        ] else ...[
+                          const SizedBox(width: 6),
+                          Tooltip(
+                            message: 'Pin Doorstep GPS',
+                            child: InkWell(
+                              onTap: () => _pinStudentLocation(s),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDFA),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFF99F6E4)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.my_location_rounded, size: 13, color: Color(0xFF0D9488)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Pin GPS',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF0D9488),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        const Spacer(),
+
+                        // Edit Profile Button
+                        IconButton(
+                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFF8FAFC),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                          ),
+                          icon: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF475569)),
+                          tooltip: 'Edit Profile',
+                          onPressed: () async {
+                            final added = await Navigator.push(context, MaterialPageRoute(builder: (_) => AddStudentScreen(student: s)));
+                            if (added == true && mounted) {
+                              _fetchInitialData(forceRefresh: true);
+                            }
+                          },
                         ),
                       ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Primary Action Button (Add / Update Visit) - Full width, impossible to cut off!
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isMetToday
+                              ? const Color(0xFFECFDF5)
+                              : hasPastVisit
+                                  ? const Color(0xFFEFF6FF)
+                                  : const Color(0xFF4F46E5),
+                          foregroundColor: isMetToday
+                              ? const Color(0xFF059669)
+                              : hasPastVisit
+                                  ? const Color(0xFF1D4ED8)
+                                  : Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          elevation: 0,
+                          side: BorderSide(
+                            color: isMetToday
+                                ? const Color(0xFFA7F3D0)
+                                : hasPastVisit
+                                    ? const Color(0xFFBFDBFE)
+                                    : Colors.transparent,
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: Icon(
+                          isMetToday ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                          size: 18,
+                        ),
+                        label: Text(
+                          isMetToday ? 'Update Today\'s Visit' : (hasPastVisit ? 'Add Re-visit' : 'Add Visit'),
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
+                        onPressed: () => _openVisitModal(s),
+                      ),
                     ),
                   ],
                 ),

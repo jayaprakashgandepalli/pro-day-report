@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'offline_service.dart';
+import 'remarks_preset_service.dart';
 import 'whatsapp_template_service.dart';
 
 class ApiService {
@@ -19,7 +20,7 @@ class ApiService {
 
   static String _formatConnectionError(dynamic e) {
     if (kIsWeb) {
-      return 'Web Dev Proxy unreachable ($baseUrl). Working in Offline Mode.';
+      return 'Web Dev Proxy unreachable ($baseUrl). Please run "npm run proxy" or "node proxy.js".';
     }
     return 'Unable to reach server. Working in Offline Mode.';
   }
@@ -46,6 +47,7 @@ class ApiService {
     // Enforce active user isolation across offline and template services
     OfflineService.setActiveUser(idOrPhone);
     await WhatsAppTemplateService.setActiveEmployee(idOrPhone);
+    await RemarksPresetService.setActiveEmployee(idOrPhone);
 
     // If token is null, generate 10-year permanent token
     final validToken = (token != null && token.isNotEmpty)

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
-import '../../services/whatsapp_template_service.dart';
 
 class VillageRelativesScreen extends StatefulWidget {
   const VillageRelativesScreen({super.key});
@@ -17,18 +16,19 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
   bool _isLoading = true;
   String? _error;
   final _searchController = TextEditingController();
+  final Set<String> _expandedIds = <String>{};
 
   static const List<String> _commonRelations = [
-    'బాబాయ్ (Paternal Uncle)',
-    'మావయ్య (Maternal Uncle)',
-    'పెద్దనాన్న (Elder Uncle)',
-    'అన్నయ్య / తమ్ముడు (Brother)',
-    'బావ / బావమరిది (In-Law)',
-    'పిన్ని / అత్తయ్య (Aunt)',
-    'తాతయ్య (Grandfather)',
-    'మేనల్లుడు (Nephew)',
-    'స్నేహితుడు (Family Friend)',
-    'బంధువు (Relative)',
+    'Paternal Uncle',
+    'Maternal Uncle',
+    'Elder Uncle',
+    'Brother',
+    'In-Law',
+    'Aunt',
+    'Grandfather',
+    'Nephew',
+    'Family Friend',
+    'Relative',
   ];
 
   @override
@@ -150,7 +150,7 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
                               style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700),
                             ),
                             Text(
-                              'Relative of employee in village (గ్రామ బంధువు)',
+                              'Relative of employee in village',
                               style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
                             ),
                           ],
@@ -178,16 +178,28 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          value: _commonRelations.contains(selectedRelation) ? selectedRelation : null,
-                          hint: Text(selectedRelation.isNotEmpty ? selectedRelation : 'Select Relation',
+                          value: () {
+                            if (_commonRelations.contains(selectedRelation)) return selectedRelation;
+                            final cleaned = _cleanTelugu(selectedRelation);
+                            if (_commonRelations.contains(cleaned)) return cleaned;
+                            return selectedRelation.isNotEmpty ? selectedRelation : null;
+                          }(),
+                          hint: Text(selectedRelation.isNotEmpty ? _cleanTelugu(selectedRelation) : 'Select Relation',
                               style: GoogleFonts.inter(fontSize: 14)),
                           isExpanded: true,
-                          items: _commonRelations.map((r) {
-                            return DropdownMenuItem<String>(
-                              value: r,
-                              child: Text(r, style: GoogleFonts.inter(fontSize: 14)),
-                            );
-                          }).toList(),
+                          items: () {
+                            final list = List<String>.from(_commonRelations);
+                            final cleaned = _cleanTelugu(selectedRelation);
+                            if (cleaned.isNotEmpty && !list.contains(cleaned)) {
+                              list.insert(0, cleaned);
+                            }
+                            return list.map((r) {
+                              return DropdownMenuItem<String>(
+                                value: r,
+                                child: Text(r, style: GoogleFonts.inter(fontSize: 14)),
+                              );
+                            }).toList();
+                          }(),
                           onChanged: (val) {
                             if (val != null) {
                               setModalState(() => selectedRelation = val);
@@ -212,7 +224,7 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _buildField('Occupation (వృత్తి)', 'e.g. Farmer, Business, Teacher', occupationCtrl),
+                          child: _buildField('Occupation', 'e.g. Farmer, Business, Teacher', occupationCtrl),
                         ),
                       ],
                     ),
@@ -389,6 +401,102 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
     );
   }
 
+  String _cleanTelugu(String text) {
+    if (text.isEmpty) return text;
+    final match = RegExp(r'\((.*?)\)').firstMatch(text);
+    if (match != null && match.group(1) != null) {
+      return match.group(1)!.trim();
+    }
+    final cleaned = text.replaceAll(RegExp(r'[\u0C00-\u0C7F]'), '').trim();
+    return cleaned.isNotEmpty ? cleaned : text;
+  }
+
+  String _getInitials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return 'VR';
+    if (parts.length == 1) {
+      return parts[0].length >= 2 ? parts[0].substring(0, 2).toUpperCase() : parts[0].toUpperCase();
+    }
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  LinearGradient _getAvatarGradient(int index) {
+    const gradients = [
+      LinearGradient(
+        colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      LinearGradient(
+        colors: [Color(0xFF0284C7), Color(0xFF0EA5E9)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      LinearGradient(
+        colors: [Color(0xFF7C3AED), Color(0xFF6366F1)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      LinearGradient(
+        colors: [Color(0xFF0D9488), Color(0xFF059669)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      LinearGradient(
+        colors: [Color(0xFFE11D48), Color(0xFFF43F5E)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      LinearGradient(
+        colors: [Color(0xFFD97706), Color(0xFFF59E0B)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+    ];
+    return gradients[index % gradients.length];
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    Widget? action,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: iconColor),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 95,
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 12.5,
+              color: const Color(0xFF1E293B),
+              fontWeight: FontWeight.w600,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        if (action != null) ...[
+          const SizedBox(width: 6),
+          action,
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -408,7 +516,7 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
               style: GoogleFonts.outfit(color: const Color(0xFF0F172A), fontWeight: FontWeight.w700, fontSize: 18),
             ),
             Text(
-              'గ్రామ బంధువులు • Relatives of employee',
+              'Relatives of employee in villages',
               style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
             ),
           ],
@@ -531,205 +639,320 @@ class _VillageRelativesScreenState extends State<VillageRelativesScreen> {
                         : RefreshIndicator(
                             onRefresh: () => _fetchRelatives(forceRefresh: true),
                             child: ListView.separated(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
                               itemCount: _filteredRelatives.length,
                               separatorBuilder: (ctx, i) => const SizedBox(height: 12),
                               itemBuilder: (context, index) {
                                 final r = _filteredRelatives[index];
+                                final rId = (r['id'] ?? index).toString();
+                                final isExpanded = _expandedIds.contains(rId);
+
                                 final name = r['name'] ?? 'Relative';
                                 final phone = (r['phone'] ?? '').toString();
                                 final relation = (r['relation'] ?? '').toString();
                                 final occupation = (r['occupation'] ?? '').toString();
-                                final locationText = ApiService.formatLocation(r['village'], r['mandal']);
+                                final relClean = relation.isNotEmpty ? _cleanTelugu(relation) : 'Relative';
+                                final m = ApiService.resolveConfig(r['mandal']);
+                                final v = ApiService.resolveConfig(r['village']);
+                                String locPart = '';
+                                if (m.isNotEmpty) {
+                                  locPart = m;
+                                } else if (v.isNotEmpty) {
+                                  locPart = v;
+                                }
+                                final subtitleText = locPart.isNotEmpty ? '$relClean • $locPart' : relClean;
 
-                                return Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.02),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
+                                return Material(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        if (isExpanded) {
+                                          _expandedIds.remove(rId);
+                                        } else {
+                                          _expandedIds.add(rId);
+                                        }
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(milliseconds: 200),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(18),
+                                        border: Border.all(
+                                          color: isExpanded ? const Color(0xFF0284C7).withValues(alpha: 0.35) : const Color(0xFFF1F5F9),
+                                          width: isExpanded ? 1.5 : 1,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
+                                      child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          CircleAvatar(
-                                            radius: 22,
-                                            backgroundColor: const Color(0xFF0284C7).withValues(alpha: 0.12),
-                                            child: Text(
-                                              name.isNotEmpty ? name[0].toUpperCase() : 'R',
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: const Color(0xFF0284C7),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 14),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  name,
-                                                  style: GoogleFonts.outfit(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: const Color(0xFF0F172A),
+                                          // Compact Modern Row (Image 1 design)
+                                          Row(
+                                            children: [
+                                              // 1. Two-letter Initials Avatar with Gradient
+                                              Container(
+                                                width: 44,
+                                                height: 44,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  gradient: _getAvatarGradient(index),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    _getInitials(name),
+                                                    style: GoogleFonts.outfit(
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: Colors.white,
+                                                      letterSpacing: 0.5,
+                                                    ),
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                Wrap(
-                                                  spacing: 6,
-                                                  runSpacing: 4,
+                                              ),
+                                              const SizedBox(width: 12),
+
+                                              // 2. Name + Active Badge + Subtitle (Relation • Location)
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    if (relation.isNotEmpty)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFFF3E8FF),
-                                                          borderRadius: BorderRadius.circular(8),
-                                                          border: Border.all(color: const Color(0xFFE9D5FF)),
-                                                        ),
-                                                        child: Text(
-                                                          relation,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 11,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: const Color(0xFF7E22CE),
+                                                    Row(
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            name,
+                                                            style: GoogleFonts.outfit(
+                                                              fontSize: 15.5,
+                                                              fontWeight: FontWeight.w700,
+                                                              color: const Color(0xFF0F172A),
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
                                                         ),
-                                                      ),
-                                                    if (occupation.isNotEmpty)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFFECFDF5),
-                                                          borderRadius: BorderRadius.circular(8),
-                                                          border: Border.all(color: const Color(0xFFA7F3D0)),
-                                                        ),
-                                                        child: Text(
-                                                          occupation,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 11,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: const Color(0xFF047857),
+                                                        const SizedBox(width: 8),
+                                                        Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                          decoration: BoxDecoration(
+                                                            color: const Color(0xFFECFDF5),
+                                                            borderRadius: BorderRadius.circular(6),
+                                                            border: Border.all(
+                                                              color: const Color(0xFFA7F3D0).withValues(alpha: 0.6),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            'Active',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 10.5,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: const Color(0xFF059669),
+                                                            ),
                                                           ),
                                                         ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 3),
+                                                    Text(
+                                                      subtitleText,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w500,
+                                                        color: const Color(0xFF64748B),
                                                       ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          PopupMenuButton<String>(
-                                            icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF94A3B8)),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                            onSelected: (val) {
-                                              if (val == 'edit') {
-                                                _openAddOrEditDialog(item: r);
-                                              } else if (val == 'delete') {
-                                                _confirmDelete(r);
-                                              }
-                                            },
-                                            itemBuilder: (ctx) => [
-                                              const PopupMenuItem(
-                                                value: 'edit',
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.edit_outlined, size: 18, color: Color(0xFF0284C7)),
-                                                    SizedBox(width: 8),
-                                                    Text('Edit'),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
                                                   ],
                                                 ),
                                               ),
-                                              const PopupMenuItem(
-                                                value: 'delete',
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
-                                                    SizedBox(width: 8),
-                                                    Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
-                                                  ],
+                                              const SizedBox(width: 8),
+
+                                              // 3. Green Circular Call Button
+                                              if (phone.isNotEmpty) ...[
+                                                Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: () => _launchCall(phone),
+                                                    borderRadius: BorderRadius.circular(22),
+                                                    child: Container(
+                                                      width: 40,
+                                                      height: 40,
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF10B981),
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                                                            blurRadius: 8,
+                                                            offset: const Offset(0, 3),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: const Center(
+                                                        child: Icon(
+                                                          Icons.call_rounded,
+                                                          size: 20,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
+                                                const SizedBox(width: 8),
+                                              ],
+
+                                              // 4. Expand / Collapse Arrow
+                                              Icon(
+                                                isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                                                color: const Color(0xFF94A3B8),
+                                                size: 26,
                                               ),
                                             ],
                                           ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
 
-                                      // Location and Contact row
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.location_on_outlined, size: 16, color: Color(0xFF64748B)),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              locationText,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w500,
-                                                color: const Color(0xFF475569),
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                          // Expanded Details Section
+                                          AnimatedSize(
+                                            duration: const Duration(milliseconds: 200),
+                                            curve: Curves.easeInOut,
+                                            child: isExpanded
+                                                ? Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      const SizedBox(height: 12),
+                                                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                                      const SizedBox(height: 12),
+                                                      Container(
+                                                        padding: const EdgeInsets.all(12),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFF8FAFC),
+                                                          borderRadius: BorderRadius.circular(12),
+                                                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                                                        ),
+                                                        child: Column(
+                                                          children: [
+                                                            _buildDetailRow(
+                                                              icon: Icons.phone_outlined,
+                                                              iconColor: const Color(0xFF059669),
+                                                              label: 'Mobile Number',
+                                                              value: phone.isNotEmpty ? phone : 'Not provided',
+                                                              action: phone.isNotEmpty
+                                                                  ? InkWell(
+                                                                      onTap: () => _launchCall(phone),
+                                                                      borderRadius: BorderRadius.circular(6),
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                                        decoration: BoxDecoration(
+                                                                          color: const Color(0xFFECFDF5),
+                                                                          borderRadius: BorderRadius.circular(6),
+                                                                          border: Border.all(color: const Color(0xFFA7F3D0)),
+                                                                        ),
+                                                                        child: Row(
+                                                                          mainAxisSize: MainAxisSize.min,
+                                                                          children: [
+                                                                            const Icon(Icons.call, size: 12, color: Color(0xFF059669)),
+                                                                            const SizedBox(width: 4),
+                                                                            Text(
+                                                                              'Call Now',
+                                                                              style: GoogleFonts.inter(
+                                                                                fontSize: 11,
+                                                                                fontWeight: FontWeight.w600,
+                                                                                color: const Color(0xFF047857),
+                                                                              ),
+                                                                            ),
+                                                                          ],
+                                                                        ),
+                                                                      ),
+                                                                    )
+                                                                  : null,
+                                                            ),
+                                                            const SizedBox(height: 8),
+                                                            _buildDetailRow(
+                                                              icon: Icons.people_outline_rounded,
+                                                              iconColor: const Color(0xFF7E22CE),
+                                                              label: 'Relation',
+                                                              value: relation.isNotEmpty ? _cleanTelugu(relation) : 'Not specified',
+                                                            ),
+                                                            if (occupation.isNotEmpty) ...[
+                                                              const SizedBox(height: 8),
+                                                              _buildDetailRow(
+                                                                icon: Icons.work_outline_rounded,
+                                                                iconColor: const Color(0xFF0284C7),
+                                                                label: 'Occupation',
+                                                                value: _cleanTelugu(occupation),
+                                                              ),
+                                                            ],
+                                                            const SizedBox(height: 8),
+                                                            _buildDetailRow(
+                                                              icon: Icons.location_city_rounded,
+                                                              iconColor: const Color(0xFFD97706),
+                                                              label: 'Village',
+                                                              value: ApiService.resolveConfig(r['village']).isNotEmpty
+                                                                  ? ApiService.resolveConfig(r['village'])
+                                                                  : (r['village']?.toString() ?? 'Not specified'),
+                                                            ),
+                                                            if ((r['mandal']?.toString() ?? '').isNotEmpty) ...[
+                                                              const SizedBox(height: 8),
+                                                              _buildDetailRow(
+                                                                icon: Icons.map_outlined,
+                                                                iconColor: const Color(0xFF475569),
+                                                                label: 'Mandal',
+                                                                value: ApiService.resolveConfig(r['mandal']).isNotEmpty
+                                                                    ? ApiService.resolveConfig(r['mandal'])
+                                                                    : (r['mandal']?.toString() ?? ''),
+                                                              ),
+                                                            ],
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 12),
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: OutlinedButton.icon(
+                                                              style: OutlinedButton.styleFrom(
+                                                                foregroundColor: const Color(0xFF0284C7),
+                                                                side: const BorderSide(color: Color(0xFFBAE6FD)),
+                                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                                padding: const EdgeInsets.symmetric(vertical: 9),
+                                                              ),
+                                                              icon: const Icon(Icons.edit_outlined, size: 16),
+                                                              label: Text('Edit Details', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
+                                                              onPressed: () => _openAddOrEditDialog(item: r),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          OutlinedButton.icon(
+                                                            style: OutlinedButton.styleFrom(
+                                                              foregroundColor: const Color(0xFFEF4444),
+                                                              side: const BorderSide(color: Color(0xFFFECACA)),
+                                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                                            ),
+                                                            icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                                                            label: Text('Delete', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600)),
+                                                            onPressed: () => _confirmDelete(r),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  )
+                                                : const SizedBox.shrink(),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 12),
-
-                                      // Actions Row: Call & WhatsApp
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton.icon(
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: const Color(0xFF0284C7),
-                                                side: const BorderSide(color: Color(0xFFBAE6FD)),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                              ),
-                                              icon: const Icon(Icons.call_outlined, size: 18),
-                                              label: Text(
-                                                phone.isNotEmpty ? phone : 'Call',
-                                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                                              ),
-                                              onPressed: phone.isNotEmpty ? () => _launchCall(phone) : null,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF25D366),
-                                                foregroundColor: Colors.white,
-                                                elevation: 0,
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                              ),
-                                              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                                              label: Text(
-                                                'WhatsApp',
-                                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
-                                              ),
-                                              onPressed: phone.isNotEmpty
-                                                  ? () => WhatsAppTemplateService.launchWhatsApp(phone)
-                                                  : null,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 );
                               },

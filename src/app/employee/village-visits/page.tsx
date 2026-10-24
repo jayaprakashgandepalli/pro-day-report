@@ -36,6 +36,19 @@ type Student = {
   } | null;
 };
 
+const DEFAULT_REMARK_PRESETS = [
+  'Met parents & student together',
+  'Very positive - Promised to join',
+  'Promised to visit college campus',
+  'Asked for fee concession / discount',
+  'Waiting for results to decide',
+  'Door locked / Family not available',
+  'Student outside, met parents only',
+  'Confused on group selection (MPC/BiPC)',
+  'Comparing with other colleges',
+  'Asked to call back after 3 days',
+];
+
 export default function VillageVisits() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -814,9 +827,52 @@ export default function VillageVisits() {
                 </div>
               </div>
             ) : (
-              <>
-                <div className="form-group">
-                  <label className="form-label">Remarks (Optional)</label>
+                <div className="form-group mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <div className="d-flex align-items-center gap-2">
+                      <label className="form-label mb-0 fw-bold small text-secondary">Remarks (Optional)</label>
+                      <span className="badge rounded-pill" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', fontSize: '10px' }}>⚡ 1-Tap Presets</span>
+                    </div>
+                    {visitRemarks && (
+                      <button 
+                        type="button" 
+                        className="btn btn-link p-0 text-danger text-decoration-none small" 
+                        style={{ fontSize: '11px' }}
+                        onClick={() => setVisitRemarks('')}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="d-flex gap-1 overflow-auto py-1 mb-2" style={{ whiteSpace: 'nowrap', scrollbarWidth: 'thin' }}>
+                    {DEFAULT_REMARK_PRESETS.map((preset, idx) => {
+                      const isSelected = visitRemarks.includes(preset);
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              let updated = visitRemarks.replace(`${preset}. `, '').replace(`. ${preset}`, '').replace(preset, '').trim();
+                              setVisitRemarks(updated);
+                            } else {
+                              const current = visitRemarks.trim();
+                              if (!current) {
+                                setVisitRemarks(preset);
+                              } else {
+                                const sep = current.endsWith('.') || current.endsWith(',') ? ' ' : '. ';
+                                setVisitRemarks(`${current}${sep}${preset}`);
+                              }
+                            }
+                          }}
+                          className={`btn btn-sm rounded-pill px-2 py-0 border ${isSelected ? 'btn-primary' : 'btn-light text-secondary'}`}
+                          style={{ fontSize: '11.5px', height: '26px', lineHeight: '24px' }}
+                        >
+                          {isSelected ? '✓ ' : '+ '} {preset}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <textarea className="form-control" rows={3} value={visitRemarks} onChange={e => setVisitRemarks(e.target.value)} placeholder="What was discussed? (Optional)"></textarea>
                 </div>
                 <div className="form-group">
@@ -928,17 +984,18 @@ export default function VillageVisits() {
                     {resolveName(viewStudent.group)}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>School:</span>
-                  <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{resolveName(viewStudent.schoolName) || 'N/A'} {viewStudent.schoolArea ? `(${resolveName(viewStudent.schoolArea)})` : ''}</span>
+                <div style={{ padding: '0.625rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.75rem', color: '#4f46e5', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🏫 School Information</div>
+                  <div style={{ fontSize: '0.85rem' }}><span style={{ fontWeight: 600, color: '#475569' }}>School Name: </span>{resolveName(viewStudent.schoolName) || 'N/A'}</div>
+                  {viewStudent.schoolArea && (
+                    <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}><span style={{ fontWeight: 600, color: '#475569' }}>School Location / Area: </span>{resolveName(viewStudent.schoolArea)}</div>
+                  )}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Location:</span>
-                  <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{resolveName(viewStudent.village) || 'N/A'}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem' }}>
-                  <span style={{ fontWeight: 700, color: '#334155', flexShrink: 0 }}>Landmark:</span>
-                  <span style={{ color: '#1e293b', fontWeight: 500, marginLeft: '0.25rem' }}>{viewStudent.address || 'N/A'}</span>
+
+                <div style={{ padding: '0.625rem', backgroundColor: '#f0fdf4', borderRadius: '0.5rem', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.75rem', color: '#16a34a', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🏠 Student Residence (Home)</div>
+                  <div style={{ fontSize: '0.85rem' }}><span style={{ fontWeight: 600, color: '#475569' }}>Residential Village: </span><strong>{resolveName(viewStudent.village) || 'N/A'}</strong></div>
+                  <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}><span style={{ fontWeight: 600, color: '#475569' }}>Landmark / Address: </span>{viewStudent.address || 'N/A'}</div>
                 </div>
               </section>
               
