@@ -2107,6 +2107,10 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     String? currentCollege = college;
     String? currentAppNo = appNo;
     bool hasLoadedFresh = false;
+    bool isSavingStudentPhoto = false;
+    bool isSavingAppPhoto = false;
+    String? photoFeedbackMessage;
+    bool photoFeedbackSuccess = true;
 
     showModalBottomSheet(
       context: context,
@@ -2156,15 +2160,19 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 
                   setModalState(() {
                     if (isStudent) {
+                      isSavingStudentPhoto = true;
                       currentStudentPhoto = b64;
                       s['studentPhoto'] = b64;
                     } else {
+                      isSavingAppPhoto = true;
                       currentAppPhoto = b64;
                       s['applicationPhoto'] = b64;
                     }
+                    photoFeedbackMessage = '⏳ Saving ${isStudent ? "Student Photo" : "Application Form"} to Database...';
+                    photoFeedbackSuccess = true;
                   });
 
-                  // Save to server & offline queue
+                  // Save to server & Supabase database
                   final res = await ApiService.updateStudentPhotos(
                     studentId: studentId,
                     studentPhoto: isStudent ? b64 : null,
@@ -2172,32 +2180,31 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                   );
 
                   if (res['success'] != true) {
-                    if (modalCtx.mounted) {
-                      ScaffoldMessenger.of(modalCtx).showSnackBar(
-                        SnackBar(
-                          content: Text(res['error'] ?? 'Failed to upload photo'),
-                          backgroundColor: const Color(0xFFEF4444),
-                        ),
-                      );
-                    }
+                    setModalState(() {
+                      if (isStudent) isSavingStudentPhoto = false;
+                      if (!isStudent) isSavingAppPhoto = false;
+                      photoFeedbackSuccess = false;
+                      photoFeedbackMessage = '❌ Failed to save in Database: ${res['error'] ?? 'Network error'}';
+                    });
                   } else {
+                    setModalState(() {
+                      if (isStudent) isSavingStudentPhoto = false;
+                      if (!isStudent) isSavingAppPhoto = false;
+                      photoFeedbackSuccess = true;
+                      photoFeedbackMessage = isStudent
+                          ? '✅ Student Photo saved in Database successfully!'
+                          : '✅ Application Form saved in Database successfully!';
+                    });
                     if (mounted) setState(() {});
-                    if (modalCtx.mounted) {
-                      ScaffoldMessenger.of(modalCtx).showSnackBar(
-                        SnackBar(
-                          content: Text(isStudent ? 'Student photo saved! 📸' : 'Application form saved! 📄'),
-                          backgroundColor: const Color(0xFF16A34A),
-                        ),
-                      );
-                    }
                   }
                 }
               } catch (e) {
-                if (modalCtx.mounted) {
-                  ScaffoldMessenger.of(modalCtx).showSnackBar(
-                    SnackBar(content: Text('Error updating photo: $e')),
-                  );
-                }
+                setModalState(() {
+                  if (isStudent) isSavingStudentPhoto = false;
+                  if (!isStudent) isSavingAppPhoto = false;
+                  photoFeedbackSuccess = false;
+                  photoFeedbackMessage = '❌ Error uploading photo: $e';
+                });
               }
             }
 
@@ -2350,6 +2357,74 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                     child: ListView(
                       padding: const EdgeInsets.all(20),
                       children: [
+                        // VISIBLE IN-MODAL FEEDBACK BANNER (Guaranteed visible to user!)
+                        if (photoFeedbackMessage != null) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: (isSavingStudentPhoto || isSavingAppPhoto)
+                                  ? const Color(0xFFEFF6FF)
+                                  : (photoFeedbackSuccess ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2)),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: (isSavingStudentPhoto || isSavingAppPhoto)
+                                    ? const Color(0xFF93C5FD)
+                                    : (photoFeedbackSuccess ? const Color(0xFF86EFAC) : const Color(0xFFFECACA)),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                if (isSavingStudentPhoto || isSavingAppPhoto)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF2563EB)),
+                                  )
+                                else
+                                  Icon(
+                                    photoFeedbackSuccess ? Icons.check_circle_rounded : Icons.error_rounded,
+                                    size: 20,
+                                    color: photoFeedbackSuccess ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
+                                  ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    photoFeedbackMessage!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: (isSavingStudentPhoto || isSavingAppPhoto)
+                                          ? const Color(0xFF1D4ED8)
+                                          : (photoFeedbackSuccess ? const Color(0xFF15803D) : const Color(0xFFB91C1C)),
+                                    ),
+                                  ),
+                                ),
+                                if (!isSavingStudentPhoto && !isSavingAppPhoto)
+                                  InkWell(
+                                    onTap: () {
+                                      setModalState(() {
+                                        photoFeedbackMessage = null;
+                                      });
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(4),
+                                      child: Icon(Icons.close_rounded, size: 16, color: Color(0xFF64748B)),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+
                         // SECTION 1: ADMISSION PHOTOS (User's primary requirement!)
                         Text(
                           '📷 Admission Documents & Photos',
@@ -2365,6 +2440,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                 title: 'Student Photo',
                                 photoDataUri: currentStudentPhoto,
                                 icon: Icons.person_rounded,
+                                isSaving: isSavingStudentPhoto,
                                 onPreview: (currentStudentPhoto != null && currentStudentPhoto!.isNotEmpty)
                                     ? () => _showFullScreenImage(context, currentStudentPhoto!, 'Student Photo')
                                     : null,
@@ -2379,6 +2455,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                 title: 'Application Form',
                                 photoDataUri: currentAppPhoto,
                                 icon: Icons.description_rounded,
+                                isSaving: isSavingAppPhoto,
                                 onPreview: (currentAppPhoto != null && currentAppPhoto!.isNotEmpty)
                                     ? () => _showFullScreenImage(context, currentAppPhoto!, 'Application Form')
                                     : null,
@@ -2570,6 +2647,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     required String title,
     required String? photoDataUri,
     required IconData icon,
+    bool isSaving = false,
     VoidCallback? onPreview,
     required VoidCallback onUploadCamera,
     required VoidCallback onUploadGallery,
@@ -2580,14 +2658,19 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: hasPhoto ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isSaving
+              ? const Color(0xFF60A5FA)
+              : (hasPhoto ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0)),
+          width: isSaving || hasPhoto ? 1.5 : 1.0,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Title Header
+          // Title Header + Saved in DB Badge
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 6),
             child: Row(
               children: [
                 Icon(icon, size: 14, color: const Color(0xFF475569)),
@@ -2600,6 +2683,26 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                     style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
                   ),
                 ),
+                if (hasPhoto && !isSaving)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.cloud_done_rounded, size: 10, color: Color(0xFF16A34A)),
+                        const SizedBox(width: 2.5),
+                        Text(
+                          'Saved',
+                          style: GoogleFonts.inter(fontSize: 8.5, fontWeight: FontWeight.w800, color: const Color(0xFF15803D)),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -2613,54 +2716,72 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: hasPhoto
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(9),
-                    child: GestureDetector(
-                      onTap: onPreview,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _buildImageFromBase64(photoDataUri),
-                          Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(Icons.zoom_in_rounded, size: 12, color: Colors.white),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    'Zoom',
-                                    style: GoogleFonts.inter(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : Center(
+            child: isSaving
+                ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_photo_alternate_outlined, size: 28, color: const Color(0xFF94A3B8)),
-                        const SizedBox(height: 4),
+                        const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF2563EB)),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
-                          'No photo added',
-                          style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                          'Saving to DB...',
+                          style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
                         ),
                       ],
                     ),
-                  ),
+                  )
+                : hasPhoto
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: GestureDetector(
+                          onTap: onPreview,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              _buildImageFromBase64(photoDataUri),
+                              Positioned(
+                                bottom: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.zoom_in_rounded, size: 12, color: Colors.white),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        'Zoom',
+                                        style: GoogleFonts.inter(fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add_photo_alternate_outlined, size: 28, color: const Color(0xFF94A3B8)),
+                            const SizedBox(height: 4),
+                            Text(
+                              'No photo added',
+                              style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
           ),
 
           // Action Buttons: Camera / Gallery
