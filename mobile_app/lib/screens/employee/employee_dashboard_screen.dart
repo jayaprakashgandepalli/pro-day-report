@@ -16,6 +16,7 @@ import 'pdf_report_screen.dart';
 import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
 import 'whatsapp_templates_screen.dart';
+import 'college_branches_screen.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   final String employeeName;
@@ -1182,6 +1183,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           onTap: () {
                             Navigator.pop(context);
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const KeyPersonsScreen()));
+                          },
+                        ),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMobileMenuItem(
+                          icon: Icons.account_balance_rounded,
+                          iconColor: const Color(0xFF7C3AED),
+                          title: 'College Branches',
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const CollegeBranchesScreen()));
                           },
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),

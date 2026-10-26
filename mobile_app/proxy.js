@@ -65,7 +65,153 @@ const server = http.createServer((req, res) => {
     const rawBody = Buffer.concat(bodyChunks);
     const bodyText = rawBody.toString('utf8');
 
-    // Check if this is PUT /api/students/:id (saving photos / admitting student)
+    // ==========================================
+    // 1. COLLEGE BRANCHES CRUD (Direct DB Handlers)
+    // ==========================================
+    if (parsedUrl.pathname === '/api/college-branches') {
+      if (req.method === 'GET') {
+        try {
+          const branches = await prisma.collegeBranch.findMany({
+            where: { isActive: true },
+            orderBy: { name: 'asc' },
+            include: {
+              _count: { select: { students: true } }
+            }
+          });
+          const payload = JSON.stringify({ success: true, branches });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          console.log(`[RES] GET /api/college-branches -> 200 (${Date.now() - start}ms) [${branches.length} branches]`);
+          return;
+        } catch (err) {
+          console.error('[PROXY GET BRANCHES ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+
+      if (req.method === 'POST') {
+        try {
+          const body = JSON.parse(bodyText);
+          const { name, code, location, phone } = body;
+          if (!name || typeof name !== 'string' || !name.trim()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Branch name is required' }));
+            return;
+          }
+
+          const branch = await prisma.collegeBranch.create({
+            data: {
+              name: name.trim(),
+              code: code && typeof code === 'string' && code.trim() ? code.trim() : null,
+              location: location && typeof location === 'string' && location.trim() ? location.trim() : null,
+              phone: phone && typeof phone === 'string' && phone.trim() ? phone.trim() : null,
+            }
+          });
+
+          const payload = JSON.stringify({ success: true, branch });
+          res.writeHead(201, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          console.log(`[RES] POST /api/college-branches -> 201 created branch ${branch.name}`);
+          return;
+        } catch (err) {
+          console.error('[PROXY POST BRANCH ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+    }
+
+    const matchBranchId = parsedUrl.pathname && parsedUrl.pathname.match(/^\/api\/college-branches\/([a-zA-Z0-9_-]+)$/);
+    if (matchBranchId) {
+      const branchId = matchBranchId[1];
+      if (req.method === 'PUT') {
+        try {
+          const body = JSON.parse(bodyText);
+          const { name, code, location, phone, isActive } = body;
+          const updateData = {};
+          if (name !== undefined) updateData.name = name.trim();
+          if (code !== undefined) updateData.code = code && typeof code === 'string' && code.trim() ? code.trim() : null;
+          if (location !== undefined) updateData.location = location && typeof location === 'string' && location.trim() ? location.trim() : null;
+          if (phone !== undefined) updateData.phone = phone && typeof phone === 'string' && phone.trim() ? phone.trim() : null;
+          if (isActive !== undefined) updateData.isActive = Boolean(isActive);
+
+          const branch = await prisma.collegeBranch.update({
+            where: { id: branchId },
+            data: updateData,
+          });
+
+          const payload = JSON.stringify({ success: true, branch });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          console.log(`[RES] PUT /api/college-branches/${branchId} -> 200 updated`);
+          return;
+        } catch (err) {
+          console.error('[PROXY PUT BRANCH ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+
+      if (req.method === 'DELETE') {
+        try {
+          const studentCount = await prisma.student.count({ where: { collegeBranchId: branchId } });
+          if (studentCount > 0) {
+            await prisma.collegeBranch.update({
+              where: { id: branchId },
+              data: { isActive: false },
+            });
+            const payload = JSON.stringify({ success: true, message: `Archived branch because ${studentCount} students are admitted to it.` });
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+            res.end(payload);
+            return;
+          }
+
+          await prisma.collegeBranch.delete({ where: { id: branchId } });
+          const payload = JSON.stringify({ success: true, message: 'Branch deleted' });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          return;
+        } catch (err) {
+          console.error('[PROXY DELETE BRANCH ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+    }
+
+    // ==========================================
+    // 2. /api/colleges/list (Returns College Branches for Admission Dropdown)
+    // ==========================================
+    if (parsedUrl.pathname === '/api/colleges/list' && req.method === 'GET') {
+      try {
+        const branches = await prisma.collegeBranch.findMany({
+          where: { isActive: true },
+          orderBy: { name: 'asc' },
+          select: { id: true, name: true, code: true, location: true, phone: true }
+        });
+        const payload = JSON.stringify({
+          success: true,
+          colleges: branches,
+          branches,
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+        res.end(payload);
+        console.log(`[RES] GET /api/colleges/list -> 200 (Returned ${branches.length} College Branches)`);
+        return;
+      } catch (err) {
+        console.error('[PROXY COLLEGES LIST ERROR]:', err.message);
+        // Fall through to remote proxy if error
+      }
+    }
+
+    // ==========================================
+    // 3. PUT /api/students/:id (Saving Photos / Admitting to College Branch)
+    // ==========================================
     const matchStudentPut = parsedUrl.pathname && parsedUrl.pathname.match(/^\/api\/students\/([a-zA-Z0-9_-]+)$/);
     if (req.method === 'PUT' && matchStudentPut) {
       const studentId = matchStudentPut[1];
@@ -78,6 +224,7 @@ const server = http.createServer((req, res) => {
         const hasPhotoOrAdmit = parsedBody.studentPhoto !== undefined ||
                                 parsedBody.applicationPhoto !== undefined ||
                                 parsedBody.joinedCollegeId !== undefined ||
+                                parsedBody.collegeBranchId !== undefined ||
                                 parsedBody.applicationNumber !== undefined ||
                                 parsedBody.admissionDate !== undefined ||
                                 parsedBody.leadStatus !== undefined;
@@ -87,7 +234,14 @@ const server = http.createServer((req, res) => {
             const updateData = {};
             if (parsedBody.studentPhoto !== undefined) updateData.studentPhoto = parsedBody.studentPhoto;
             if (parsedBody.applicationPhoto !== undefined) updateData.applicationPhoto = parsedBody.applicationPhoto;
-            if (parsedBody.joinedCollegeId !== undefined) updateData.joinedCollegeId = parsedBody.joinedCollegeId;
+
+            // Save branch ID to both collegeBranchId and joinedCollegeId for full compatibility
+            const branchId = parsedBody.collegeBranchId || parsedBody.joinedCollegeId;
+            if (branchId) {
+              updateData.collegeBranchId = branchId;
+              updateData.joinedCollegeId = branchId;
+            }
+
             if (parsedBody.applicationNumber !== undefined) updateData.applicationNumber = parsedBody.applicationNumber;
             if (parsedBody.admissionDate !== undefined && parsedBody.admissionDate) {
               updateData.admissionDate = new Date(parsedBody.admissionDate);
@@ -99,11 +253,12 @@ const server = http.createServer((req, res) => {
               where: { id: studentId },
               data: updateData,
               include: {
+                collegeBranch: { select: { id: true, name: true, code: true, location: true } },
                 joinedCollege: { select: { id: true, name: true } }
               }
             });
 
-            console.log(`[DB DIRECT SUCCESS] Persisted to PostgreSQL for ${studentId} (${updatedStudent.studentName}): studentPhoto=${!!updatedStudent.studentPhoto}, appPhoto=${!!updatedStudent.applicationPhoto}`);
+            console.log(`[DB DIRECT SUCCESS] Persisted to PostgreSQL for ${studentId} (${updatedStudent.studentName}): studentPhoto=${!!updatedStudent.studentPhoto}, branch=${updatedStudent.collegeBranch?.name || updatedStudent.joinedCollegeId}`);
 
             // Forward to upstream in background (fire-and-forget for other audits/webhooks)
             try {
@@ -136,22 +291,23 @@ const server = http.createServer((req, res) => {
             return;
           } catch (dbErr) {
             console.error('[DB DIRECT ERROR]:', dbErr.message);
-            // Fall through to regular proxy if DB direct fails
           }
         }
       }
     }
 
-    // Check if this is GET /api/students/:id (fetching single student)
+    // ==========================================
+    // 4. GET /api/students/:id (Fetching Single Student with Branch)
+    // ==========================================
     const matchStudentGet = parsedUrl.pathname && parsedUrl.pathname.match(/^\/api\/students\/([a-zA-Z0-9_-]+)$/);
     if (req.method === 'GET' && matchStudentGet) {
       const studentId = matchStudentGet[1];
-      // Query DB directly first for instant and complete details with photos
       try {
         const student = await prisma.student.findUnique({
           where: { id: studentId },
           include: {
             visits: true,
+            collegeBranch: { select: { id: true, name: true, code: true, location: true } },
             joinedCollege: { select: { id: true, name: true } },
             assessmentReport: true,
           }
@@ -171,11 +327,12 @@ const server = http.createServer((req, res) => {
         }
       } catch (dbErr) {
         console.error('[DB GET ERROR]:', dbErr.message);
-        // Fall through to proxy
       }
     }
 
-    // Regular Proxy forwarding to TARGET_HOST
+    // ==========================================
+    // 5. Regular Proxy forwarding to TARGET_HOST
+    // ==========================================
     const options = {
       hostname: TARGET_HOST,
       port: 443,
@@ -189,7 +346,7 @@ const server = http.createServer((req, res) => {
     };
 
     const proxyReq = https.request(options, (proxyRes) => {
-      // Check if we need to augment GET /api/students list with DB photos
+      // Augment GET /api/students list with DB photos and college branches
       const isStudentsList = req.method === 'GET' && parsedUrl.pathname === '/api/students';
 
       if (isStudentsList && proxyRes.statusCode === 200) {
@@ -199,23 +356,36 @@ const server = http.createServer((req, res) => {
           try {
             const json = JSON.parse(Buffer.concat(chunks).toString('utf8'));
             if (json && Array.isArray(json.students)) {
-              // Fetch any students with photos from DB
-              const studentsWithPhotos = await prisma.student.findMany({
+              // Fetch students that have photos or college branches from DB
+              const dbStudents = await prisma.student.findMany({
                 where: {
                   OR: [
                     { studentPhoto: { not: null } },
                     { applicationPhoto: { not: null } },
+                    { collegeBranchId: { not: null } },
+                    { joinedCollegeId: { not: null } },
                   ]
                 },
-                select: { id: true, studentPhoto: true, applicationPhoto: true }
+                select: {
+                  id: true,
+                  studentPhoto: true,
+                  applicationPhoto: true,
+                  collegeBranchId: true,
+                  joinedCollegeId: true,
+                  collegeBranch: { select: { id: true, name: true, location: true } }
+                }
               });
 
-              const photoMap = new Map(studentsWithPhotos.map(s => [s.id, s]));
+              const dbMap = new Map(dbStudents.map(s => [s.id, s]));
               json.students.forEach(st => {
-                if (st && st.id && photoMap.has(st.id)) {
-                  const dbData = photoMap.get(st.id);
+                if (st && st.id && dbMap.has(st.id)) {
+                  const dbData = dbMap.get(st.id);
                   if (dbData.studentPhoto && !st.studentPhoto) st.studentPhoto = dbData.studentPhoto;
                   if (dbData.applicationPhoto && !st.applicationPhoto) st.applicationPhoto = dbData.applicationPhoto;
+                  if (dbData.collegeBranch) {
+                    st.collegeBranch = dbData.collegeBranch;
+                    st.joinedCollege = { name: dbData.collegeBranch.name };
+                  }
                 }
               });
             }
@@ -226,7 +396,7 @@ const server = http.createServer((req, res) => {
             headers['content-length'] = Buffer.byteLength(modifiedBody);
             res.writeHead(200, headers);
             res.end(modifiedBody);
-            console.log(`[RES] ${req.method} ${req.url} -> 200 (AUGMENTED_PHOTOS ${Date.now() - start}ms)`);
+            console.log(`[RES] ${req.method} ${req.url} -> 200 (AUGMENTED_STUDENTS ${Date.now() - start}ms)`);
           } catch (_) {
             const raw = Buffer.concat(chunks);
             res.writeHead(proxyRes.statusCode, proxyRes.headers);
@@ -266,5 +436,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`PRO Mobile Dev Proxy running at http://127.0.0.1:${PORT} -> https://${TARGET_HOST} (with Direct DB sync)`);
+  console.log(`PRO Mobile Dev Proxy running at http://127.0.0.1:${PORT} -> https://${TARGET_HOST} (College Branches & Direct DB Enabled)`);
 });

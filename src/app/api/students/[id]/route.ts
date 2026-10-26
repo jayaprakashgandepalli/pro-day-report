@@ -78,6 +78,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       doorstepCompleted: data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined,
       leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
       joinedCollegeId: data.joinedCollegeId !== undefined ? data.joinedCollegeId : undefined,
+      collegeBranchId: data.collegeBranchId !== undefined ? data.collegeBranchId : (data.joinedCollegeId !== undefined ? data.joinedCollegeId : undefined),
       applicationNumber: data.applicationNumber !== undefined ? data.applicationNumber : undefined,
       admissionDate: data.admissionDate !== undefined ? (data.admissionDate ? new Date(data.admissionDate) : null) : (data.leadStatus === 'Admitted' ? new Date() : undefined),
       studentPhoto: data.studentPhoto !== undefined ? data.studentPhoto : undefined,
@@ -109,7 +110,19 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     transactionTasks.push(
       prisma.student.update({
         where: { id },
-        data: updateData
+        data: updateData,
+        include: {
+          visits: {
+            orderBy: { visitDate: 'desc' }
+          },
+          assessmentReport: true,
+          collegeBranch: {
+            select: { id: true, name: true, code: true, location: true }
+          },
+          joinedCollege: {
+            select: { id: true, name: true }
+          }
+        }
       })
     );
 
@@ -139,7 +152,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         visits: {
           orderBy: { visitDate: 'desc' }
         },
-        assessmentReport: true
+        assessmentReport: true,
+        collegeBranch: {
+          select: { id: true, name: true, code: true, location: true }
+        },
+        joinedCollege: {
+          select: { id: true, name: true }
+        }
       }
     });
 

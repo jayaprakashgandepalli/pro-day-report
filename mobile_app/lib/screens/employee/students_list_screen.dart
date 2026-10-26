@@ -8,6 +8,7 @@ import '../../services/whatsapp_template_service.dart';
 import '../../services/location_service.dart';
 import 'add_student_screen.dart';
 import 'pdf_report_screen.dart';
+import 'college_branches_screen.dart';
 
 class StudentsListScreen extends StatefulWidget {
   final bool isStarLeads;
@@ -87,7 +88,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
         ),
         ApiService.getConfigMap(),
         ApiService.getConfigParentMap(),
-        ApiService.getCollegesList(),
+        ApiService.getCollegeBranches(forceRefresh: forceRefresh),
       ]);
 
       if (!mounted) return;
@@ -1657,7 +1658,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
   Widget _buildAdmittedStudentCard(Map<String, dynamic> s, int index) {
     final name = s['studentName']?.toString() ?? 'No Name';
     final school = _resolveName(s['schoolName']);
-    final college = s['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(s['joinedCollegeId']);
+    final college = s['collegeBranch']?['name']?.toString() ?? s['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(s['collegeBranchId'] ?? s['joinedCollegeId']);
     final appNo = s['applicationNumber']?.toString() ?? '';
     final photo = s['studentPhoto']?.toString();
 
@@ -1816,10 +1817,10 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     final appNumberController = TextEditingController(text: student['applicationNumber']?.toString() ?? '');
     final remarksController = TextEditingController();
 
-    String? selectedCollegeId = student['joinedCollegeId']?.toString();
+    String? selectedCollegeId = student['collegeBranchId']?.toString() ?? student['joinedCollegeId']?.toString();
     if (selectedCollegeId == null || selectedCollegeId.isEmpty) {
       if (_colleges.isNotEmpty) {
-        selectedCollegeId = (_colleges.first['employeeId'] ?? _colleges.first['id'])?.toString();
+        selectedCollegeId = (_colleges.first['id'] ?? _colleges.first['employeeId'])?.toString();
       }
     }
 
@@ -1935,26 +1936,93 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                     const Divider(height: 24),
 
                     // College Campus Branch
-                    Text(
-                      'College Campus / Branch *',
-                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'College Campus / Branch *',
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                        ),
+                        InkWell(
+                          onTap: () {
+                            Navigator.pop(modalCtx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CollegeBranchesScreen()),
+                            ).then((_) => _fetchData(forceRefresh: true));
+                          },
+                          child: Text(
+                            '+ Manage Branches',
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedCollegeId,
-                      hint: const Text('Select College Branch...'),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                    if (_colleges.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFECACA)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'No college branches added yet. Please add a branch first.',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF991B1B)),
+                              ),
+                            ),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                foregroundColor: const Color(0xFFDC2626),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(modalCtx);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const CollegeBranchesScreen()),
+                                ).then((_) => _fetchData(forceRefresh: true));
+                              },
+                              child: const Text('Add Branch'),
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        initialValue: _colleges.any((c) => (c['id'] ?? c['employeeId'])?.toString() == selectedCollegeId)
+                            ? selectedCollegeId
+                            : (_colleges.first['id'] ?? _colleges.first['employeeId'])?.toString(),
+                        hint: const Text('Select College Branch...'),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        ),
+                        items: _colleges.map((c) {
+                          final branchId = (c['id'] ?? c['employeeId'] ?? '').toString();
+                          final bname = (c['name'] ?? 'College Branch').toString();
+                          final bloc = (c['location'] ?? '').toString();
+                          final bcode = (c['code'] ?? '').toString();
+                          final extra = [if (bcode.isNotEmpty) bcode, if (bloc.isNotEmpty) bloc].join(' • ');
+                          final displayText = extra.isNotEmpty ? '$bname ($extra)' : bname;
+                          return DropdownMenuItem(
+                            value: branchId,
+                            child: Text(
+                              displayText,
+                              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setModalState(() => selectedCollegeId = val),
                       ),
-                      items: _colleges.map((c) {
-                        final empId = (c['employeeId'] ?? c['id'] ?? '').toString();
-                        final cname = (c['name'] ?? 'College').toString();
-                        return DropdownMenuItem(value: empId, child: Text(cname, style: GoogleFonts.inter(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (val) => setModalState(() => selectedCollegeId = val),
-                    ),
                     const SizedBox(height: 14),
 
                     // Application Number
@@ -2034,6 +2102,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                           final res = await ApiService.admitStudent(
                             studentId: studentId,
                             joinedCollegeId: selectedCollegeId!,
+                            collegeBranchId: selectedCollegeId!,
                             applicationNumber: appNumberController.text.trim(),
                             studentPhoto: studentPhotoBase64,
                             applicationPhoto: applicationPhotoBase64,
@@ -2097,10 +2166,10 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     final village = _resolveName(s['village']);
     final mandal = _resolveName(s['mandal']);
     final district = _resolveName(s['district']);
-    final college = s['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(s['joinedCollegeId']);
+    final college = s['collegeBranch']?['name']?.toString() ?? s['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(s['collegeBranchId'] ?? s['joinedCollegeId']);
     final appNo = s['applicationNumber']?.toString() ?? '';
     final admissionDate = s['admissionDate'] != null ? _formatDate(DateTime.tryParse(s['admissionDate'].toString()) ?? DateTime.now()) : '';
-    final isAdmitted = s['leadStatus'] == 'Admitted' || (s['joinedCollegeId'] != null && s['joinedCollegeId'].toString().isNotEmpty);
+    final isAdmitted = s['leadStatus'] == 'Admitted' || (s['collegeBranchId'] != null && s['collegeBranchId'].toString().isNotEmpty) || (s['joinedCollegeId'] != null && s['joinedCollegeId'].toString().isNotEmpty);
 
     String? currentStudentPhoto = s['studentPhoto']?.toString();
     String? currentAppPhoto = s['applicationPhoto']?.toString();
@@ -2126,8 +2195,8 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                   final fresh = res['student'] as Map<String, dynamic>;
                   final p = fresh['studentPhoto']?.toString();
                   final a = fresh['applicationPhoto']?.toString();
-                  final cid = fresh['joinedCollegeId']?.toString();
-                  final cname = fresh['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(cid);
+                  final cid = fresh['collegeBranchId']?.toString() ?? fresh['joinedCollegeId']?.toString();
+                  final cname = fresh['collegeBranch']?['name']?.toString() ?? fresh['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(cid);
                   final ano = fresh['applicationNumber']?.toString();
                   setModalState(() {
                     if (p != null && p.isNotEmpty) {

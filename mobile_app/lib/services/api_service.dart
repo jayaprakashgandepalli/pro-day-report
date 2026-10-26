@@ -748,6 +748,7 @@ class ApiService {
   static Future<Map<String, dynamic>> admitStudent({
     required String studentId,
     required String joinedCollegeId,
+    String? collegeBranchId,
     String? applicationNumber,
     String? studentPhoto,
     String? applicationPhoto,
@@ -756,6 +757,7 @@ class ApiService {
     final payload = <String, dynamic>{
       'leadStatus': 'Admitted',
       'joinedCollegeId': joinedCollegeId,
+      'collegeBranchId': collegeBranchId ?? joinedCollegeId,
       'applicationNumber': applicationNumber ?? '',
       'admissionDate': DateTime.now().toIso8601String(),
     };
@@ -870,7 +872,7 @@ class ApiService {
         final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final list = (data['colleges'] as List<dynamic>?) ?? [];
+          final list = (data['branches'] ?? data['colleges'] as List<dynamic>?) ?? [];
           _cachedColleges = list;
           await OfflineService.saveColleges(list);
           return list;
@@ -885,6 +887,110 @@ class ApiService {
       return await _collegesInFlight!;
     } finally {
       _collegesInFlight = null;
+    }
+  }
+
+  // 4b. College Branches CRUD API
+  static Future<List<dynamic>> getCollegeBranches({bool forceRefresh = false}) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/college-branches');
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final list = (data['branches'] as List<dynamic>?) ?? [];
+        _cachedColleges = list;
+        await OfflineService.saveColleges(list);
+        return list;
+      }
+    } catch (_) {}
+    return getCollegesList(forceRefresh: forceRefresh);
+  }
+
+  static Future<Map<String, dynamic>> createCollegeBranch({
+    required String name,
+    String? code,
+    String? location,
+    String? phone,
+  }) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/college-branches');
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode({
+          'name': name.trim(),
+          if (code != null && code.isNotEmpty) 'code': code.trim(),
+          if (location != null && location.isNotEmpty) 'location': location.trim(),
+          if (phone != null && phone.isNotEmpty) 'phone': phone.trim(),
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _cachedColleges = null;
+        return {'success': true, 'branch': data['branch']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to create branch'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateCollegeBranch({
+    required String id,
+    required String name,
+    String? code,
+    String? location,
+    String? phone,
+    bool? isActive,
+  }) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/college-branches/$id');
+        final payload = <String, dynamic>{
+          'name': name.trim(),
+          'code': code != null && code.isNotEmpty ? code.trim() : null,
+          'location': location != null && location.isNotEmpty ? location.trim() : null,
+          'phone': phone != null && phone.isNotEmpty ? phone.trim() : null,
+        };
+        if (isActive != null) payload['isActive'] = isActive;
+
+        final response = await http.put(
+          uri,
+          headers: headers,
+          body: jsonEncode(payload),
+        ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedColleges = null;
+        return {'success': true, 'branch': data['branch']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to update branch'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteCollegeBranch(String id) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/college-branches/$id');
+      final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedColleges = null;
+        return {'success': true, 'message': data['message'] ?? 'Branch deleted'};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to delete branch'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: $e'};
     }
   }
 

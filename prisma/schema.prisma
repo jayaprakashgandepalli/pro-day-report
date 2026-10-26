@@ -106,7 +106,9 @@ model Student {
 
   // Admission Tracking
   joinedCollegeId   String?
-  joinedCollege     User?    @relation("CollegeAdmissions", fields: [joinedCollegeId], references: [employeeId])
+  joinedCollege     User?          @relation("CollegeAdmissions", fields: [joinedCollegeId], references: [employeeId])
+  collegeBranchId   String?
+  collegeBranch     CollegeBranch? @relation(fields: [collegeBranchId], references: [id], onDelete: SetNull)
   applicationNumber String?
   admissionDate     DateTime?
   studentPhoto      String?
@@ -341,4 +343,19 @@ model College {
   users             User[]
   students          Student[]
   schools           ConfigValue[]
+}
+
+model CollegeBranch {
+  id          String    @id @default(cuid())
+  name        String
+  code        String?   @unique
+  location    String?
+  phone       String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  students    Student[]
+
+  @@index([name])
 }
