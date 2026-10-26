@@ -827,6 +827,7 @@ export default function VillageVisits() {
                 </div>
               </div>
             ) : (
+              <>
                 <div className="form-group mb-3">
                   <div className="d-flex justify-content-between align-items-center mb-1">
                     <div className="d-flex align-items-center gap-2">

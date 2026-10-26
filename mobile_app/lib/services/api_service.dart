@@ -744,6 +744,39 @@ class ApiService {
     }
   }
 
+  // 3b-1. Admit Student helper
+  static Future<Map<String, dynamic>> admitStudent({
+    required String studentId,
+    required String joinedCollegeId,
+    String? applicationNumber,
+    String? studentPhoto,
+    String? applicationPhoto,
+    String? remarks,
+  }) async {
+    final payload = <String, dynamic>{
+      'leadStatus': 'Admitted',
+      'joinedCollegeId': joinedCollegeId,
+      'applicationNumber': applicationNumber ?? '',
+      'admissionDate': DateTime.now().toIso8601String(),
+    };
+    if (studentPhoto != null && studentPhoto.isNotEmpty) payload['studentPhoto'] = studentPhoto;
+    if (applicationPhoto != null && applicationPhoto.isNotEmpty) payload['applicationPhoto'] = applicationPhoto;
+    if (remarks != null && remarks.isNotEmpty) payload['remarks'] = remarks;
+    return await updateStudent(studentId, payload);
+  }
+
+  // 3b-2. Update Student Photos helper
+  static Future<Map<String, dynamic>> updateStudentPhotos({
+    required String studentId,
+    String? studentPhoto,
+    String? applicationPhoto,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (studentPhoto != null) payload['studentPhoto'] = studentPhoto;
+    if (applicationPhoto != null) payload['applicationPhoto'] = applicationPhoto;
+    return await updateStudent(studentId, payload);
+  }
+
   // 3c. Get Student by ID
   static Future<Map<String, dynamic>> getStudentById(String studentId) async {
     // 1. Try to fetch fresh and complete student details from server first

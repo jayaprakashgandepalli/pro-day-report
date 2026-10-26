@@ -508,6 +508,8 @@ export async function GET(req: Request) {
         joinedCollegeId: true,
         applicationNumber: true,
         admissionDate: true,
+        studentPhoto: true,
+        applicationPhoto: true,
         createdAt: true,
         updatedAt: true,
         visits: visitInclude,

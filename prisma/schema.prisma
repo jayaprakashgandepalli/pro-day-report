@@ -109,6 +109,8 @@ model Student {
   joinedCollege     User?    @relation("CollegeAdmissions", fields: [joinedCollegeId], references: [employeeId])
   applicationNumber String?
   admissionDate     DateTime?
+  studentPhoto      String?
+  applicationPhoto  String?
   
   visits            Visit[]
 

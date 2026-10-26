@@ -57,6 +57,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   Map<String, int> _groupCounts = {
     'BIPC': 0,
     'MPC': 0,
+    'Admitted': 0,
     'Doorstep Completed': 0,
     'Doorstep Pending': 0,
   };
@@ -76,6 +77,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     _groupCounts = {
       'BIPC': 0,
       'MPC': 0,
+      'Admitted': 0,
       'Doorstep Completed': 0,
       'Doorstep Pending': 0,
     };
@@ -99,6 +101,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
           _groupCounts = {
             'BIPC': prefs.getInt('dash_grp_bipc_${widget.employeeId}') ?? 0,
             'MPC': prefs.getInt('dash_grp_mpc_${widget.employeeId}') ?? 0,
+            'Admitted': prefs.getInt('dash_grp_admitted_${widget.employeeId}') ?? 0,
             'Doorstep Completed': prefs.getInt('dash_grp_doorstep_done_${widget.employeeId}') ?? 0,
             'Doorstep Pending': prefs.getInt('dash_grp_doorstep_${widget.employeeId}') ?? 0,
           };
@@ -130,6 +133,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       await prefs.setInt('dash_relatives_${widget.employeeId}', _relativesCount);
       await prefs.setInt('dash_grp_bipc_${widget.employeeId}', _groupCounts['BIPC'] ?? 0);
       await prefs.setInt('dash_grp_mpc_${widget.employeeId}', _groupCounts['MPC'] ?? 0);
+      await prefs.setInt('dash_grp_admitted_${widget.employeeId}', _groupCounts['Admitted'] ?? 0);
       await prefs.setInt('dash_grp_doorstep_done_${widget.employeeId}', _groupCounts['Doorstep Completed'] ?? 0);
       await prefs.setInt('dash_grp_doorstep_${widget.employeeId}', _groupCounts['Doorstep Pending'] ?? 0);
     } catch (_) {}
@@ -159,6 +163,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
       int total = 0;
       int bipc = 0;
       int mpc = 0;
+      int admitted = 0;
       int doorstepCompleted = 0;
       int doorstepPending = 0;
       int starLeads = 0;
@@ -175,13 +180,17 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             } else if (group.contains('MPC')) {
               mpc++;
             }
+            final leadStatus = (s['leadStatus'] ?? '').toString().toLowerCase();
+            final joined = (s['joinedCollegeId'] ?? '').toString().trim();
+            if (leadStatus == 'admitted' || joined.isNotEmpty) {
+              admitted++;
+            }
             if (s['doorstepCompleted'] == true) {
               doorstepCompleted++;
             } else {
               doorstepPending++;
             }
-            final status = (s['leadStatus'] ?? '').toString().toLowerCase();
-            if (status.contains('star') || status.contains('prime')) {
+            if (leadStatus.contains('star') || leadStatus.contains('prime')) {
               starLeads++;
             }
           }
@@ -222,6 +231,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
         _groupCounts = {
           'BIPC': bipc,
           'MPC': mpc,
+          'Admitted': admitted,
           'Doorstep Completed': doorstepCompleted,
           'Doorstep Pending': doorstepPending,
         };
@@ -743,6 +753,23 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildGroupRow(
+                          abbr: 'AD',
+                          title: 'ADMITTED STUDENTS',
+                          subtitle: 'Admitted to our college',
+                          count: _getCount('Admitted'),
+                          circleBg: const Color(0xFFF0FDF4),
+                          circleColor: const Color(0xFF16A34A),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const StudentsListScreen(initialFilter: 'admitted'),
+                              ),
+                            ).then((_) => _fetchDashboardData());
+                          },
+                        ),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildGroupRow(
                           abbr: 'DC',
                           title: 'COMPLETED DOORSTEPS',
                           subtitle: 'Visits successfully completed',
@@ -874,75 +901,80 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     required int count,
     required Color circleBg,
     required Color circleColor,
+    VoidCallback? onTap,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: circleBg,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: circleColor.withValues(alpha: 0.3)),
-                ),
-                child: Center(
-                  child: Text(
-                    abbr,
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: circleColor,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: circleBg,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: circleColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      abbr,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: circleColor,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: const Color(0xFF94A3B8),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: const Color(0xFF94A3B8),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
 
-          // Count Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: circleBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              count.toString(),
-              style: GoogleFonts.outfit(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: circleColor,
+            // Count Pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: circleBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: circleColor,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
