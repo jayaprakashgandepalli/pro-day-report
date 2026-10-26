@@ -2104,6 +2104,9 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 
     String? currentStudentPhoto = s['studentPhoto']?.toString();
     String? currentAppPhoto = s['applicationPhoto']?.toString();
+    String? currentCollege = college;
+    String? currentAppNo = appNo;
+    bool hasLoadedFresh = false;
 
     showModalBottomSheet(
       context: context,
@@ -2112,14 +2115,40 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
+            if (!hasLoadedFresh && studentId.isNotEmpty) {
+              hasLoadedFresh = true;
+              ApiService.getStudentById(studentId).then((res) {
+                if (res['success'] == true && res['student'] != null && modalCtx.mounted) {
+                  final fresh = res['student'] as Map<String, dynamic>;
+                  final p = fresh['studentPhoto']?.toString();
+                  final a = fresh['applicationPhoto']?.toString();
+                  final cid = fresh['joinedCollegeId']?.toString();
+                  final cname = fresh['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(cid);
+                  final ano = fresh['applicationNumber']?.toString();
+                  setModalState(() {
+                    if (p != null && p.isNotEmpty) {
+                      currentStudentPhoto = p;
+                      s['studentPhoto'] = p;
+                    }
+                    if (a != null && a.isNotEmpty) {
+                      currentAppPhoto = a;
+                      s['applicationPhoto'] = a;
+                    }
+                    if (cname.isNotEmpty) currentCollege = cname;
+                    if (ano != null && ano.isNotEmpty) currentAppNo = ano;
+                  });
+                }
+              });
+            }
+
             Future<void> updatePhoto(bool isStudent, ImageSource source) async {
               try {
                 final picker = ImagePicker();
                 final picked = await picker.pickImage(
                   source: source,
-                  maxWidth: 1200,
-                  maxHeight: 1200,
-                  imageQuality: 75,
+                  maxWidth: 800,
+                  maxHeight: 800,
+                  imageQuality: 70,
                 );
                 if (picked != null) {
                   final bytes = await picked.readAsBytes();
@@ -2136,20 +2165,31 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                   });
 
                   // Save to server & offline queue
-                  await ApiService.updateStudentPhotos(
+                  final res = await ApiService.updateStudentPhotos(
                     studentId: studentId,
                     studentPhoto: isStudent ? b64 : null,
                     applicationPhoto: !isStudent ? b64 : null,
                   );
 
-                  if (mounted) setState(() {});
-                  if (modalCtx.mounted) {
-                    ScaffoldMessenger.of(modalCtx).showSnackBar(
-                      SnackBar(
-                        content: Text(isStudent ? 'Student photo updated! 📸' : 'Application form photo updated! 📄'),
-                        backgroundColor: const Color(0xFF16A34A),
-                      ),
-                    );
+                  if (res['success'] != true) {
+                    if (modalCtx.mounted) {
+                      ScaffoldMessenger.of(modalCtx).showSnackBar(
+                        SnackBar(
+                          content: Text(res['error'] ?? 'Failed to upload photo'),
+                          backgroundColor: const Color(0xFFEF4444),
+                        ),
+                      );
+                    }
+                  } else {
+                    if (mounted) setState(() {});
+                    if (modalCtx.mounted) {
+                      ScaffoldMessenger.of(modalCtx).showSnackBar(
+                        SnackBar(
+                          content: Text(isStudent ? 'Student photo saved! 📸' : 'Application form saved! 📄'),
+                          backgroundColor: const Color(0xFF16A34A),
+                        ),
+                      );
+                    }
                   }
                 }
               } catch (e) {
@@ -2366,9 +2406,9 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                             ),
                             child: Column(
                               children: [
-                                _buildDetailRow(Icons.account_balance_rounded, 'Admitted Campus', college.isNotEmpty ? college : 'Branch not specified'),
-                                if (appNo.isNotEmpty)
-                                  _buildDetailRow(Icons.tag_rounded, 'Application Number', appNo),
+                                _buildDetailRow(Icons.account_balance_rounded, 'Admitted Campus', (currentCollege != null && currentCollege!.isNotEmpty) ? currentCollege! : 'Branch not specified'),
+                                if (currentAppNo != null && currentAppNo!.isNotEmpty)
+                                  _buildDetailRow(Icons.tag_rounded, 'Application Number', currentAppNo!),
                                 if (admissionDate.isNotEmpty)
                                   _buildDetailRow(Icons.calendar_today_rounded, 'Admission Date', admissionDate),
                               ],
