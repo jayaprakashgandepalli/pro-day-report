@@ -187,13 +187,18 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     return schName == selSchName;
   }
 
+  bool _isStudentAdmitted(Map<String, dynamic> s) {
+    final status = (s['leadStatus'] ?? '').toString().trim().toLowerCase();
+    final branchId = (s['collegeBranchId'] ?? '').toString().trim();
+    final joinedId = (s['joinedCollegeId'] ?? '').toString().trim();
+    return status == 'admitted' || branchId.isNotEmpty || joinedId.isNotEmpty;
+  }
+
   bool _matchesStatus(dynamic s, String status) {
     if (status.isEmpty) return true;
     if (s is! Map) return false;
     if (status == 'admitted') {
-      final leadStatus = (s['leadStatus'] ?? '').toString().toLowerCase();
-      final joined = (s['joinedCollegeId'] ?? '').toString().trim();
-      return leadStatus == 'admitted' || joined.isNotEmpty;
+      return _isStudentAdmitted(Map<String, dynamic>.from(s));
     }
     if (status == 'incomplete') {
       final comp = _getProfileCompletion(Map<String, dynamic>.from(s));
@@ -798,12 +803,9 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                 final phone = s['phone'] ?? '';
                                 final group = _resolveName(s['group']);
                                 final school = _resolveName(s['schoolName']);
-                                final isAdmitted = s['leadStatus'] == 'Admitted' ||
-                                    (s['joinedCollegeId'] != null && s['joinedCollegeId'].toString().isNotEmpty);
+                                final isAdmitted = _isStudentAdmitted(s);
                                 final comp = _getProfileCompletion(s);
                                 final missingFields = comp['missing'] as List<String>;
-                                final rawAddress = (s['address'] ?? '').toString();
-                                final gps = LocationService.extractGps(rawAddress);
 
                                 return Container(
                                   decoration: BoxDecoration(
@@ -1015,202 +1017,134 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 
                                               const Divider(height: 16, color: Color(0xFFF1F5F9)),
 
-                                              // Action Buttons Row (Full Details, Edit, Call, WhatsApp, Delete)
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              // Action Buttons (Full Details, Edit, Admit, Delete)
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 6,
+                                                crossAxisAlignment: WrapCrossAlignment.center,
+                                                alignment: WrapAlignment.start,
                                                 children: [
-                                                  // Full Details, GPS, Edit, and Admit buttons
-                                                  Expanded(
-                                                    child: SingleChildScrollView(
-                                                      scrollDirection: Axis.horizontal,
+                                                  // Full Details Button
+                                                  InkWell(
+                                                    onTap: () => _showStudentDetails(s),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFF0F9FF),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                                                      ),
                                                       child: Row(
                                                         mainAxisSize: MainAxisSize.min,
                                                         children: [
-                                                          TextButton.icon(
-                                                            onPressed: () => _showStudentDetails(s),
-                                                            icon: const Icon(Icons.visibility_outlined, size: 16),
-                                                            label: const Text('Full Details'),
-                                                            style: TextButton.styleFrom(
-                                                              foregroundColor: const Color(0xFF0EA5E9),
-                                                              padding: EdgeInsets.zero,
-                                                              visualDensity: VisualDensity.compact,
+                                                          const Icon(Icons.visibility_outlined, size: 13, color: Color(0xFF0284C7)),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            'Full Details',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w700,
+                                                              color: const Color(0xFF0284C7),
                                                             ),
                                                           ),
-                                                          const SizedBox(width: 8),
-                                                          if (gps != null)
-                                                            InkWell(
-                                                              onTap: () {
-                                                                LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: name);
-                                                              },
-                                                              onLongPress: () => _pinStudentLocation(s),
-                                                              borderRadius: BorderRadius.circular(6),
-                                                              child: Container(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                                                                decoration: BoxDecoration(
-                                                                  color: const Color(0xFF0F766E),
-                                                                  borderRadius: BorderRadius.circular(6),
-                                                                ),
-                                                                child: Row(
-                                                                  mainAxisSize: MainAxisSize.min,
-                                                                  children: [
-                                                                    const Icon(Icons.navigation_rounded, size: 12, color: Colors.white),
-                                                                    const SizedBox(width: 3),
-                                                                    Text(
-                                                                      'Route',
-                                                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            )
-                                                          else
-                                                            InkWell(
-                                                              onTap: () => _pinStudentLocation(s),
-                                                              borderRadius: BorderRadius.circular(6),
-                                                              child: Container(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                                                                decoration: BoxDecoration(
-                                                                  color: const Color(0xFFF0FDFA),
-                                                                  borderRadius: BorderRadius.circular(6),
-                                                                  border: Border.all(color: const Color(0xFF99F6E4)),
-                                                                ),
-                                                                child: Row(
-                                                                  mainAxisSize: MainAxisSize.min,
-                                                                  children: [
-                                                                    const Icon(Icons.my_location_rounded, size: 12, color: Color(0xFF0D9488)),
-                                                                    const SizedBox(width: 3),
-                                                                    Text(
-                                                                      'Pin GPS',
-                                                                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF0D9488)),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          const SizedBox(width: 8),
-                                                          InkWell(
-                                                            onTap: () async {
-                                                              final updated = await Navigator.push(
-                                                                context,
-                                                                MaterialPageRoute(builder: (_) => AddStudentScreen(student: s)),
-                                                              );
-                                                              if (updated == true) _fetchData(forceRefresh: true);
-                                                            },
-                                                            borderRadius: BorderRadius.circular(6),
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                              decoration: BoxDecoration(
-                                                                color: const Color(0xFFEFF6FF),
-                                                                borderRadius: BorderRadius.circular(6),
-                                                                border: Border.all(color: const Color(0xFFBFDBFE)),
-                                                              ),
-                                                              child: Row(
-                                                                mainAxisSize: MainAxisSize.min,
-                                                                children: [
-                                                                  const Icon(Icons.edit_outlined, size: 13, color: Color(0xFF2563EB)),
-                                                                  const SizedBox(width: 3),
-                                                                  Text(
-                                                                    'Edit',
-                                                                    style: GoogleFonts.inter(
-                                                                      fontSize: 11,
-                                                                      fontWeight: FontWeight.w700,
-                                                                      color: const Color(0xFF2563EB),
-                                                                    ),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          if (!isAdmitted) ...[
-                                                            const SizedBox(width: 8),
-                                                            InkWell(
-                                                              onTap: () => _showAdmitDialog(s),
-                                                              borderRadius: BorderRadius.circular(6),
-                                                              child: Container(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                                decoration: BoxDecoration(
-                                                                  color: const Color(0xFFDCFCE7),
-                                                                  borderRadius: BorderRadius.circular(6),
-                                                                  border: Border.all(color: const Color(0xFF86EFAC)),
-                                                                ),
-                                                                child: Row(
-                                                                  mainAxisSize: MainAxisSize.min,
-                                                                  children: [
-                                                                    const Icon(Icons.school_rounded, size: 13, color: Color(0xFF16A34A)),
-                                                                    const SizedBox(width: 3),
-                                                                    Text(
-                                                                      'Admit',
-                                                                      style: GoogleFonts.inter(
-                                                                        fontSize: 11,
-                                                                        fontWeight: FontWeight.w700,
-                                                                        color: const Color(0xFF16A34A),
-                                                                      ),
-                                                                    ),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
                                                         ],
                                                       ),
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 6),
 
-                                                  // Action Icons & Delete
-                                                  Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      // Call
-                                                      if (phone.isNotEmpty)
-                                                        IconButton(
-                                                          icon: const Icon(Icons.phone_rounded, color: Color(0xFF10B981), size: 20),
-                                                          tooltip: 'Call $phone',
-                                                          padding: const EdgeInsets.all(4),
-                                                          constraints: const BoxConstraints(),
-                                                          onPressed: () => _makePhoneCall(phone),
-                                                        ),
-                                                      if (phone.isNotEmpty) const SizedBox(width: 2),
-
-                                                      // WhatsApp
-                                                      IconButton(
-                                                        icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366), size: 20),
-                                                        tooltip: 'WhatsApp Message / Pamphlet',
-                                                        padding: const EdgeInsets.all(4),
-                                                        constraints: const BoxConstraints(),
-                                                        onPressed: () async {
-                                                          final session = await ApiService.getSession();
-                                                          final empName = session['name'] ?? 'PRO Officer';
-                                                          final empPhone = session['identifier'] ?? '';
-                                                          if (context.mounted) {
-                                                            WhatsAppTemplateService.showTemplateSelector(
-                                                              context,
-                                                              student: Map<String, dynamic>.from(s),
-                                                              employeeName: empName,
-                                                              employeePhone: empPhone,
-                                                            );
-                                                          }
-                                                        },
+                                                  // Edit Button
+                                                  InkWell(
+                                                    onTap: () async {
+                                                      final updated = await Navigator.push(
+                                                        context,
+                                                        MaterialPageRoute(builder: (_) => AddStudentScreen(student: s)),
+                                                      );
+                                                      if (updated == true) _fetchData(forceRefresh: true);
+                                                    },
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFEFF6FF),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: const Color(0xFFBFDBFE)),
                                                       ),
-                                                      const SizedBox(width: 4),
-
-                                                      // Delete Student
-                                                      ElevatedButton.icon(
-                                                        onPressed: () => _confirmDeleteStudent(s),
-                                                        icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                                                        label: const Text('Delete'),
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: const Color(0xFFFEE2E2),
-                                                          foregroundColor: const Color(0xFFDC2626),
-                                                          elevation: 0,
-                                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(8),
-                                                            side: const BorderSide(color: Color(0xFFFCA5A5)),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.edit_outlined, size: 13, color: Color(0xFF2563EB)),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            'Edit',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w700,
+                                                              color: const Color(0xFF2563EB),
+                                                            ),
                                                           ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+
+                                                  // Admit Button (only if not admitted)
+                                                  if (!isAdmitted)
+                                                    InkWell(
+                                                      onTap: () => _showAdmitDialog(s),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFDCFCE7),
+                                                          borderRadius: BorderRadius.circular(6),
+                                                          border: Border.all(color: const Color(0xFF86EFAC)),
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(Icons.school_rounded, size: 13, color: Color(0xFF16A34A)),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              'Admit',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 11,
+                                                                fontWeight: FontWeight.w700,
+                                                                color: const Color(0xFF16A34A),
+                                                              ),
+                                                            ),
+                                                          ],
                                                         ),
                                                       ),
-                                                    ],
+                                                    ),
+
+                                                  // Delete Button
+                                                  InkWell(
+                                                    onTap: () => _confirmDeleteStudent(s),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFFFEE2E2),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.delete_outline_rounded, size: 13, color: Color(0xFFDC2626)),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            'Delete',
+                                                            style: GoogleFonts.inter(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.w700,
+                                                              color: const Color(0xFFDC2626),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
                                                 ],
                                               ),
@@ -2152,8 +2086,277 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     );
   }
 
-  // Full Details Bottom Sheet with Photo Upload & Preview
+  // Full Details Dispatcher: Admitted students show the Admission Documents & Photos modal;
+  // Non-admitted students strictly show the standard full details page.
   void _showStudentDetails(Map<String, dynamic> s) {
+    if (_isStudentAdmitted(s)) {
+      _showAdmittedStudentDetails(s);
+    } else {
+      _showOldStudentDetails(s);
+    }
+  }
+
+  // Old Full Details Bottom Sheet for Non-Admitted Students
+  void _showOldStudentDetails(Map<String, dynamic> s) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          s['studentName'] ?? 'Student Profile',
+                          style: GoogleFonts.outfit(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          'Phone: ${s['phone'] ?? 'N/A'}',
+                          style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final updated = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => AddStudentScreen(student: s)),
+                          );
+                          if (updated == true) _fetchData(forceRefresh: true);
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF2563EB)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Edit',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      InkWell(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _confirmDeleteStudent(s);
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFDC2626)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Delete',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFDC2626)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEEF2FF),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _resolveName(s['group']).isNotEmpty ? _resolveName(s['group']) : 'OTHER',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF4F46E5),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildDetailRow(Icons.school_outlined, 'School', _resolveName(s['schoolName'])),
+                  _buildDetailRow(Icons.person_outline, "Father's Name", s['fatherName']),
+                  if ((s['whatsapp'] ?? '').toString().isNotEmpty && s['whatsapp'] != s['phone'])
+                    _buildDetailRow(Icons.phone_iphone_outlined, 'Alternate Phone', s['whatsapp']),
+                  _buildDetailRow(Icons.work_outline, 'Occupation', _resolveName(s['occupation'])),
+                  _buildDetailRow(Icons.location_on_outlined, 'Village / Mandal', '${_resolveName(s['village'])} ${_resolveName(s['mandal'])}'.trim()),
+                  _buildDetailRow(
+                    Icons.home_outlined,
+                    'Address',
+                    LocationService.getCleanLandmark(s['address']).isNotEmpty
+                        ? LocationService.getCleanLandmark(s['address'])
+                        : (s['address'] != null && s['address'].toString().contains('GPS:') ? 'Doorstep GPS Saved' : s['address']),
+                  ),
+                  Builder(builder: (ctxBuilder) {
+                    final rawAddr = (s['address'] ?? '').toString();
+                    final gps = LocationService.extractGps(rawAddr);
+                    final stName = s['studentName'] ?? 'Student';
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Row(
+                        children: [
+                          Icon(
+                            gps != null ? Icons.pin_drop_rounded : Icons.location_off_outlined,
+                            size: 18,
+                            color: gps != null ? const Color(0xFF16A34A) : const Color(0xFF94A3B8),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              'Doorstep GPS',
+                              style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    gps != null
+                                        ? 'Doorstep GPS Saved'
+                                        : 'Not Pinned',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: gps != null ? const Color(0xFF166534) : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ),
+                                if (gps != null) ...[
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0F766E),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    ),
+                                    icon: const Icon(Icons.navigation_rounded, size: 11),
+                                    label: Text('Route', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+                                    onPressed: () {
+                                      LocationService.openGoogleMapsRoute(lat: gps['lat']!, lng: gps['lng']!, studentName: stName);
+                                    },
+                                  ),
+                                  const SizedBox(width: 4),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF0D9488),
+                                      side: const BorderSide(color: Color(0xFF99F6E4)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    ),
+                                    icon: const Icon(Icons.my_location_rounded, size: 11),
+                                    label: Text('Re-pin', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600)),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      _pinStudentLocation(s);
+                                    },
+                                  ),
+                                ] else ...[
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0D9488),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    ),
+                                    icon: const Icon(Icons.my_location_rounded, size: 11),
+                                    label: Text('Pin GPS', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700)),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      _pinStudentLocation(s);
+                                    },
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  _buildDetailRow(Icons.grade_outlined, 'Marks', s['marks']),
+                  _buildDetailRow(Icons.interests_outlined, 'Interested At', _resolveName(s['studyInterestedAt'])),
+                  _buildDetailRow(Icons.school_outlined, 'Education Stage', _resolveName(s['educationStage'])),
+                  _buildDetailRow(Icons.payment_outlined, 'Fee Affordability', _resolveName(s['ableToBearFee'])),
+                  _buildDetailRow(Icons.doorbell_outlined, 'Doorstep Visit', s['doorstepCompleted'] == true ? 'Completed' : 'Pending'),
+                  if ((s['remarks'] ?? '').isNotEmpty)
+                    _buildDetailRow(Icons.comment_outlined, 'Remarks', s['remarks']),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Full Details Bottom Sheet with Photo Upload & Preview (Only for Admitted Students)
+  void _showAdmittedStudentDetails(Map<String, dynamic> s) {
     final studentId = s['id']?.toString() ?? '';
     final studentName = s['studentName']?.toString() ?? 'Student Details';
     final phone = (s['phone'] ?? '').toString();
