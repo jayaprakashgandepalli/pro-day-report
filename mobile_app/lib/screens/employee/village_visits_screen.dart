@@ -299,8 +299,41 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     }
   }
 
+  // Check if student is admitted to our college
+  bool _isStudentAdmitted(Map<String, dynamic> s) {
+    final leadStatus = (s['leadStatus'] ?? '').toString().toLowerCase();
+    final branchId = (s['collegeBranchId'] ?? '').toString().trim();
+    final joinedId = (s['joinedCollegeId'] ?? '').toString().trim();
+    return leadStatus == 'admitted' || branchId.isNotEmpty || joinedId.isNotEmpty;
+  }
+
+  String _resolveCollegeName(dynamic val) {
+    if (val == null) return '';
+    final str = val.toString().trim();
+    if (str.isEmpty) return '';
+    for (final c in _colleges) {
+      if (c is Map &&
+          (c['id']?.toString() == str ||
+           c['employeeId']?.toString() == str ||
+           c['code']?.toString() == str ||
+           c['name']?.toString() == str)) {
+        return (c['name'] ?? str).toString();
+      }
+    }
+    return str;
+  }
+
+  String _getAdmittedCollegeName(Map<String, dynamic> s) {
+    final branchName = s['collegeBranch']?['name']?.toString() ??
+        s['joinedCollege']?['name']?.toString() ??
+        '';
+    if (branchName.isNotEmpty) return branchName;
+    return _resolveCollegeName(s['collegeBranchId'] ?? s['joinedCollegeId']);
+  }
+
   // Check if student is closed (matches web logic)
   bool _isStudentClosed(Map<String, dynamic> s) {
+    if (_isStudentAdmitted(s)) return false; // Admitted students should always remain visible!
     final leadStatus = (s['leadStatus'] ?? '').toString();
     if (leadStatus == 'Joined Other College' || leadStatus == 'Not Interested') return true;
     final fee = (s['ableToBearFee'] ?? '').toString();
@@ -346,6 +379,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     int met = 0;
     int never = 0;
     int stars = 0;
+    int admitted = 0;
 
     for (final item in base) {
       final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item as Map);
@@ -355,10 +389,15 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
       final hasAnyVisit = visits.isNotEmpty;
       final status = (s['leadStatus'] ?? '').toString().toLowerCase();
       final isStar = status.contains('star') || status.contains('prime');
+      final isAdm = _isStudentAdmitted(s);
+
+      if (isAdm) {
+        admitted++;
+      }
 
       if (isMet) {
         met++;
-      } else {
+      } else if (!isAdm) {
         pending++;
       }
       if (!hasAnyVisit) {
@@ -369,7 +408,14 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
       }
     }
 
-    _filterCounts = {'all': all, 'pending': pending, 'met': met, 'never': never, 'star': stars};
+    _filterCounts = {
+      'all': all,
+      'pending': pending,
+      'met': met,
+      'never': never,
+      'star': stars,
+      'admitted': admitted,
+    };
 
     _filteredStudents = base.where((item) {
       final s = item is Map<String, dynamic> ? item : Map<String, dynamic>.from(item as Map);
@@ -378,8 +424,10 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
       final hasAnyVisit = visits.isNotEmpty;
       final status = (s['leadStatus'] ?? '').toString().toLowerCase();
       final isStar = status.contains('star') || status.contains('prime');
+      final isAdm = _isStudentAdmitted(s);
 
-      if (_statusFilter == 'pending') return !isMet;
+      if (_statusFilter == 'admitted') return isAdm;
+      if (_statusFilter == 'pending') return !isMet && !isAdm;
       if (_statusFilter == 'met') return isMet;
       if (_statusFilter == 'never') return !hasAnyVisit;
       if (_statusFilter == 'star') return isStar;
@@ -495,7 +543,13 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
 
     String outcome = '';
     final studentLeadStatus = (student['leadStatus'] ?? '').toString();
-    if (isEditing) {
+    final isStudentAdmitted = _isStudentAdmitted(student);
+    if (isStudentAdmitted) {
+      outcome = 'admitted';
+      if ((student['applicationNumber'] ?? '').toString().isNotEmpty) {
+        appNumberController.text = student['applicationNumber'].toString();
+      }
+    } else if (isEditing) {
       if (studentLeadStatus == 'Joined Other College') {
         outcome = 'joined_other';
       } else if (studentLeadStatus == 'Not Interested') {
@@ -508,7 +562,9 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
     }
 
     DateTime? nextFollowUpDate;
-    String? selectedCollegeId;
+    String? selectedCollegeId = isStudentAdmitted
+        ? (student['collegeBranchId'] ?? student['joinedCollegeId'])?.toString()
+        : null;
     bool isSaving = false;
     bool isSavedSuccess = false;
     XFile? attachedPhoto;
@@ -1158,7 +1214,18 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                       Text('Visit Outcome / Next Action', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        initialValue: outcome.isNotEmpty ? outcome : null,
+                        initialValue: (outcome.isNotEmpty &&
+                                const {
+                                  'following_up',
+                                  'after_exams',
+                                  'after_results',
+                                  'specific_date',
+                                  'admitted',
+                                  'joined_other',
+                                  'not_interested'
+                                }.contains(outcome))
+                            ? outcome
+                            : null,
                         hint: Text('Select option...', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8))),
                         decoration: InputDecoration(
                           filled: true,
@@ -1215,20 +1282,60 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                         const SizedBox(height: 12),
                         Text('Select College Branch *', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
                         const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: selectedCollegeId,
-                          hint: const Text('Select College Branch...'),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: const Color(0xFFF8FAFC),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                          ),
-                          items: _colleges.map((c) {
-                            final empId = (c['employeeId'] ?? '').toString();
-                            final name = (c['name'] ?? 'College').toString();
-                            return DropdownMenuItem(value: empId, child: Text(name));
-                          }).toList(),
-                          onChanged: (val) => setModalState(() => selectedCollegeId = val),
+                        Builder(
+                          builder: (context) {
+                            final validColleges = <Map<String, dynamic>>[];
+                            final seenBranchIds = <String>{};
+                            for (final c in _colleges) {
+                              if (c is Map) {
+                                final bId = (c['id'] ?? c['employeeId'] ?? '').toString().trim();
+                                if (bId.isNotEmpty && !seenBranchIds.contains(bId)) {
+                                  seenBranchIds.add(bId);
+                                  validColleges.add(Map<String, dynamic>.from(c));
+                                }
+                              }
+                            }
+                            final currentId = selectedCollegeId?.trim() ?? '';
+                            if (currentId.isNotEmpty && !seenBranchIds.contains(currentId)) {
+                              final fallbackName = _getAdmittedCollegeName(student);
+                              validColleges.insert(0, {
+                                'id': currentId,
+                                'name': fallbackName.isNotEmpty ? fallbackName : 'Admitted College Branch',
+                              });
+                              seenBranchIds.add(currentId);
+                            }
+
+                            final safeInitialValue = (currentId.isNotEmpty && seenBranchIds.contains(currentId))
+                                ? currentId
+                                : (validColleges.isNotEmpty ? (validColleges.first['id'] ?? validColleges.first['employeeId'])?.toString() : null);
+
+                            return DropdownButtonFormField<String>(
+                              initialValue: safeInitialValue,
+                              hint: const Text('Select College Branch...'),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: const Color(0xFFF8FAFC),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              ),
+                              items: validColleges.map((c) {
+                                final branchId = (c['id'] ?? c['employeeId'] ?? '').toString();
+                                final bname = (c['name'] ?? 'College Branch').toString();
+                                final bloc = (c['location'] ?? '').toString();
+                                final bcode = (c['code'] ?? '').toString();
+                                final extra = [if (bcode.isNotEmpty) bcode, if (bloc.isNotEmpty) bloc].join(' • ');
+                                final displayText = extra.isNotEmpty ? '$bname ($extra)' : bname;
+                                return DropdownMenuItem(
+                                  value: branchId,
+                                  child: Text(
+                                    displayText,
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) => setModalState(() => selectedCollegeId = val),
+                            );
+                          },
                         ),
                         const SizedBox(height: 12),
                         Text('Application Number (Optional)', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
@@ -1325,6 +1432,18 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                         joinedCollegeId: outcome == 'admitted' ? selectedCollegeId : null,
                                         applicationNumber: outcome == 'admitted' ? appNumberController.text.trim() : null,
                                       );
+
+                                      if (outcome == 'admitted' && selectedCollegeId != null && selectedCollegeId!.isNotEmpty) {
+                                        try {
+                                          await ApiService.admitStudent(
+                                            studentId: studentId,
+                                            joinedCollegeId: selectedCollegeId!,
+                                            collegeBranchId: selectedCollegeId!,
+                                            applicationNumber: appNumberController.text.trim(),
+                                            remarks: remarksController.text.trim(),
+                                          );
+                                        } catch (_) {}
+                                      }
 
                                       if (!ctx.mounted) return;
 
@@ -2170,7 +2289,7 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                                           _buildSegmentTab('All', counts['all'] ?? 0, 'all', const Color(0xFF0F172A)),
                                           _buildSegmentTab('Pending', counts['pending'] ?? 0, 'pending', const Color(0xFFB45309)),
                                           _buildSegmentTab('Met Today', counts['met'] ?? 0, 'met', const Color(0xFF047857)),
-                                          _buildSegmentTab('Never Met', counts['never'] ?? 0, 'never', const Color(0xFF4338CA)),
+                                          _buildSegmentTab('Admitted', counts['admitted'] ?? 0, 'admitted', const Color(0xFF16A34A)),
                                           _buildSegmentTab('★ Stars', counts['star'] ?? 0, 'star', const Color(0xFFD97706)),
                                         ],
                                       ),
@@ -2305,25 +2424,33 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
 
     final status = (s['leadStatus'] ?? '').toString().toLowerCase();
     final isStarLead = status.contains('star') || status.contains('prime');
+    final isAdmitted = _isStudentAdmitted(s);
+    final collegeBranchName = _getAdmittedCollegeName(s);
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isStarLead
-              ? const Color(0xFFF59E0B)
-              : isMetToday
-                  ? const Color(0xFF10B981)
-                  : hasPastVisit
-                      ? const Color(0xFF93C5FD)
-                      : const Color(0xFFE2E8F0),
-          width: (isStarLead || isMetToday || hasPastVisit) ? 1.5 : 1,
+          color: isAdmitted
+              ? const Color(0xFF86EFAC)
+              : isStarLead
+                  ? const Color(0xFFF59E0B)
+                  : isMetToday
+                      ? const Color(0xFF10B981)
+                      : hasPastVisit
+                          ? const Color(0xFF93C5FD)
+                          : const Color(0xFFE2E8F0),
+          width: (isAdmitted || isStarLead || isMetToday || hasPastVisit) ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: isStarLead ? const Color(0xFFF59E0B).withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.02),
-            blurRadius: isStarLead ? 10 : 8,
+            color: isAdmitted
+                ? const Color(0xFF16A34A).withValues(alpha: 0.06)
+                : isStarLead
+                    ? const Color(0xFFF59E0B).withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.02),
+            blurRadius: (isAdmitted || isStarLead) ? 10 : 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -2334,7 +2461,9 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Colored Top Indicator Bar
-            if (isStarLead)
+            if (isAdmitted)
+              Container(height: 4, width: double.infinity, color: const Color(0xFF16A34A))
+            else if (isStarLead)
               Container(height: 4, width: double.infinity, color: const Color(0xFFF59E0B))
             else if (isMetToday)
               Container(height: 4, width: double.infinity, color: const Color(0xFF10B981))
@@ -2352,27 +2481,54 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
-                    // Index and Student Name
+                    // Index and Student Name & Admitted Campus
                     Expanded(
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Flexible(
-                            child: Text(
-                              '${index + 1}. $name',
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0F172A),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${index + 1}. $name',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (isMetToday) ...[
+                                const SizedBox(width: 4),
+                                const CircleAvatar(
+                                  radius: 8,
+                                  backgroundColor: Color(0xFF059669),
+                                  child: Icon(Icons.check, size: 11, color: Colors.white),
+                                ),
+                              ],
+                            ],
                           ),
-                          if (isMetToday) ...[
-                            const SizedBox(width: 4),
-                            const CircleAvatar(
-                              radius: 8,
-                              backgroundColor: Color(0xFF059669),
-                              child: Icon(Icons.check, size: 11, color: Colors.white),
+                          if (isAdmitted && collegeBranchName.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(Icons.school_rounded, size: 12, color: Color(0xFF16A34A)),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    collegeBranchName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF15803D),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ],
@@ -2381,7 +2537,31 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                     const SizedBox(width: 6),
 
                     // Status Badge
-                    if (isMetToday)
+                    if (isAdmitted)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF16A34A)),
+                            const SizedBox(width: 3.5),
+                            Text(
+                              'Admitted',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF15803D),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (isMetToday)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFA7F3D0))),
@@ -2440,6 +2620,73 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Admission Completed Box
+                    if (isAdmitted) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF86EFAC)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.school_rounded, size: 20, color: Color(0xFF16A34A)),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Admission Completed',
+                                        style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF15803D)),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF16A34A),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'ENROLLED',
+                                          style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (collegeBranchName.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Campus: $collegeBranchName',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF166534)),
+                                    ),
+                                  ],
+                                  if ((s['applicationNumber'] ?? '').toString().isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Application No: ${s['applicationNumber']}',
+                                      style: GoogleFonts.inter(fontSize: 11.5, color: const Color(0xFF166534)),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     // Father Name
                     RichText(
                       text: TextSpan(
@@ -2735,33 +2982,47 @@ class _VillageVisitsScreenState extends State<VillageVisitsScreen> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isMetToday
-                              ? const Color(0xFFECFDF5)
-                              : hasPastVisit
-                                  ? const Color(0xFFEFF6FF)
-                                  : const Color(0xFF4F46E5),
-                          foregroundColor: isMetToday
-                              ? const Color(0xFF059669)
-                              : hasPastVisit
-                                  ? const Color(0xFF1D4ED8)
-                                  : Colors.white,
+                          backgroundColor: isAdmitted
+                              ? const Color(0xFFDCFCE7)
+                              : isMetToday
+                                  ? const Color(0xFFECFDF5)
+                                  : hasPastVisit
+                                      ? const Color(0xFFEFF6FF)
+                                      : const Color(0xFF4F46E5),
+                          foregroundColor: isAdmitted
+                              ? const Color(0xFF15803D)
+                              : isMetToday
+                                  ? const Color(0xFF059669)
+                                  : hasPastVisit
+                                      ? const Color(0xFF1D4ED8)
+                                      : Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 11),
                           elevation: 0,
                           side: BorderSide(
-                            color: isMetToday
-                                ? const Color(0xFFA7F3D0)
-                                : hasPastVisit
-                                    ? const Color(0xFFBFDBFE)
-                                    : Colors.transparent,
+                            color: isAdmitted
+                                ? const Color(0xFF86EFAC)
+                                : isMetToday
+                                    ? const Color(0xFFA7F3D0)
+                                    : hasPastVisit
+                                        ? const Color(0xFFBFDBFE)
+                                        : Colors.transparent,
                           ),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: Icon(
-                          isMetToday ? Icons.edit_note_rounded : Icons.add_circle_outline_rounded,
+                          isAdmitted
+                              ? Icons.verified_rounded
+                              : isMetToday
+                                  ? Icons.edit_note_rounded
+                                  : Icons.add_circle_outline_rounded,
                           size: 18,
                         ),
                         label: Text(
-                          isMetToday ? 'Update Today\'s Visit' : (hasPastVisit ? 'Add Re-visit' : 'Add Visit'),
+                          isAdmitted
+                              ? (isMetToday ? 'Update Today\'s Visit' : 'Log Follow-up Visit (Admitted)')
+                              : isMetToday
+                                  ? 'Update Today\'s Visit'
+                                  : (hasPastVisit ? 'Add Re-visit' : 'Add Visit'),
                           style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
                         ),
                         onPressed: () => _openVisitModal(s),

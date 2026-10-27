@@ -868,7 +868,12 @@ class ApiService {
     _collegesInFlight = Future<List<dynamic>>(() async {
       try {
         final headers = await getAuthHeaders();
-        final uri = await buildUri('/api/colleges/list');
+        final session = await getSession();
+        final queryParams = <String, String>{};
+        if (session['identifier'] != null && session['identifier']!.isNotEmpty) {
+          queryParams['employeeId'] = session['identifier']!;
+        }
+        final uri = await buildUri('/api/colleges/list', queryParams.isNotEmpty ? queryParams : null);
         final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -894,7 +899,12 @@ class ApiService {
   static Future<List<dynamic>> getCollegeBranches({bool forceRefresh = false}) async {
     try {
       final headers = await getAuthHeaders();
-      final uri = await buildUri('/api/college-branches');
+      final session = await getSession();
+      final queryParams = <String, String>{};
+      if (session['identifier'] != null && session['identifier']!.isNotEmpty) {
+        queryParams['employeeId'] = session['identifier']!;
+      }
+      final uri = await buildUri('/api/college-branches', queryParams.isNotEmpty ? queryParams : null);
       final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -915,7 +925,13 @@ class ApiService {
   }) async {
     try {
       final headers = await getAuthHeaders();
-      final uri = await buildUri('/api/college-branches');
+      final session = await getSession();
+      final empId = session['identifier'] ?? '';
+      final queryParams = <String, String>{};
+      if (empId.isNotEmpty) {
+        queryParams['employeeId'] = empId;
+      }
+      final uri = await buildUri('/api/college-branches', queryParams.isNotEmpty ? queryParams : null);
       final response = await http.post(
         uri,
         headers: headers,
@@ -924,6 +940,7 @@ class ApiService {
           if (code != null && code.isNotEmpty) 'code': code.trim(),
           if (location != null && location.isNotEmpty) 'location': location.trim(),
           if (phone != null && phone.isNotEmpty) 'phone': phone.trim(),
+          if (empId.isNotEmpty) 'employeeId': empId,
         }),
       ).timeout(const Duration(seconds: 10));
 

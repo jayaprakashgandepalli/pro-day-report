@@ -347,6 +347,7 @@ model College {
 
 model CollegeBranch {
   id          String    @id @default(cuid())
+  employeeId  String?
   name        String
   code        String?   @unique
   location    String?
@@ -358,4 +359,5 @@ model CollegeBranch {
   students    Student[]
 
   @@index([name])
+  @@index([employeeId])
 }

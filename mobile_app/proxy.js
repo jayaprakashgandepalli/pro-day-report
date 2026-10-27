@@ -45,10 +45,25 @@ const server = http.createServer((req, res) => {
                 parsedUrl.query.auth_token ||
                 (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '') : null);
 
+  let employeeId = parsedUrl.query.employeeId || null;
+  if (!employeeId && token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length >= 2) {
+        const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
+        const payload = JSON.parse(payloadStr);
+        if (payload && payload.employeeId) {
+          employeeId = payload.employeeId;
+        }
+      }
+    } catch (_) {}
+  }
+
   const forwardHeaders = { ...req.headers };
   forwardHeaders['host'] = TARGET_HOST;
   delete forwardHeaders['origin'];
   delete forwardHeaders['referer'];
+  delete forwardHeaders['accept-encoding']; // Force upstream to return plain UTF-8 JSON so proxy can parse and augment
 
   // Attach auth_token cookie
   if (token) {
@@ -71,17 +86,26 @@ const server = http.createServer((req, res) => {
     if (parsedUrl.pathname === '/api/college-branches') {
       if (req.method === 'GET') {
         try {
+          const reqEmpId = parsedUrl.query.employeeId || employeeId || null;
+          const whereClause = { isActive: true };
+          if (reqEmpId) {
+            whereClause.employeeId = reqEmpId;
+          }
           const branches = await prisma.collegeBranch.findMany({
-            where: { isActive: true },
+            where: whereClause,
             orderBy: { name: 'asc' },
             include: {
-              _count: { select: { students: true } }
+              _count: {
+                select: {
+                  students: reqEmpId ? { where: { employeeId: reqEmpId } } : true
+                }
+              }
             }
           });
           const payload = JSON.stringify({ success: true, branches });
           res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
           res.end(payload);
-          console.log(`[RES] GET /api/college-branches -> 200 (${Date.now() - start}ms) [${branches.length} branches]`);
+          console.log(`[RES] GET /api/college-branches -> 200 (${Date.now() - start}ms) [${branches.length} branches for employee: ${reqEmpId || 'ALL'}]`);
           return;
         } catch (err) {
           console.error('[PROXY GET BRANCHES ERROR]:', err.message);
@@ -95,6 +119,7 @@ const server = http.createServer((req, res) => {
         try {
           const body = JSON.parse(bodyText);
           const { name, code, location, phone } = body;
+          const branchEmpId = body.employeeId || parsedUrl.query.employeeId || employeeId || null;
           if (!name || typeof name !== 'string' || !name.trim()) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: 'Branch name is required' }));
@@ -107,13 +132,14 @@ const server = http.createServer((req, res) => {
               code: code && typeof code === 'string' && code.trim() ? code.trim() : null,
               location: location && typeof location === 'string' && location.trim() ? location.trim() : null,
               phone: phone && typeof phone === 'string' && phone.trim() ? phone.trim() : null,
+              employeeId: branchEmpId,
             }
           });
 
           const payload = JSON.stringify({ success: true, branch });
           res.writeHead(201, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
           res.end(payload);
-          console.log(`[RES] POST /api/college-branches -> 201 created branch ${branch.name}`);
+          console.log(`[RES] POST /api/college-branches -> 201 created branch ${branch.name} for employee: ${branchEmpId}`);
           return;
         } catch (err) {
           console.error('[PROXY POST BRANCH ERROR]:', err.message);
@@ -189,8 +215,13 @@ const server = http.createServer((req, res) => {
     // ==========================================
     if (parsedUrl.pathname === '/api/colleges/list' && req.method === 'GET') {
       try {
+        const reqEmpId = parsedUrl.query.employeeId || employeeId || null;
+        const whereClause = { isActive: true };
+        if (reqEmpId) {
+          whereClause.employeeId = reqEmpId;
+        }
         const branches = await prisma.collegeBranch.findMany({
-          where: { isActive: true },
+          where: whereClause,
           orderBy: { name: 'asc' },
           select: { id: true, name: true, code: true, location: true, phone: true }
         });
@@ -201,7 +232,7 @@ const server = http.createServer((req, res) => {
         });
         res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
         res.end(payload);
-        console.log(`[RES] GET /api/colleges/list -> 200 (Returned ${branches.length} College Branches)`);
+        console.log(`[RES] GET /api/colleges/list -> 200 (Returned ${branches.length} College Branches for employee: ${reqEmpId || 'ALL'})`);
         return;
       } catch (err) {
         console.error('[PROXY COLLEGES LIST ERROR]:', err.message);
@@ -356,26 +387,60 @@ const server = http.createServer((req, res) => {
           try {
             const json = JSON.parse(Buffer.concat(chunks).toString('utf8'));
             if (json && Array.isArray(json.students)) {
-              // Fetch students that have photos or college branches from DB
-              const dbStudents = await prisma.student.findMany({
-                where: {
+              const existingIds = new Set(json.students.map(s => s.id));
+
+              // Where clause: include all students belonging to this employee or any with photos/branch
+              let whereClause = {
+                OR: [
+                  { studentPhoto: { not: null } },
+                  { applicationPhoto: { not: null } },
+                  { collegeBranchId: { not: null } },
+                  { joinedCollegeId: { not: null } },
+                  { leadStatus: 'Admitted' },
+                ]
+              };
+
+              if (employeeId) {
+                whereClause = {
                   OR: [
+                    { employeeId: employeeId },
                     { studentPhoto: { not: null } },
                     { applicationPhoto: { not: null } },
                     { collegeBranchId: { not: null } },
                     { joinedCollegeId: { not: null } },
+                    { leadStatus: 'Admitted' },
                   ]
-                },
-                select: {
-                  id: true,
-                  studentPhoto: true,
-                  applicationPhoto: true,
-                  collegeBranchId: true,
-                  joinedCollegeId: true,
-                  collegeBranch: { select: { id: true, name: true, location: true } }
+                };
+              }
+
+              // Fetch students that have photos, college branches, or belong to current employee
+              const dbStudents = await prisma.student.findMany({
+                where: whereClause,
+                include: {
+                  collegeBranch: { select: { id: true, name: true, location: true, code: true } },
+                  joinedCollege: { select: { id: true, name: true } },
+                  visits: {
+                    orderBy: { visitDate: 'desc' },
+                    take: 1
+                  }
                 }
               });
 
+              // 1. Prepend missing admitted/employee students (filtered out by upstream joinedCollegeId bug)
+              for (const dbSt of dbStudents) {
+                if (employeeId && dbSt.employeeId === employeeId && !existingIds.has(dbSt.id)) {
+                  const formatted = {
+                    ...dbSt,
+                    visits: dbSt.visits || [],
+                    collegeBranch: dbSt.collegeBranch || null,
+                    joinedCollege: dbSt.collegeBranch ? { name: dbSt.collegeBranch.name } : (dbSt.joinedCollege || null),
+                  };
+                  json.students.unshift(formatted);
+                  existingIds.add(dbSt.id);
+                }
+              }
+
+              // 2. Augment existing students with DB photos, college branches, leadStatus, etc.
               const dbMap = new Map(dbStudents.map(s => [s.id, s]));
               json.students.forEach(st => {
                 if (st && st.id && dbMap.has(st.id)) {
@@ -386,18 +451,29 @@ const server = http.createServer((req, res) => {
                     st.collegeBranch = dbData.collegeBranch;
                     st.joinedCollege = { name: dbData.collegeBranch.name };
                   }
+                  if (dbData.leadStatus) st.leadStatus = dbData.leadStatus;
+                  if (dbData.collegeBranchId) st.collegeBranchId = dbData.collegeBranchId;
+                  if (dbData.joinedCollegeId) st.joinedCollegeId = dbData.joinedCollegeId;
+                  if (dbData.applicationNumber) st.applicationNumber = dbData.applicationNumber;
+                  if (dbData.admissionDate) st.admissionDate = dbData.admissionDate;
                 }
               });
+
+              json.total = json.students.length;
             }
 
             const modifiedBody = JSON.stringify(json);
             const headers = { ...proxyRes.headers };
             delete headers['content-length'];
+            delete headers['transfer-encoding'];
+            delete headers['content-encoding']; // Body is raw JSON, not compressed
+            headers['content-type'] = 'application/json; charset=utf-8';
             headers['content-length'] = Buffer.byteLength(modifiedBody);
             res.writeHead(200, headers);
             res.end(modifiedBody);
-            console.log(`[RES] ${req.method} ${req.url} -> 200 (AUGMENTED_STUDENTS ${Date.now() - start}ms)`);
-          } catch (_) {
+            console.log(`[RES] ${req.method} ${req.url} -> 200 (AUGMENTED_STUDENTS ${Date.now() - start}ms) [${json.students.length} students]`);
+          } catch (err) {
+            console.error('[PROXY AUGMENT PARSE ERROR]:', err.message);
             const raw = Buffer.concat(chunks);
             res.writeHead(proxyRes.statusCode, proxyRes.headers);
             res.end(raw);

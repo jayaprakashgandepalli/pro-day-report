@@ -146,22 +146,24 @@ export async function GET(req: Request) {
         }
         // If they have no permissions, they see nothing
         if (user.allowedGroups.length === 0 && user.allowedLocations.length === 0) {
-           whereClause.AND.push({ id: 'none' }); // impossible condition
+          whereClause.AND.push({ id: 'none' }); // impossible condition
         }
       }
+
+      // Hide students admitted to other colleges (applicable only to COLLEGE role users)
+      const targetCollegeId = user?.collegeId || payload.employeeId;
+      whereClause.AND.push({
+        OR: [
+          { joinedCollegeId: null },
+          { joinedCollegeId: targetCollegeId },
+          { collegeBranchId: targetCollegeId }
+        ]
+      });
     } else {
       // For EMPLOYEE, AGM, TEAM_LEADER, PRO, or any employee portal user: STRICT DATA ISOLATION
       // A person's data must NEVER be visible to another person!
       whereClause.AND.push({ employeeId: payload.employeeId });
     }
-
-      // Hide students admitted to other colleges
-      whereClause.AND.push({
-        OR: [
-          { joinedCollegeId: null },
-          { joinedCollegeId: payload.employeeId }
-        ]
-      });
 
       // Hide students who joined external competitor colleges
       whereClause.AND.push({
