@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Save, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Clock, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function EditStudent() {
@@ -11,6 +11,7 @@ export default function EditStudent() {
   const studentId = params.id as string;
 
   const [formData, setFormData] = useState({
+    employeeId: '',
     studentName: '',
     gender: '',
     fatherName: '',
@@ -40,6 +41,8 @@ export default function EditStudent() {
   const [saving, setSaving] = useState(false);
   const [visits, setVisits] = useState<any[]>([]);
   const [schoolStats, setSchoolStats] = useState<{ collected: number } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
 
   useEffect(() => {
     if (formData.schoolName) {
@@ -59,6 +62,22 @@ export default function EditStudent() {
     fetchConfigs();
     fetchStudent();
     fetchVisits();
+
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d.user && d.user.role === 'ADMIN') {
+          setIsAdmin(true);
+          fetch('/api/users')
+            .then(res => res.json())
+            .then(uData => {
+              if (uData.users) {
+                setEmployees(uData.users.filter((u: any) => u.role === 'EMPLOYEE' || u.role === 'TEAM_LEADER'));
+              }
+            });
+        }
+      })
+      .catch(console.error);
   }, [studentId]);
 
   const fetchVisits = async () => {
@@ -92,6 +111,7 @@ export default function EditStudent() {
         const data = await res.json();
         const s = data.student;
         setFormData({
+          employeeId: s.employeeId || '',
           studentName: s.studentName || '',
           gender: s.gender || '',
           fatherName: s.fatherName || '',
@@ -219,6 +239,38 @@ export default function EditStudent() {
         <p>Loading student data...</p>
       ) : (
         <form className="card" onSubmit={handleSave}>
+          {isAdmin && (
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              borderRadius: '8px',
+              padding: '1.25rem',
+              marginBottom: '1.5rem'
+            }}>
+              <label className="form-label" htmlFor="employeeId" style={{ fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <UserCheck size={18} /> Assigned Staff Member (Admin Transfer)
+              </label>
+              <select
+                id="employeeId"
+                name="employeeId"
+                className="form-control"
+                value={formData.employeeId}
+                onChange={handleChange}
+                style={{ backgroundColor: '#fff', fontSize: '0.95rem' }}
+              >
+                <option value="">-- Choose Staff Member --</option>
+                {employees.map(emp => (
+                  <option key={emp.employeeId} value={emp.employeeId}>
+                    {emp.name} ({emp.employeeId})
+                  </option>
+                ))}
+              </select>
+              <small style={{ color: '#0284c7', display: 'block', marginTop: '0.35rem', fontSize: '0.8rem' }}>
+                ℹ️ Changing this staff member will immediately transfer this student to their login and mobile app.
+              </small>
+            </div>
+          )}
+
           <div className="form-group">
             <label className="form-label" htmlFor="studentName">Student Name</label>
             <input type="text" id="studentName" name="studentName" className="form-control" value={formData.studentName} onChange={handleChange} />

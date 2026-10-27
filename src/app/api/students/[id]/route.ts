@@ -104,6 +104,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       updateData.telecallerUpdateDetails = details;
     }
 
+    if (userRole === 'ADMIN' && data.employeeId && data.employeeId !== currentStudent.employeeId) {
+      const targetUser = await prisma.user.findUnique({
+        where: { employeeId: data.employeeId }
+      });
+      if (!targetUser) {
+        return NextResponse.json({ error: 'Selected employee does not exist.' }, { status: 400 });
+      }
+      updateData.employeeId = data.employeeId;
+    }
+
     const transactionTasks = [];
     
     // Add student update task
@@ -112,6 +122,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         where: { id },
         data: updateData,
         include: {
+          employee: {
+            select: { employeeId: true, name: true }
+          },
           visits: {
             orderBy: { visitDate: 'desc' }
           },
@@ -149,6 +162,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const student = await prisma.student.findUnique({
       where: { id },
       include: {
+        employee: {
+          select: { employeeId: true, name: true }
+        },
         visits: {
           orderBy: { visitDate: 'desc' }
         },
