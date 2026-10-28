@@ -107,7 +107,8 @@ class AppUpdateService {
                 OtaUpdate()
                     .execute(
                   downloadUrl,
-                  destinationFilename: 'pro_day_report_v$serverBuild.apk',
+                  destinationFilename: 'pro_day_report.apk',
+                  androidProviderAuthority: 'com.prodayreport.pro_mobile_app.ota_update_provider',
                 )
                     .listen(
                   (OtaEvent event) {
@@ -123,6 +124,12 @@ class AppUpdateService {
                         progress = 1.0;
                         statusText = 'Opening installer...';
                       });
+                    } else if (event.status == OtaStatus.INSTALLATION_DONE) {
+                      setModalState(() {
+                        progress = 1.0;
+                        statusText = 'Update completed!';
+                        isDownloading = false;
+                      });
                     } else if (event.status == OtaStatus.ALREADY_RUNNING_ERROR) {
                       setModalState(() {
                         errorMessage = 'Download already in progress.';
@@ -130,12 +137,12 @@ class AppUpdateService {
                       });
                     } else if (event.status == OtaStatus.PERMISSION_NOT_GRANTED_ERROR) {
                       setModalState(() {
-                        errorMessage = 'Please grant install permission to update.';
+                        errorMessage = 'Install permission required. Please allow app installs in Settings.';
                         isDownloading = false;
                       });
                     } else {
                       setModalState(() {
-                        errorMessage = 'Download error. Tap below to download directly.';
+                        errorMessage = 'Update error (${event.status.name}): ${event.value ?? "Unknown"}. Tap below to download directly.';
                         isDownloading = false;
                       });
                     }
