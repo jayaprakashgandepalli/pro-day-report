@@ -453,37 +453,14 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                       ),
                       const SizedBox(height: 4),
 
-                      // Employee ID & Version Badge
-                      Row(
-                        children: [
-                          Text(
-                            'Employee ID: ${widget.employeeId}',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF94A3B8),
-                            ),
-                          ),
-                          if (_appVersion.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                              ),
-                              child: Text(
-                                _appVersion,
-                                style: GoogleFonts.inter(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF38BDF8),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                      // Employee ID
+                      Text(
+                        'Employee ID: ${widget.employeeId}',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF94A3B8),
+                        ),
                       ),
                       if (OfflineService.pendingActionsCount > 0) ...[
                         const SizedBox(height: 12),
