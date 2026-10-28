@@ -48,12 +48,15 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
-  void _openCreateTaskDialog() {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
-    String category = 'COLLEGE_DUTY';
-    String priority = 'MEDIUM';
-    DateTime endDate = DateTime.now().add(const Duration(days: 1));
+  void _openTaskDialog({Map<String, dynamic>? task}) {
+    final isEdit = task != null;
+    final titleController = TextEditingController(text: task?['title'] ?? '');
+    final descController = TextEditingController(text: task?['description'] ?? '');
+    String category = task?['category'] ?? 'COLLEGE_DUTY';
+    String priority = task?['priority'] ?? 'MEDIUM';
+    String status = task?['status'] ?? 'PENDING';
+    DateTime endDate = DateTime.tryParse(task?['endDate']?.toString() ?? '') ??
+        DateTime.now().add(const Duration(days: 1));
     bool isSaving = false;
 
     showModalBottomSheet(
@@ -82,7 +85,10 @@ class _TasksScreenState extends State<TasksScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Create New Task', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700)),
+                        Text(
+                          isEdit ? 'Edit Task' : 'Create New Task',
+                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700),
+                        ),
                         IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(modalCtx)),
                       ],
                     ),
@@ -173,8 +179,8 @@ class _TasksScreenState extends State<TasksScreen> {
                                   final picked = await showDatePicker(
                                     context: modalCtx,
                                     initialDate: endDate,
-                                    firstDate: DateTime.now(),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime.now().add(const Duration(days: 730)),
                                   );
                                   if (picked != null) setModalState(() => endDate = picked);
                                 },
@@ -185,6 +191,28 @@ class _TasksScreenState extends State<TasksScreen> {
                       ],
                     ),
                     const SizedBox(height: 14),
+
+                    if (isEdit) ...[
+                      Text('Status', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        initialValue: status,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'PENDING', child: Text('⏳ Pending')),
+                          DropdownMenuItem(value: 'IN_PROGRESS', child: Text('🔄 In Progress')),
+                          DropdownMenuItem(value: 'COMPLETED', child: Text('✅ Completed')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => status = val);
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                    ],
 
                     Text('Description / Notes', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
@@ -215,14 +243,26 @@ class _TasksScreenState extends State<TasksScreen> {
 
                                 setModalState(() => isSaving = true);
 
-                                final res = await ApiService.createTask({
-                                  'title': titleController.text.trim(),
-                                  'description': descController.text.trim(),
-                                  'category': category,
-                                  'priority': priority,
-                                  'startDate': DateTime.now().toIso8601String(),
-                                  'endDate': endDate.toIso8601String(),
-                                });
+                                final Map<String, dynamic> res;
+                                if (isEdit) {
+                                  res = await ApiService.updateTask(task['id'].toString(), {
+                                    'title': titleController.text.trim(),
+                                    'description': descController.text.trim(),
+                                    'category': category,
+                                    'priority': priority,
+                                    'status': status,
+                                    'endDate': endDate.toIso8601String(),
+                                  });
+                                } else {
+                                  res = await ApiService.createTask({
+                                    'title': titleController.text.trim(),
+                                    'description': descController.text.trim(),
+                                    'category': category,
+                                    'priority': priority,
+                                    'startDate': DateTime.now().toIso8601String(),
+                                    'endDate': endDate.toIso8601String(),
+                                  });
+                                }
 
                                 if (!modalCtx.mounted) return;
                                 setModalState(() => isSaving = false);
@@ -231,12 +271,15 @@ class _TasksScreenState extends State<TasksScreen> {
                                   Navigator.pop(modalCtx);
                                   if (!mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Task created successfully! 🎉'), backgroundColor: Color(0xFF059669)),
+                                    SnackBar(
+                                      content: Text(isEdit ? 'Task updated successfully! 🎉' : 'Task created successfully! 🎉'),
+                                      backgroundColor: const Color(0xFF059669),
+                                    ),
                                   );
-                                  _fetchTasks();
+                                  _fetchTasks(forceRefresh: true);
                                 } else {
                                   ScaffoldMessenger.of(modalCtx).showSnackBar(
-                                    SnackBar(content: Text(res['error'] ?? 'Failed to create task')),
+                                    SnackBar(content: Text(res['error'] ?? (isEdit ? 'Failed to update task' : 'Failed to create task'))),
                                   );
                                 }
                               },
@@ -248,7 +291,7 @@ class _TasksScreenState extends State<TasksScreen> {
                         ),
                         child: isSaving
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
-                            : Text('Save Task', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700)),
+                            : Text(isEdit ? 'Update Task' : 'Save Task', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700)),
                       ),
                     ),
                   ],
@@ -258,6 +301,62 @@ class _TasksScreenState extends State<TasksScreen> {
           },
         );
       },
+    );
+  }
+
+  void _confirmDeleteTask(String taskId, String title) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)),
+            const SizedBox(width: 8),
+            Text('Delete Task?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "$title"? This action cannot be undone.',
+          style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF334155)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.delete_rounded, size: 16),
+            label: const Text('Delete'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final res = await ApiService.deleteTask(taskId);
+              if (!mounted) return;
+              if (res['success'] == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Task deleted successfully'),
+                    backgroundColor: Color(0xFF059669),
+                  ),
+                );
+                _fetchTasks(forceRefresh: true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res['error'] ?? 'Failed to delete task'),
+                    backgroundColor: const Color(0xFFEF4444),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -338,7 +437,7 @@ class _TasksScreenState extends State<TasksScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.add_task_rounded),
         label: Text('New Task', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-        onPressed: _openCreateTaskDialog,
+        onPressed: () => _openTaskDialog(),
       ),
       body: Column(
         children: [
@@ -430,7 +529,7 @@ class _TasksScreenState extends State<TasksScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Expanded(
                                             child: Text(
@@ -443,7 +542,41 @@ class _TasksScreenState extends State<TasksScreen> {
                                               ),
                                             ),
                                           ),
+                                          const SizedBox(width: 8),
                                           _buildPriorityBadge(priority),
+                                          const SizedBox(width: 2),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert_rounded, size: 20, color: Color(0xFF94A3B8)),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            onSelected: (val) {
+                                              if (val == 'edit') _openTaskDialog(task: t);
+                                              if (val == 'delete') _confirmDeleteTask(id, title);
+                                            },
+                                            itemBuilder: (ctx) => [
+                                              PopupMenuItem(
+                                                value: 'edit',
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF4F46E5)),
+                                                    const SizedBox(width: 10),
+                                                    Text('Edit Task', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                                                  ],
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.delete_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                                                    const SizedBox(width: 10),
+                                                    Text('Delete Task', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFFEF4444))),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ],
                                       ),
                                       if (desc.isNotEmpty) ...[
@@ -474,23 +607,70 @@ class _TasksScreenState extends State<TasksScreen> {
                                           ),
                                         ],
                                       ),
-                                      if (!isCompleted) ...[
-                                        const SizedBox(height: 12),
-                                        SizedBox(
-                                          width: double.infinity,
-                                          child: OutlinedButton.icon(
-                                            onPressed: () => _markTaskCompleted(id, title),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor: const Color(0xFF059669),
-                                              side: const BorderSide(color: Color(0xFF059669)),
-                                              padding: const EdgeInsets.symmetric(vertical: 8),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          if (!isCompleted)
+                                            Expanded(
+                                              child: OutlinedButton.icon(
+                                                onPressed: () => _markTaskCompleted(id, title),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor: const Color(0xFF059669),
+                                                  side: const BorderSide(color: Color(0xFF059669)),
+                                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                ),
+                                                icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                                                label: Text('Mark as Completed', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                                              ),
+                                            )
+                                          else
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFDCFCE7),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF15803D)),
+                                                  const SizedBox(width: 4),
+                                                  Text('Completed', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF15803D))),
+                                                ],
+                                              ),
                                             ),
-                                            icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-                                            label: Text('Mark as Completed', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
+                                          if (isCompleted) const Spacer(),
+                                          const SizedBox(width: 8),
+                                          InkWell(
+                                            onTap: () => _openTaskDialog(task: t),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFEEF2FF),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: const Color(0xFFC7D2FE)),
+                                              ),
+                                              child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF4F46E5)),
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 6),
+                                          InkWell(
+                                            onTap: () => _confirmDeleteTask(id, title),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFEF2F2),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: const Color(0xFFFECACA)),
+                                              ),
+                                              child: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 );

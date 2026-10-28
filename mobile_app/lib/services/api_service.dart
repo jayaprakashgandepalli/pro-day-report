@@ -1250,6 +1250,50 @@ class ApiService {
     }
   }
 
+  // 9a. Full Task Update (Edit details)
+  static Future<Map<String, dynamic>> updateTask(String taskId, Map<String, dynamic> updateData) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/employee/tasks/$taskId');
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(updateData),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedTasks.clear();
+        _tasksCacheTime.clear();
+        return {'success': true, 'task': data['task']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to update task'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
+  // 9b. Delete Task
+  static Future<Map<String, dynamic>> deleteTask(String taskId) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/employee/tasks/$taskId');
+      final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        _cachedTasks.clear();
+        _tasksCacheTime.clear();
+        return {'success': true};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to delete task'};
+      }
+    } catch (e) {
+      return {'success': false, 'error': 'Connection error: $e'};
+    }
+  }
+
   // 10. Get Telecaller Updates
   static Future<Map<String, dynamic>> getTelecallerUpdates({int page = 1, int limit = 20, bool forceRefresh = false}) async {
     final local = OfflineService.getCachedTelecallerUpdates();
