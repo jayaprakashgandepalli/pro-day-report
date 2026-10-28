@@ -74,9 +74,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       village: data.village !== undefined ? data.village : undefined,
       studyInterestedAt: data.studyInterestedAt !== undefined ? data.studyInterestedAt : undefined,
       educationStage: data.educationStage !== undefined ? data.educationStage : undefined,
-      ableToBearFee: data.ableToBearFee !== undefined ? data.ableToBearFee : undefined,
-      doorstepCompleted: data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined,
-      leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
+      doorstepCompleted: (data.doorstepCompleted === true || currentStudent.doorstepCompleted === true)
+        ? true
+        : (data.doorstepCompleted !== undefined ? data.doorstepCompleted : undefined),
       joinedCollegeId: data.joinedCollegeId !== undefined ? data.joinedCollegeId : undefined,
       collegeBranchId: data.collegeBranchId !== undefined ? data.collegeBranchId : (data.joinedCollegeId !== undefined ? data.joinedCollegeId : undefined),
       applicationNumber: data.applicationNumber !== undefined ? data.applicationNumber : undefined,

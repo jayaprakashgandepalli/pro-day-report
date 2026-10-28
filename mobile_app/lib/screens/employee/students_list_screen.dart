@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
+import '../../services/offline_service.dart';
 import '../../services/whatsapp_template_service.dart';
 import '../../services/location_service.dart';
 import 'add_student_screen.dart';
@@ -2355,6 +2356,380 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     );
   }
 
+  // Edit Admission Details Dialog (Campus, Application Number, Admission Date)
+  Future<void> _showEditAdmissionDialog({
+    required BuildContext context,
+    required String studentId,
+    required String studentName,
+    required String? initialCollegeId,
+    required String? initialAppNo,
+    required DateTime? initialAdmissionDate,
+    required Function({
+      required String newCollegeId,
+      required String newCollegeName,
+      required String newAppNo,
+      required DateTime newAdmissionDate,
+    }) onSaved,
+  }) async {
+    String? selectedCollegeId = initialCollegeId;
+    if (selectedCollegeId == null || selectedCollegeId.isEmpty) {
+      if (_colleges.isNotEmpty) {
+        selectedCollegeId = (_colleges.first['id'] ?? _colleges.first['employeeId'])?.toString();
+      }
+    }
+
+    final appNumberController = TextEditingController(text: initialAppNo ?? '');
+    DateTime selectedDate = initialAdmissionDate ?? DateTime.now();
+    bool isSaving = false;
+    String? errorMessage;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(dialogCtx).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Drag handle
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCBD5E1),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.school_rounded, color: Color(0xFF2563EB), size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Edit Admission Details',
+                                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                                ),
+                                Text(
+                                  studentName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                            onPressed: () => Navigator.pop(modalCtx),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                      const SizedBox(height: 16),
+
+                      if (errorMessage != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.only(bottom: 14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline_rounded, size: 18, color: Color(0xFFDC2626)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  errorMessage!,
+                                  style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF991B1B)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // 1. College Branch
+                      Text(
+                        'Admitted Campus / Branch *',
+                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 6),
+                      if (_colleges.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Text(
+                            'No college branches available. Please configure branches first.',
+                            style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF991B1B)),
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _colleges.any((c) => (c['id'] ?? c['employeeId'])?.toString() == selectedCollegeId)
+                              ? selectedCollegeId
+                              : (_colleges.first['id'] ?? _colleges.first['employeeId'])?.toString(),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: const Icon(Icons.account_balance_rounded, size: 20, color: Color(0xFF64748B)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          items: _colleges.map((c) {
+                            final branchId = (c['id'] ?? c['employeeId'] ?? '').toString();
+                            final bname = (c['name'] ?? 'College Branch').toString();
+                            final bloc = (c['location'] ?? '').toString();
+                            final displayText = bloc.isNotEmpty ? '$bname ($bloc)' : bname;
+                            return DropdownMenuItem(
+                              value: branchId,
+                              child: Text(
+                                displayText,
+                                style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) => setDialogState(() => selectedCollegeId = val),
+                        ),
+                      const SizedBox(height: 16),
+
+                      // 2. Application Number (The key item the user asked for!)
+                      Row(
+                        children: [
+                          Text(
+                            'Application Number',
+                            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Important',
+                              style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: appNumberController,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          hintText: 'Enter application number (e.g. 20261054)',
+                          hintStyle: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
+                          prefixIcon: const Icon(Icons.tag_rounded, size: 20, color: Color(0xFF64748B)),
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 3. Admission Date
+                      Text(
+                        'Admission Date',
+                        style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF334155)),
+                      ),
+                      const SizedBox(height: 6),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: modalCtx,
+                            initialDate: selectedDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2035),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => selectedDate = picked);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_month_rounded, size: 20, color: Color(0xFF64748B)),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _formatDate(selectedDate),
+                                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+                                ),
+                              ),
+                              Text(
+                                'Change',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Action Buttons: Cancel and Save
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: OutlinedButton(
+                              onPressed: isSaving ? null : () => Navigator.pop(modalCtx),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: isSaving
+                                  ? null
+                                  : () async {
+                                      if (selectedCollegeId == null || selectedCollegeId!.isEmpty) {
+                                        setDialogState(() => errorMessage = 'Please select an admitted campus.');
+                                        return;
+                                      }
+                                      setDialogState(() {
+                                        isSaving = true;
+                                        errorMessage = null;
+                                      });
+
+                                      final appNoText = appNumberController.text.trim();
+                                      final payload = {
+                                        'joinedCollegeId': selectedCollegeId,
+                                        'collegeBranchId': selectedCollegeId,
+                                        'applicationNumber': appNoText,
+                                        'admissionDate': selectedDate.toIso8601String(),
+                                      };
+
+                                      final res = await ApiService.updateStudent(studentId, payload);
+                                      if (res['success'] != true) {
+                                        setDialogState(() {
+                                          isSaving = false;
+                                          errorMessage = res['error'] ?? 'Failed to update admission details.';
+                                        });
+                                        return;
+                                      }
+
+                                      // Success! Update locally
+                                      final collegeName = _resolveCollegeName(selectedCollegeId);
+                                      await OfflineService.updateStudentLocally(studentId, {
+                                        'joinedCollegeId': selectedCollegeId,
+                                        'collegeBranchId': selectedCollegeId,
+                                        'applicationNumber': appNoText,
+                                        'admissionDate': selectedDate.toIso8601String(),
+                                        'collegeBranch': {'id': selectedCollegeId, 'name': collegeName},
+                                      });
+
+                                      // Update in parent screen list
+                                      for (final student in _allStudents) {
+                                        if (student is Map && student['id']?.toString() == studentId) {
+                                          student['joinedCollegeId'] = selectedCollegeId;
+                                          student['collegeBranchId'] = selectedCollegeId;
+                                          student['applicationNumber'] = appNoText;
+                                          student['admissionDate'] = selectedDate.toIso8601String();
+                                          student['collegeBranch'] = {'id': selectedCollegeId, 'name': collegeName};
+                                          break;
+                                        }
+                                      }
+
+                                      onSaved(
+                                        newCollegeId: selectedCollegeId!,
+                                        newCollegeName: collegeName,
+                                        newAppNo: appNoText,
+                                        newAdmissionDate: selectedDate,
+                                      );
+
+                                      if (modalCtx.mounted) Navigator.pop(modalCtx);
+                                      if (mounted) setState(() {});
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              child: isSaving
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text(
+                                      'Save Changes',
+                                      style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // Full Details Bottom Sheet with Photo Upload & Preview (Only for Admitted Students)
   void _showAdmittedStudentDetails(Map<String, dynamic> s) {
     final studentId = s['id']?.toString() ?? '';
@@ -2371,13 +2746,15 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     final district = _resolveName(s['district']);
     final college = s['collegeBranch']?['name']?.toString() ?? s['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(s['collegeBranchId'] ?? s['joinedCollegeId']);
     final appNo = s['applicationNumber']?.toString() ?? '';
-    final admissionDate = s['admissionDate'] != null ? _formatDate(DateTime.tryParse(s['admissionDate'].toString()) ?? DateTime.now()) : '';
     final isAdmitted = s['leadStatus'] == 'Admitted' || (s['collegeBranchId'] != null && s['collegeBranchId'].toString().isNotEmpty) || (s['joinedCollegeId'] != null && s['joinedCollegeId'].toString().isNotEmpty);
 
     String? currentStudentPhoto = s['studentPhoto']?.toString();
     String? currentAppPhoto = s['applicationPhoto']?.toString();
+    String? currentCollegeId = s['collegeBranchId']?.toString() ?? s['joinedCollegeId']?.toString();
     String? currentCollege = college;
     String? currentAppNo = appNo;
+    DateTime? currentAdmissionDateRaw = s['admissionDate'] != null ? DateTime.tryParse(s['admissionDate'].toString()) : null;
+    String currentAdmissionDate = currentAdmissionDateRaw != null ? _formatDate(currentAdmissionDateRaw) : (s['admissionDate'] != null ? _formatDate(DateTime.tryParse(s['admissionDate'].toString()) ?? DateTime.now()) : '');
     bool hasLoadedFresh = false;
     bool isSavingStudentPhoto = false;
     bool isSavingAppPhoto = false;
@@ -2391,6 +2768,39 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
+            void openEditAdmissionDialog() {
+              _showEditAdmissionDialog(
+                context: modalCtx,
+                studentId: studentId,
+                studentName: studentName,
+                initialCollegeId: currentCollegeId,
+                initialAppNo: currentAppNo,
+                initialAdmissionDate: currentAdmissionDateRaw,
+                onSaved: ({
+                  required String newCollegeId,
+                  required String newCollegeName,
+                  required String newAppNo,
+                  required DateTime newAdmissionDate,
+                }) {
+                  setModalState(() {
+                    currentCollegeId = newCollegeId;
+                    currentCollege = newCollegeName;
+                    currentAppNo = newAppNo;
+                    currentAdmissionDateRaw = newAdmissionDate;
+                    currentAdmissionDate = _formatDate(newAdmissionDate);
+                    s['collegeBranchId'] = newCollegeId;
+                    s['joinedCollegeId'] = newCollegeId;
+                    s['applicationNumber'] = newAppNo;
+                    s['admissionDate'] = newAdmissionDate.toIso8601String();
+                    s['collegeBranch'] = {'id': newCollegeId, 'name': newCollegeName};
+                    s['joinedCollege'] = {'id': newCollegeId, 'name': newCollegeName};
+                    photoFeedbackMessage = '✅ Admission details & Application Number updated successfully!';
+                    photoFeedbackSuccess = true;
+                  });
+                },
+              );
+            }
+
             if (!hasLoadedFresh && studentId.isNotEmpty) {
               hasLoadedFresh = true;
               ApiService.getStudentById(studentId).then((res) {
@@ -2401,6 +2811,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                   final cid = fresh['collegeBranchId']?.toString() ?? fresh['joinedCollegeId']?.toString();
                   final cname = fresh['collegeBranch']?['name']?.toString() ?? fresh['joinedCollege']?['name']?.toString() ?? _resolveCollegeName(cid);
                   final ano = fresh['applicationNumber']?.toString();
+                  final adDate = fresh['admissionDate'] != null ? DateTime.tryParse(fresh['admissionDate'].toString()) : null;
                   setModalState(() {
                     if (p != null && p.isNotEmpty) {
                       currentStudentPhoto = p;
@@ -2410,8 +2821,13 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                       currentAppPhoto = a;
                       s['applicationPhoto'] = a;
                     }
+                    if (cid != null && cid.isNotEmpty) currentCollegeId = cid;
                     if (cname.isNotEmpty) currentCollege = cname;
                     if (ano != null && ano.isNotEmpty) currentAppNo = ano;
+                    if (adDate != null) {
+                      currentAdmissionDateRaw = adDate;
+                      currentAdmissionDate = _formatDate(adDate);
+                    }
                   });
                 }
               });
@@ -2565,6 +2981,37 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                                 ],
                               ),
                             ),
+                            InkWell(
+                              onTap: () async {
+                                Navigator.pop(modalCtx);
+                                final updated = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => AddStudentScreen(student: s)),
+                                );
+                                if (updated == true) _fetchData(forceRefresh: true);
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF2563EB)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Edit Profile',
+                                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
                               onPressed: () => Navigator.pop(modalCtx),
@@ -2739,11 +3186,39 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                         ),
                         const SizedBox(height: 20),
 
-                        // SECTION 2: ADMISSION DETAILS
+                        // SECTION 2: ADMISSION DETAILS (With Edit Action & Missing App No Prompt!)
                         if (isAdmitted || college.isNotEmpty) ...[
-                          Text(
-                            '🎓 College Admission Information',
-                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '🎓 College Admission Information',
+                                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                              ),
+                              InkWell(
+                                onTap: openEditAdmissionDialog,
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF2563EB)),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Edit',
+                                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Container(
@@ -2755,11 +3230,61 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
                             ),
                             child: Column(
                               children: [
-                                _buildDetailRow(Icons.account_balance_rounded, 'Admitted Campus', (currentCollege != null && currentCollege!.isNotEmpty) ? currentCollege! : 'Branch not specified'),
-                                if (currentAppNo != null && currentAppNo!.isNotEmpty)
-                                  _buildDetailRow(Icons.tag_rounded, 'Application Number', currentAppNo!),
-                                if (admissionDate.isNotEmpty)
-                                  _buildDetailRow(Icons.calendar_today_rounded, 'Admission Date', admissionDate),
+                                _buildDetailRow(
+                                  Icons.account_balance_rounded,
+                                  'Admitted Campus',
+                                  (currentCollege != null && currentCollege!.isNotEmpty) ? currentCollege! : 'Branch not specified',
+                                ),
+                                if (currentAppNo != null && currentAppNo!.trim().isNotEmpty)
+                                  _buildDetailRow(Icons.tag_rounded, 'Application Number', currentAppNo!)
+                                else
+                                  InkWell(
+                                    onTap: openEditAdmissionDialog,
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(10),
+                                      margin: const EdgeInsets.symmetric(vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFFBEB),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: const Color(0xFFFDE68A)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFFD97706)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Application Number: Not Entered',
+                                                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: const Color(0xFF92400E)),
+                                                ),
+                                                Text(
+                                                  'Tap here to add Application Number now',
+                                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFB45309)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFD97706),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              'Enter Now',
+                                              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                if (currentAdmissionDate.isNotEmpty)
+                                  _buildDetailRow(Icons.calendar_today_rounded, 'Admission Date', currentAdmissionDate),
                               ],
                             ),
                           ),

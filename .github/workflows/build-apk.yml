@@ -39,7 +39,7 @@ jobs:
       - name: Build Android Release APK
         run: |
           cd mobile_app
-          flutter build apk --release
+          flutter build apk --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
 
       - name: Copy & Rename APK
         run: |
@@ -57,13 +57,16 @@ jobs:
         if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         with:
           tag_name: latest-apk
-          name: PRO Day Report - Latest Mobile App
+          name: PRO Day Report v1.0.${{ github.run_number }}
           body: |
             ## 📱 PRO Day Report Mobile App (Flutter)
+            BUILD_NUMBER: ${{ github.run_number }}
+            VERSION_NAME: 1.0.${{ github.run_number }}
             - ⚡ **Zero-latency offline caching** & Auto sync
             - 💬 **Dynamic WhatsApp Templates** with custom names & Smart tags
             - 📄 **4-Page College Pamphlet** instant sharing
             - 🏫 **Employee Profile College Name Integration**
+            - 🔄 **In-App Auto Update Enabled**
             
             👉 **డౌన్‌లోడ్:** కింద ఉన్న `PRO_Day_Report.apk` ఫైల్ పై క్లిక్ చేసి నేరుగా మీ ఆండ్రాయిడ్ మొబైల్ లో ఇన్‌స్టాల్ చేసుకోండి.
           files: PRO_Day_Report.apk

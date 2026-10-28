@@ -108,6 +108,14 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }
 
+  String _getDayName(DateTime dt) {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    if (dt.weekday >= 1 && dt.weekday <= 7) {
+      return days[dt.weekday - 1];
+    }
+    return '';
+  }
+
   Future<void> _fetchStats() async {
     try {
       await ApiService.getConfigMap();
@@ -179,6 +187,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           _endDate = picked;
         }
       });
+      _fetchReportData();
     }
   }
 
@@ -189,7 +198,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   String get _dateRangeDisplay {
-    if (_isAllTime) return 'All Time (${_students.length} Leads)';
+    if (_isAllTime) return 'All Time';
     if (_startDate.year == _endDate.year &&
         _startDate.month == _endDate.month &&
         _startDate.day == _endDate.day) {
@@ -252,134 +261,257 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       }
     }
 
-    // Rows
-    final List<List<String>> tableData = [];
-    for (int i = 0; i < _students.length; i++) {
-      final s = _students[i];
-      final row = <String>[];
+    // Collect report entries
+    final List<_ReportPdfEntry> allEntries = [];
+    final bool hasDateRange = !_isAllTime;
+    final DateTime startDay = DateTime(_startDate.year, _startDate.month, _startDate.day);
+    final DateTime endDay = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59, 999);
 
-      // Full Hierarchical Address (Village, Mandal, District, Landmark)
-      final villageId = s['village']?.toString() ?? '';
-      final villageName = ApiService.resolveConfig(villageId);
+    for (final s in _students) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
 
-      String mandalId = s['mandal']?.toString() ?? '';
-      if (mandalId.isEmpty && villageId.isNotEmpty) {
-        mandalId = configParentMap[villageId] ?? '';
-      }
-      final mandalName = ApiService.resolveConfig(mandalId);
+      // Sort all visits chronologically
+      final sortedVisits = List<dynamic>.from(rawVisits)..sort((a, b) {
+        final aDate = DateTime.tryParse(a['visitDate']?.toString() ?? '') ?? DateTime(1970);
+        final bDate = DateTime.tryParse(b['visitDate']?.toString() ?? '') ?? DateTime(1970);
+        return aDate.compareTo(bDate);
+      });
 
-      String districtId = s['district']?.toString() ?? '';
-      if (districtId.isEmpty && mandalId.isNotEmpty) {
-        districtId = configParentMap[mandalId] ?? '';
-      }
-      final districtName = ApiService.resolveConfig(districtId);
-
-      final addressParts = <String>[];
-      if (villageName.isNotEmpty) addressParts.add(villageName);
-      if (mandalName.isNotEmpty && mandalName.toLowerCase() != villageName.toLowerCase()) {
-        addressParts.add(mandalName.toLowerCase().contains('mandal') ? mandalName : '$mandalName Mdl');
-      }
-      if (districtName.isNotEmpty && districtName.toLowerCase() != mandalName.toLowerCase()) {
-        addressParts.add(districtName.toLowerCase().contains('dist') ? districtName : '$districtName Dt.');
+      // Assign true lifetime sequence number: 1, 2, 3, 4...
+      final visitsWithSeq = <Map<String, dynamic>>[];
+      for (int idx = 0; idx < sortedVisits.length; idx++) {
+        final v = Map<String, dynamic>.from(sortedVisits[idx] as Map);
+        v['_seqNo'] = '${idx + 1}';
+        visitsWithSeq.add(v);
       }
 
-      String finalAddress = addressParts.join(', ');
-      final rawAddress = s['address']?.toString().trim() ?? '';
-      final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
-      if (cleanLandmark.isNotEmpty) {
-        finalAddress = finalAddress.isNotEmpty ? '$finalAddress\nLandmark: $cleanLandmark' : cleanLandmark;
-      }
-      if (finalAddress.isEmpty) finalAddress = '-';
+      // Filter visits to selected date range
+      final matchingVisits = visitsWithSeq.where((v) {
+        if (!hasDateRange) return true;
+        final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '');
+        if (dt == null) return false;
+        return dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
+               dt.isBefore(endDay.add(const Duration(milliseconds: 1)));
+      }).toList();
 
-      // Group resolution (avoid blank empty cells)
-      final rawGroup = s['group']?.toString().trim() ?? '';
-      final resolvedGroup = ApiService.resolveConfig(rawGroup);
-      final groupDisplay = resolvedGroup.isNotEmpty
-          ? resolvedGroup
-          : (rawGroup.isNotEmpty ? rawGroup : '-');
+      if (_reportType == 'visits') {
+        if (matchingVisits.isNotEmpty) {
+          for (final v in matchingVisits) {
+            final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '') ?? DateTime.now();
+            final dKey = _formatApiDate(dt);
+            final dFormatted = _formatDisplayDate(dt);
+            final dName = _getDayName(dt);
+            final rem = (v['remarks']?.toString().trim() ?? '').isNotEmpty
+                ? v['remarks'].toString().trim()
+                : (s['remarks']?.toString().trim() ?? '');
 
-      // Visit Number & Count
-      final visits = s['visits'] as List<dynamic>?;
-      final visitCount = visits?.length ?? 0;
-      final rawVisitNumber = s['visitNumber']?.toString().trim() ?? '';
-      final visitNumber = rawVisitNumber.isNotEmpty
-          ? rawVisitNumber
-          : (visitCount > 0 ? '$visitCount' : '-');
-
-      // School Name
-      final sc = ApiService.resolveConfig(s['schoolName']?.toString() ?? '');
-      final schoolDisplay = sc.isNotEmpty ? sc : (s['schoolName']?.toString() ?? '-');
-
-      // Detailed Remarks
-      String extraRemarks = '';
-      final visit = (visits != null && visits.isNotEmpty) ? visits[0] : null;
-      final vDate = visit?['visitDate'] != null ? visit!['visitDate'].toString().split('T')[0] : '';
-      final visitRemark = visit?['remarks']?.toString().trim() ?? '';
-      final studentRemark = s['remarks']?.toString().trim() ?? '';
-
-      if (visitRemark.isNotEmpty) {
-        extraRemarks = 'Visit ($vDate): $visitRemark';
-        if (studentRemark.isNotEmpty && studentRemark.toLowerCase() != visitRemark.toLowerCase()) {
-          extraRemarks += ' | $studentRemark';
+            allEntries.add(_ReportPdfEntry(
+              dateKey: dKey,
+              dateFormatted: dFormatted,
+              dayName: dName,
+              student: s,
+              visit: v,
+              visitNumber: v['_seqNo'] ?? '1',
+              remarks: rem,
+              entryType: 'visit',
+            ));
+          }
+        } else if (!hasDateRange) {
+          final dt = DateTime.tryParse(s['updatedAt']?.toString() ?? s['createdAt']?.toString() ?? '') ?? DateTime.now();
+          final dKey = _formatApiDate(dt);
+          final dFormatted = _formatDisplayDate(dt);
+          final dName = _getDayName(dt);
+          allEntries.add(_ReportPdfEntry(
+            dateKey: dKey,
+            dateFormatted: dFormatted,
+            dayName: dName,
+            student: s,
+            visit: null,
+            visitNumber: '1',
+            remarks: s['remarks']?.toString().trim() ?? '',
+            entryType: 'visit',
+          ));
         }
-      } else if (studentRemark.isNotEmpty) {
-        extraRemarks = studentRemark;
-      }
+      } else if (_reportType == 'new_students') {
+        final dt = DateTime.tryParse(s['createdAt']?.toString() ?? '') ?? DateTime.now();
+        final dKey = _formatApiDate(dt);
+        final dFormatted = _formatDisplayDate(dt);
+        final dName = _getDayName(dt);
+        allEntries.add(_ReportPdfEntry(
+          dateKey: dKey,
+          dateFormatted: dFormatted,
+          dayName: dName,
+          student: s,
+          visit: null,
+          visitNumber: '-',
+          remarks: s['remarks']?.toString().trim() ?? '',
+          entryType: 'new_student',
+        ));
+      } else {
+        // 'all': Both new students and visits
+        if (matchingVisits.isNotEmpty) {
+          for (final v in matchingVisits) {
+            final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '') ?? DateTime.now();
+            final dKey = _formatApiDate(dt);
+            final dFormatted = _formatDisplayDate(dt);
+            final dName = _getDayName(dt);
+            final rem = (v['remarks']?.toString().trim() ?? '').isNotEmpty
+                ? 'Visit ${v['_seqNo']}: ${v['remarks'].toString().trim()}'
+                : (s['remarks']?.toString().trim() ?? '');
 
-      if (s['marks'] != null && s['marks'].toString().trim().isNotEmpty) {
-        final m = s['marks'].toString().trim();
-        extraRemarks += extraRemarks.isNotEmpty ? ' | Marks: $m' : 'Marks: $m';
+            allEntries.add(_ReportPdfEntry(
+              dateKey: dKey,
+              dateFormatted: dFormatted,
+              dayName: dName,
+              student: s,
+              visit: v,
+              visitNumber: v['_seqNo'] ?? '1',
+              remarks: rem,
+              entryType: 'visit',
+            ));
+          }
+        } else {
+          final dt = DateTime.tryParse(s['createdAt']?.toString() ?? '') ?? DateTime.now();
+          final dKey = _formatApiDate(dt);
+          final dFormatted = _formatDisplayDate(dt);
+          final dName = _getDayName(dt);
+          allEntries.add(_ReportPdfEntry(
+            dateKey: dKey,
+            dateFormatted: dFormatted,
+            dayName: dName,
+            student: s,
+            visit: null,
+            visitNumber: '-',
+            remarks: (s['remarks']?.toString().trim() ?? '').isNotEmpty
+                ? 'New Lead: ${s['remarks'].toString().trim()}'
+                : 'New Student Added',
+            entryType: 'new_student',
+          ));
+        }
       }
-      if (s['studyInterestedAt'] != null && s['studyInterestedAt'].toString().isNotEmpty) {
-        final intAt = ApiService.resolveConfig(s['studyInterestedAt'].toString());
-        extraRemarks += extraRemarks.isNotEmpty ? ' | Int: $intAt' : 'Int: $intAt';
-      }
-      if (s['ableToBearFee'] != null && s['ableToBearFee'].toString().isNotEmpty) {
-        final fee = ApiService.resolveConfig(s['ableToBearFee'].toString());
-        extraRemarks += extraRemarks.isNotEmpty ? ' | Fee: $fee' : 'Fee: $fee';
-      }
-      if (s['leadStatus'] != null && s['leadStatus'].toString().isNotEmpty) {
-        extraRemarks += extraRemarks.isNotEmpty ? ' | Status: ${s['leadStatus']}' : 'Status: ${s['leadStatus']}';
-      }
+    }
 
-      for (final col in _availableColumns) {
-        final id = col['id']!;
-        if (_selectedColumns.contains(id)) {
-          if (id == 'sno') {
-            row.add('${i + 1}');
-          } else if (id == 'studentName') {
-            row.add(s['studentName']?.toString() ?? '-');
-          } else if (id == 'fatherName') {
-            row.add(s['fatherName']?.toString() ?? '-');
-          } else if (id == 'occupation') {
-            row.add(s['occupation']?.toString() ?? '-');
-          } else if (id == 'address') {
-            row.add(finalAddress);
-          } else if (id == 'gps') {
-            final coords = LocationService.extractGps(rawAddress);
-            if (coords != null) {
-              row.add('${coords['lat']!.toStringAsFixed(4)},\n${coords['lng']!.toStringAsFixed(4)}');
-            } else {
-              row.add('-');
+    // Group by dateKey
+    final Map<String, List<_ReportPdfEntry>> dateGroups = {};
+    for (final entry in allEntries) {
+      dateGroups.putIfAbsent(entry.dateKey, () => []).add(entry);
+    }
+
+    final sortedDateKeys = dateGroups.keys.toList()..sort();
+
+    // Pre-build table rows for each date
+    final Map<String, List<List<String>>> dayTables = {};
+    for (final dKey in sortedDateKeys) {
+      final dayItems = dateGroups[dKey]!;
+      final dayTableData = <List<String>>[];
+
+      for (int i = 0; i < dayItems.length; i++) {
+        final entry = dayItems[i];
+        final s = entry.student;
+        final row = <String>[];
+
+        // Full Hierarchical Address (Village, Mandal, District, Landmark)
+        final villageId = s['village']?.toString() ?? '';
+        final villageName = ApiService.resolveConfig(villageId);
+
+        String mandalId = s['mandal']?.toString() ?? '';
+        if (mandalId.isEmpty && villageId.isNotEmpty) {
+          mandalId = configParentMap[villageId] ?? '';
+        }
+        final mandalName = ApiService.resolveConfig(mandalId);
+
+        String districtId = s['district']?.toString() ?? '';
+        if (districtId.isEmpty && mandalId.isNotEmpty) {
+          districtId = configParentMap[mandalId] ?? '';
+        }
+        final districtName = ApiService.resolveConfig(districtId);
+
+        final addressParts = <String>[];
+        if (villageName.isNotEmpty) addressParts.add(villageName);
+        if (mandalName.isNotEmpty && mandalName.toLowerCase() != villageName.toLowerCase()) {
+          addressParts.add(mandalName.toLowerCase().contains('mandal') ? mandalName : '$mandalName Mdl');
+        }
+        if (districtName.isNotEmpty && districtName.toLowerCase() != mandalName.toLowerCase()) {
+          addressParts.add(districtName.toLowerCase().contains('dist') ? districtName : '$districtName Dt.');
+        }
+
+        String finalAddress = addressParts.join(', ');
+        final rawAddress = s['address']?.toString().trim() ?? '';
+        final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
+        if (cleanLandmark.isNotEmpty) {
+          finalAddress = finalAddress.isNotEmpty ? '$finalAddress\nLandmark: $cleanLandmark' : cleanLandmark;
+        }
+        if (finalAddress.isEmpty) finalAddress = '-';
+
+        // Group resolution (avoid blank empty cells)
+        final rawGroup = s['group']?.toString().trim() ?? '';
+        final resolvedGroup = ApiService.resolveConfig(rawGroup);
+        final groupDisplay = resolvedGroup.isNotEmpty
+            ? resolvedGroup
+            : (rawGroup.isNotEmpty ? rawGroup : '-');
+
+        // School Name
+        final sc = ApiService.resolveConfig(s['schoolName']?.toString() ?? '');
+        final schoolDisplay = sc.isNotEmpty ? sc : (s['schoolName']?.toString() ?? '-');
+
+        // Detailed Remarks
+        String extraRemarks = entry.remarks.trim();
+        if (s['marks'] != null && s['marks'].toString().trim().isNotEmpty) {
+          final m = s['marks'].toString().trim();
+          extraRemarks += extraRemarks.isNotEmpty ? ' | Marks: $m' : 'Marks: $m';
+        }
+        if (s['studyInterestedAt'] != null && s['studyInterestedAt'].toString().isNotEmpty) {
+          final intAt = ApiService.resolveConfig(s['studyInterestedAt'].toString());
+          extraRemarks += extraRemarks.isNotEmpty ? ' | Int: $intAt' : 'Int: $intAt';
+        }
+        if (s['ableToBearFee'] != null && s['ableToBearFee'].toString().isNotEmpty) {
+          final fee = ApiService.resolveConfig(s['ableToBearFee'].toString());
+          extraRemarks += extraRemarks.isNotEmpty ? ' | Fee: $fee' : 'Fee: $fee';
+        }
+        if (s['leadStatus'] != null && s['leadStatus'].toString().isNotEmpty) {
+          extraRemarks += extraRemarks.isNotEmpty ? ' | Status: ${s['leadStatus']}' : 'Status: ${s['leadStatus']}';
+        }
+
+        for (final col in _availableColumns) {
+          final id = col['id']!;
+          if (_selectedColumns.contains(id)) {
+            if (id == 'sno') {
+              row.add('${i + 1}');
+            } else if (id == 'studentName') {
+              row.add(s['studentName']?.toString() ?? '-');
+            } else if (id == 'fatherName') {
+              row.add(s['fatherName']?.toString() ?? '-');
+            } else if (id == 'occupation') {
+              row.add(s['occupation']?.toString() ?? '-');
+            } else if (id == 'address') {
+              row.add(finalAddress);
+            } else if (id == 'gps') {
+              final coords = LocationService.extractGps(rawAddress);
+              if (coords != null) {
+                row.add('${coords['lat']!.toStringAsFixed(4)},\n${coords['lng']!.toStringAsFixed(4)}');
+              } else {
+                row.add('-');
+              }
+            } else if (id == 'phone') {
+              row.add(s['phone']?.toString() ?? '-');
+            } else if (id == 'whatsapp') {
+              row.add(s['whatsapp']?.toString() ?? '-');
+            } else if (id == 'group') {
+              row.add(groupDisplay);
+            } else if (id == 'visitNumber') {
+              row.add(entry.visitNumber);
+            } else if (id == 'schoolName') {
+              row.add(schoolDisplay);
+            } else if (id == 'doorstep') {
+              row.add(s['doorstepCompleted'] == true ? 'Yes' : 'No');
+            } else if (id == 'remarks') {
+              row.add(extraRemarks.isNotEmpty ? extraRemarks : '-');
             }
-          } else if (id == 'phone') {
-            row.add(s['phone']?.toString() ?? '-');
-          } else if (id == 'whatsapp') {
-            row.add(s['whatsapp']?.toString() ?? '-');
-          } else if (id == 'group') {
-            row.add(groupDisplay);
-          } else if (id == 'visitNumber') {
-            row.add(visitNumber);
-          } else if (id == 'schoolName') {
-            row.add(schoolDisplay);
-          } else if (id == 'doorstep') {
-            row.add(s['doorstepCompleted'] == true ? 'Yes' : 'No');
-          } else if (id == 'remarks') {
-            row.add(extraRemarks.isNotEmpty ? extraRemarks : '-');
           }
         }
+        dayTableData.add(row);
       }
-      tableData.add(row);
+      dayTables[dKey] = dayTableData;
     }
 
     // Report Title
@@ -412,7 +544,8 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
     // Group counts summary with clean labels (never empty group keys)
     final groupCounts = <String, int>{};
-    for (final s in _students) {
+    for (final entry in allEntries) {
+      final s = entry.student;
       final rawG = s['group']?.toString().trim() ?? '';
       final g = ApiService.resolveConfig(rawG);
       final groupName = g.isNotEmpty ? g : (rawG.isNotEmpty ? rawG : 'Not Specified');
@@ -425,60 +558,93 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         header: (pw.Context context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    if (headerCollege.isNotEmpty) ...[
+          if (context.pageNumber == 1) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Column(
+                    children: [
+                      if (headerCollege.isNotEmpty) ...[
+                        pw.Text(
+                          headerCollege.toUpperCase(),
+                          style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColor.fromHex('#0F2B47'),
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        pw.SizedBox(height: 3),
+                      ],
                       pw.Text(
-                        headerCollege.toUpperCase(),
+                        reportTitle,
                         style: pw.TextStyle(
-                          fontSize: 16,
+                          fontSize: 12.5,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColor.fromHex('#0F2B47'),
-                          letterSpacing: 1.2,
+                          color: PdfColor.fromHex('#0F766E'),
                         ),
                       ),
-                      pw.SizedBox(height: 3),
                     ],
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
                     pw.Text(
-                      reportTitle,
-                      style: pw.TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: pw.FontWeight.bold,
-                        color: PdfColor.fromHex('#0F766E'),
-                      ),
+                      'Employee Name: $_employeeName',
+                      style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
+                    ),
+                    pw.Text(
+                      'Date Range: $_dateRangeDisplay',
+                      style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
                     ),
                   ],
                 ),
+                if (filterParts.isNotEmpty)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 2),
+                    child: pw.Text(
+                      'Filters: ${filterParts.join(' | ')}',
+                      style: pw.TextStyle(fontSize: 8.5, color: PdfColor.fromHex('#64748B')),
+                    ),
+                  ),
+                pw.SizedBox(height: 6),
+              ],
+            );
+          } else {
+            // Subsequent pages: Compact running header without repeating Date Range or Filters
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(bottom: 6),
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              decoration: pw.BoxDecoration(
+                border: pw.Border(
+                  bottom: pw.BorderSide(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                ),
               ),
-              pw.SizedBox(height: 6),
-              pw.Row(
+              child: pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    'Employee Name: $_employeeName',
-                    style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
+                    reportTitle,
+                    style: pw.TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromHex('#0F766E'),
+                    ),
                   ),
                   pw.Text(
-                    'Date Range: $_dateRangeDisplay',
-                    style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
+                    'Employee: $_employeeName',
+                    style: pw.TextStyle(
+                      fontSize: 8.0,
+                      color: PdfColor.fromHex('#64748B'),
+                    ),
                   ),
                 ],
               ),
-              if (filterParts.isNotEmpty)
-                pw.Padding(
-                  padding: const pw.EdgeInsets.only(top: 2),
-                  child: pw.Text(
-                    'Filters: ${filterParts.join(' | ')}',
-                    style: pw.TextStyle(fontSize: 8.5, color: PdfColor.fromHex('#64748B')),
-                  ),
-                ),
-              pw.SizedBox(height: 6),
-            ],
-          );
+            );
+          }
         },
         footer: (pw.Context context) {
           return pw.Row(
@@ -496,27 +662,90 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           );
         },
         build: (pw.Context context) {
-          return [
-            pw.TableHelper.fromTextArray(
-              headers: tableHeaders,
-              data: tableData,
-              columnWidths: columnWidths,
-              border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
-              headerStyle: pw.TextStyle(
-                fontSize: 8.5,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.white,
+          final contentWidgets = <pw.Widget>[];
+
+          if (sortedDateKeys.isEmpty) {
+            contentWidgets.add(
+              pw.Center(
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(30),
+                  child: pw.Text('No records found in the selected date range.', style: const pw.TextStyle(fontSize: 12)),
+                ),
               ),
-              headerDecoration: pw.BoxDecoration(
-                color: PdfColor.fromHex('#0F766E'),
+            );
+          }
+
+          for (int dIndex = 0; dIndex < sortedDateKeys.length; dIndex++) {
+            final dKey = sortedDateKeys[dIndex];
+            final dayItems = dateGroups[dKey]!;
+            final dFormatted = dayItems.first.dateFormatted;
+            final dName = dayItems.first.dayName;
+            final itemLabel = _reportType == 'new_students'
+                ? (dayItems.length == 1 ? 'New Student' : 'New Students')
+                : (dayItems.length == 1 ? 'Visit' : 'Visits');
+
+            // Smart keep-together: Prevent orphaned Date Banner and table headers at bottom of page.
+            // If there isn't enough vertical space for Date Banner + Table Header + data rows,
+            // push the whole section cleanly to the next page.
+            if (dIndex > 0) {
+              final double neededForDay = 52.0 + (dayItems.length * 28.0);
+              final double keepSpace = neededForDay > 240.0 ? 240.0 : neededForDay;
+              contentWidgets.add(pw.NewPage(freeSpace: keepSpace));
+            }
+
+            contentWidgets.add(
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                margin: const pw.EdgeInsets.only(top: 4, bottom: 4),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('#F1F5F9'),
+                  borderRadius: pw.BorderRadius.circular(3),
+                  border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                ),
+                child: pw.Text(
+                  'DATE: $dFormatted ($dName)   |   ${dayItems.length} $itemLabel',
+                  style: pw.TextStyle(
+                    fontSize: 9.0,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromHex('#0F766E'),
+                  ),
+                ),
               ),
-              cellStyle: const pw.TextStyle(fontSize: 8.0),
-              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
-              headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
-              cellAlignment: pw.Alignment.centerLeft,
-              headerAlignment: pw.Alignment.centerLeft,
-            ),
-            pw.SizedBox(height: 12),
+            );
+
+            final dayTableData = dayTables[dKey] ?? [];
+            contentWidgets.add(
+              pw.TableHelper.fromTextArray(
+                headers: tableHeaders,
+                data: dayTableData,
+                columnWidths: columnWidths,
+                border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                headerStyle: pw.TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+                headerDecoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('#0F766E'),
+                ),
+                cellStyle: const pw.TextStyle(fontSize: 8.0),
+                cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
+                headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
+                cellAlignment: pw.Alignment.centerLeft,
+                headerAlignment: pw.Alignment.centerLeft,
+              ),
+            );
+
+            contentWidgets.add(pw.SizedBox(height: 8));
+          }
+
+          final uniqueStudentsCount = allEntries.map((e) => e.student['id']?.toString() ?? '').toSet().length;
+
+          // Prevent summary and signature from being orphaned or cut off at bottom of page
+          contentWidgets.add(pw.NewPage(freeSpace: 65));
+          contentWidgets.add(pw.SizedBox(height: 6));
+          contentWidgets.add(
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -530,7 +759,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                     ),
                     pw.SizedBox(height: 3),
                     pw.Text(
-                      'Total Students: ${_students.length}',
+                      'Total Visits/Entries: ${allEntries.length}   |   Unique Students: $uniqueStudentsCount   |   Active Dates: ${sortedDateKeys.length}',
                       style: const pw.TextStyle(fontSize: 8.5),
                     ),
                     if (groupCountsSummary.isNotEmpty) ...[
@@ -551,7 +780,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 ),
               ],
             ),
-          ];
+          );
+
+          return contentWidgets;
         },
       ),
     );
@@ -784,6 +1015,26 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasDateRange = !_isAllTime;
+    final DateTime startDay = DateTime(_startDate.year, _startDate.month, _startDate.day);
+    final DateTime endDay = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59, 999);
+
+    int totalVisitsCount = 0;
+    final Set<String> activeDates = {};
+    for (final s in _students) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      for (final v in rawVisits) {
+        final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '');
+        if (dt != null) {
+          if (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
+                                dt.isBefore(endDay.add(const Duration(milliseconds: 1))))) {
+            totalVisitsCount++;
+            activeDates.add(_formatApiDate(dt));
+          }
+        }
+      }
+    }
+
     final int doorstepDone = _students.where((s) => s['doorstepCompleted'] == true).length;
     final int pendingCount = _students.length - doorstepDone;
 
@@ -828,11 +1079,11 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             const SizedBox(height: 16),
 
             // CARD 3: Report Summary & Actions
-            _buildSummaryAndActionsCard(doorstepDone, pendingCount),
+            _buildSummaryAndActionsCard(totalVisitsCount, activeDates.length, doorstepDone, pendingCount),
             const SizedBox(height: 20),
 
             // CARD 4: Records Preview
-            _buildRecordsPreview(),
+            _buildRecordsPreview(totalVisitsCount),
             const SizedBox(height: 40),
           ],
         ),
@@ -876,6 +1127,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               InkWell(
                 onTap: () {
                   setState(() => _isAllTime = !(_isAllTime == true));
+                  _fetchReportData();
                 },
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
@@ -907,7 +1159,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'All Time (548)',
+                        'All Time',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -957,6 +1209,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 onChanged: (val) {
                   if (val != null) {
                     setState(() => _reportType = val);
+                    _fetchReportData();
                   }
                 },
               ),
@@ -1065,6 +1318,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                     _filterSchool = '';
                   });
                   _fetchStats();
+                  _fetchReportData();
                 },
               ),
             ),
@@ -1097,6 +1351,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                     _filterSchool = '';
                   });
                   _fetchStats();
+                  _fetchReportData();
                 },
               ),
             ),
@@ -1125,6 +1380,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 ],
                 onChanged: (val) {
                   setState(() => _filterSchool = val ?? '');
+                  _fetchReportData();
                 },
               ),
             ),
@@ -1261,7 +1517,17 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   // ==================== CARD 3: SUMMARY & ACTIONS ====================
-  Widget _buildSummaryAndActionsCard(int doorstepDone, int pendingCount) {
+  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int activeDatesCount, int doorstepDone, int pendingCount) {
+    String subtitle = 'Found ${_students.length} $_reportTypeDisplay';
+    if (_reportType == 'visits') {
+      subtitle = 'Found $totalVisitsCount Visits across ${_students.length} Students on $activeDatesCount Dates';
+    } else if (_reportType == 'new_students') {
+      subtitle = 'Found ${_students.length} New Admission Students';
+    } else {
+      final totalEntries = _students.length + totalVisitsCount;
+      subtitle = 'Found $totalEntries Entries across ${_students.length} Students';
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1281,7 +1547,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Found ${_students.length} $_reportTypeDisplay',
+            subtitle,
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF94A3B8)),
           ),
@@ -1289,11 +1555,29 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildHeaderMetric('Total Leads', _students.length.toString(), const Color(0xFF38BDF8)),
-              const SizedBox(width: 24),
-              _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
-              const SizedBox(width: 24),
-              _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
+              if (_reportType == 'visits') ...[
+                _buildHeaderMetric('Total Visits', totalVisitsCount.toString(), const Color(0xFF38BDF8)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+              ] else if (_reportType == 'new_students') ...[
+                _buildHeaderMetric('New Students', _students.length.toString(), const Color(0xFF38BDF8)),
+                const SizedBox(width: 24),
+                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                const SizedBox(width: 24),
+                _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
+              ] else ...[
+                _buildHeaderMetric('Total Entries', (_students.length + totalVisitsCount).toString(), const Color(0xFF38BDF8)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
+              ],
             ],
           ),
           const SizedBox(height: 20),
@@ -1339,17 +1623,26 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   // ==================== CARD 4: RECORDS PREVIEW ====================
-  Widget _buildRecordsPreview() {
+  Widget _buildRecordsPreview(int totalVisitsCount) {
+    String previewTitle = 'Report Records Preview (${_students.length})';
+    if (_reportType == 'visits') {
+      previewTitle = 'Report Records Preview ($totalVisitsCount Visits across ${_students.length} Students)';
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Report Records Preview (${_students.length})',
-              style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+            Expanded(
+              child: Text(
+                previewTitle,
+                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 8),
             Text(
               _dateRangeDisplay,
               style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
@@ -1381,7 +1674,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                       setState(() => _isAllTime = true);
                       _fetchReportData();
                     },
-                    child: const Text('Switch to All Time (548 Leads)'),
+                    child: const Text('Switch to All Time'),
                   ),
                 ],
               ),
@@ -1519,4 +1812,26 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       ],
     );
   }
+}
+
+class _ReportPdfEntry {
+  final String dateKey;
+  final String dateFormatted;
+  final String dayName;
+  final dynamic student;
+  final dynamic visit;
+  final String visitNumber;
+  final String remarks;
+  final String entryType;
+
+  _ReportPdfEntry({
+    required this.dateKey,
+    required this.dateFormatted,
+    required this.dayName,
+    required this.student,
+    this.visit,
+    required this.visitNumber,
+    required this.remarks,
+    required this.entryType,
+  });
 }

@@ -426,17 +426,41 @@ const server = http.createServer((req, res) => {
                 }
               });
 
-              // 1. Prepend missing admitted/employee students (filtered out by upstream joinedCollegeId bug)
-              for (const dbSt of dbStudents) {
-                if (employeeId && dbSt.employeeId === employeeId && !existingIds.has(dbSt.id)) {
-                  const formatted = {
-                    ...dbSt,
-                    visits: dbSt.visits || [],
-                    collegeBranch: dbSt.collegeBranch || null,
-                    joinedCollege: dbSt.collegeBranch ? { name: dbSt.collegeBranch.name } : (dbSt.joinedCollege || null),
-                  };
-                  json.students.unshift(formatted);
-                  existingIds.add(dbSt.id);
+              const isFilteredQuery = !!(
+                parsedUrl.query.followup ||
+                parsedUrl.query.reportType ||
+                parsedUrl.query.startDate ||
+                parsedUrl.query.endDate ||
+                parsedUrl.query.date ||
+                parsedUrl.query.preset ||
+                parsedUrl.query.doorstep ||
+                parsedUrl.query.admissionStatus ||
+                parsedUrl.query.schoolName ||
+                parsedUrl.query.village ||
+                parsedUrl.query.mandal ||
+                parsedUrl.query.location ||
+                parsedUrl.query.search ||
+                parsedUrl.query.callStatus ||
+                parsedUrl.query.addedDate ||
+                parsedUrl.query.interest ||
+                parsedUrl.query.fee ||
+                parsedUrl.query.group ||
+                parsedUrl.query.profileStatus
+              );
+
+              // 1. Prepend missing admitted/employee students (filtered out by upstream joinedCollegeId bug) ONLY on default unfiltered list
+              if (!isFilteredQuery) {
+                for (const dbSt of dbStudents) {
+                  if (employeeId && dbSt.employeeId === employeeId && !existingIds.has(dbSt.id)) {
+                    const formatted = {
+                      ...dbSt,
+                      visits: dbSt.visits || [],
+                      collegeBranch: dbSt.collegeBranch || null,
+                      joinedCollege: dbSt.collegeBranch ? { name: dbSt.collegeBranch.name } : (dbSt.joinedCollege || null),
+                    };
+                    json.students.unshift(formatted);
+                    existingIds.add(dbSt.id);
+                  }
                 }
               }
 

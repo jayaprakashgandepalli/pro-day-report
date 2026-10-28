@@ -17,6 +17,7 @@ import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
 import 'whatsapp_templates_screen.dart';
 import 'college_branches_screen.dart';
+import '../../services/app_update_service.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
   final String employeeName;
@@ -84,6 +85,11 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     };
     _loadCachedStats();
     _fetchDashboardData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) AppUpdateService.checkForUpdate(context);
+      });
+    });
   }
 
   Future<void> _loadCachedStats() async {
@@ -1257,6 +1263,16 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                                 ],
                               ),
                             );
+                          },
+                        ),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMobileMenuItem(
+                          icon: Icons.system_update_rounded,
+                          iconColor: const Color(0xFF2563EB),
+                          title: 'Check for Updates',
+                          onTap: () {
+                            Navigator.pop(context);
+                            AppUpdateService.checkForUpdate(context, showNoUpdateToast: true);
                           },
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),

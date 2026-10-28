@@ -391,6 +391,9 @@ export async function GET(req: Request) {
 
     const followup = searchParams.get('followup');
     if (followup) {
+      whereClause.AND.push({
+        NOT: { leadStatus: 'Admitted' }
+      });
       const endOfToday = new Date();
       endOfToday.setHours(23, 59, 59, 999);
 
@@ -400,9 +403,10 @@ export async function GET(req: Request) {
             visits: {
               some: {
                 addedById: payload.employeeId,
+                nextFollowUpDate: { lte: endOfToday, not: null },
                 OR: [
-                  { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
-                  { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
+                  { nextFollowUpType: 'Date' },
+                  { nextFollowUpType: null }
                 ]
               }
             }
@@ -412,9 +416,10 @@ export async function GET(req: Request) {
             visits: {
               some: {
                 addedById: payload.employeeId,
+                nextFollowUpDate: { gt: endOfToday, not: null },
                 OR: [
-                  { nextFollowUpType: 'Date', nextFollowUpDate: { gt: endOfToday } },
-                  { nextFollowUpType: null, nextFollowUpDate: { gt: endOfToday } }
+                  { nextFollowUpType: 'Date' },
+                  { nextFollowUpType: null }
                 ]
               }
             }
@@ -432,16 +437,18 @@ export async function GET(req: Request) {
       } else {
         if (followup === 'today') {
           whereClause.AND.push({
+            nextFollowUpDate: { lte: endOfToday, not: null },
             OR: [
-              { nextFollowUpType: 'Date', nextFollowUpDate: { lte: endOfToday } },
-              { nextFollowUpType: null, nextFollowUpDate: { lte: endOfToday } }
+              { nextFollowUpType: 'Date' },
+              { nextFollowUpType: null }
             ]
           });
         } else if (followup === 'upcoming') {
           whereClause.AND.push({
+            nextFollowUpDate: { gt: endOfToday, not: null },
             OR: [
-              { nextFollowUpType: 'Date', nextFollowUpDate: { gt: endOfToday } },
-              { nextFollowUpType: null, nextFollowUpDate: { gt: endOfToday } }
+              { nextFollowUpType: 'Date' },
+              { nextFollowUpType: null }
             ]
           });
         } else if (followup === 'action') {
@@ -461,14 +468,17 @@ export async function GET(req: Request) {
 
     const total = await prisma.student.count({ where: whereClause });
 
+    const isReportExport = limit > 100 || searchParams.has('reportType');
     let visitInclude: any = {
-      orderBy: { visitDate: 'desc' as const },
-      take: 5
+      orderBy: { visitDate: 'asc' as const },
+      ...(isReportExport ? {} : { take: 5, orderBy: { visitDate: 'desc' as const } })
     };
     
     if (payload.role === 'COLLEGE') {
-      visitInclude.where = { addedById: payload.employeeId };
+      visitInclude.where = { ...(visitInclude.where || {}), addedById: payload.employeeId };
     }
+
+
 
     const queryOptions: any = {
       where: whereClause,

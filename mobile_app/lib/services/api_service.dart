@@ -1093,8 +1093,16 @@ class ApiService {
         return {'success': true, 'students': _cachedFollowups[tab]!};
       }
       if (local != null && local.isNotEmpty) {
-        _cachedFollowups[tab] = local;
-        return {'success': true, 'students': local, 'offline': true};
+        final validLocal = local.where((s) {
+          if (s is! Map) return false;
+          final status = (s['leadStatus'] ?? '').toString();
+          if (status == 'Admitted') return false;
+          final nd = (s['nextFollowUpDate'] ?? '').toString();
+          final nt = (s['nextFollowUpType'] ?? '').toString();
+          return nd.isNotEmpty || nt.isNotEmpty;
+        }).toList();
+        _cachedFollowups[tab] = validLocal;
+        return {'success': true, 'students': validLocal, 'offline': true};
       }
     }
 
@@ -1114,7 +1122,15 @@ class ApiService {
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        final students = (data['students'] as List<dynamic>?) ?? [];
+        final rawStudents = (data['students'] as List<dynamic>?) ?? [];
+        final students = rawStudents.where((s) {
+          if (s is! Map) return false;
+          final status = (s['leadStatus'] ?? '').toString();
+          if (status == 'Admitted') return false;
+          final nd = (s['nextFollowUpDate'] ?? '').toString();
+          final nt = (s['nextFollowUpType'] ?? '').toString();
+          return nd.isNotEmpty || nt.isNotEmpty;
+        }).toList();
         _cachedFollowups[tab] = students;
         _followupsCacheTime[tab] = DateTime.now();
         await OfflineService.saveFollowups(tab, students);

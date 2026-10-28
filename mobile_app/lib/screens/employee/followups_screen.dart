@@ -24,10 +24,10 @@ class _FollowupsScreenState extends State<FollowupsScreen> with SingleTickerProv
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        _fetchFollowups(_tabs[_tabController.index]);
+        _fetchFollowups(_tabs[_tabController.index], forceRefresh: true);
       }
     });
-    _fetchFollowups('today');
+    _fetchFollowups('today', forceRefresh: true);
   }
 
   @override
@@ -37,25 +37,31 @@ class _FollowupsScreenState extends State<FollowupsScreen> with SingleTickerProv
   }
 
   Future<void> _fetchFollowups(String tab, {bool forceRefresh = false}) async {
-    if (_students.isEmpty) {
-      setState(() {
-        _isLoading = true;
-        _error = null;
-      });
-    }
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
 
     final res = await ApiService.getFollowups(tab, forceRefresh: forceRefresh);
 
     if (!mounted) return;
 
     if (res['success'] == true) {
+      final list = (res['students'] as List<dynamic>? ?? []).where((s) {
+        if (s is! Map) return false;
+        final status = (s['leadStatus'] ?? '').toString();
+        if (status == 'Admitted') return false;
+        final nd = (s['nextFollowUpDate'] ?? '').toString();
+        final nt = (s['nextFollowUpType'] ?? '').toString();
+        return nd.isNotEmpty || nt.isNotEmpty;
+      }).toList();
       setState(() {
-        _students = res['students'] as List<dynamic>? ?? [];
+        _students = list;
         _isLoading = false;
       });
     } else {
       setState(() {
-        if (_students.isEmpty) _error = res['error'] ?? 'Failed to load follow-ups';
+        _error = res['error'] ?? 'Failed to load follow-ups';
         _isLoading = false;
       });
     }
@@ -417,8 +423,9 @@ class _FollowupsScreenState extends State<FollowupsScreen> with SingleTickerProv
                         separatorBuilder: (ctx, i) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           final s = _students[index];
-                          final name = s['studentName'] ?? 'Student';
-                          final phone = s['phone'] ?? '';
+                          final rawName = (s['studentName'] ?? '').toString().trim();
+                          final phone = (s['phone'] ?? '').toString().trim();
+                          final name = rawName.isNotEmpty ? rawName : (phone.isNotEmpty ? 'Student ($phone)' : 'Student');
                           final group = s['group'] ?? '';
                           final school = s['schoolName'] ?? '';
                           final nextDate = s['nextFollowUpDate'] ?? '';
