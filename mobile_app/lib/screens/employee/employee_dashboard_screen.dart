@@ -17,6 +17,7 @@ import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
 import 'whatsapp_templates_screen.dart';
 import 'college_branches_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/app_update_service.dart';
 
 class EmployeeDashboardScreen extends StatefulWidget {
@@ -44,6 +45,18 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
   bool _isLoading = false;
   String _userRole = 'EMPLOYEE';
   String? _displayName;
+  String _appVersion = '';
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = 'v${info.version} (Build ${info.buildNumber})';
+        });
+      }
+    } catch (_) {}
+  }
 
   String get _currentEmployeeName {
     try {
@@ -85,6 +98,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     };
     _loadCachedStats();
     _fetchDashboardData();
+    _loadAppVersion();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted) AppUpdateService.checkForUpdate(context);
@@ -439,14 +453,37 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                       ),
                       const SizedBox(height: 4),
 
-                      // Employee ID
-                      Text(
-                        'Employee ID: ${widget.employeeId}',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF94A3B8),
-                        ),
+                      // Employee ID & Version Badge
+                      Row(
+                        children: [
+                          Text(
+                            'Employee ID: ${widget.employeeId}',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          if (_appVersion.isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                              ),
+                              child: Text(
+                                _appVersion,
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF38BDF8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       if (OfflineService.pendingActionsCount > 0) ...[
                         const SizedBox(height: 12),
@@ -1250,9 +1287,20 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('App Version 1.0.4', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
+                                    Text(
+                                      _appVersion.isNotEmpty ? 'App Version $_appVersion' : 'App Version 1.0.0',
+                                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text('Field Portal • Sri Vaatsalya Educational Society', style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 13)),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 16),
+                                        const SizedBox(width: 6),
+                                        Text('In-App Auto Update Enabled', style: GoogleFonts.inter(color: const Color(0xFF16A34A), fontSize: 12, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
                                   ],
                                 ),
                                 actions: [
@@ -1270,6 +1318,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                           icon: Icons.system_update_rounded,
                           iconColor: const Color(0xFF2563EB),
                           title: 'Check for Updates',
+                          subtitle: _appVersion.isNotEmpty ? 'Installed: $_appVersion' : 'Tap to check for updates',
                           onTap: () {
                             Navigator.pop(context);
                             AppUpdateService.checkForUpdate(context, showNoUpdateToast: true);
@@ -1297,13 +1346,40 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             // 3. Footer matching web /more page ("v1.0.4 - Field Portal")
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                'v1.0.4 - Field Portal',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF94A3B8),
-                ),
+              child: Column(
+                children: [
+                  Text(
+                    _appVersion.isNotEmpty ? 'PRO Day Report • $_appVersion' : 'PRO Day Report - Field Portal',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF16A34A),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Live Auto-Update Active',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF16A34A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -1317,6 +1393,7 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
     required Color iconColor,
     required String title,
     required VoidCallback onTap,
+    String? subtitle,
     Color? titleColor,
     Color? chevronColor,
   }) {
@@ -1338,13 +1415,29 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: titleColor != null ? FontWeight.w700 : FontWeight.w600,
-                  color: titleColor ?? const Color(0xFF1E293B),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: titleColor != null ? FontWeight.w700 : FontWeight.w600,
+                      color: titleColor ?? const Color(0xFF1E293B),
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Icon(
