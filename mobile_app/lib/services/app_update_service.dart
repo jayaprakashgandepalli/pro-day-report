@@ -264,7 +264,7 @@ class AppUpdateService {
 
                   const SizedBox(height: 24),
 
-                  if (!isDownloading)
+                  if (!isDownloading) ...[
                     Row(
                       children: [
                         Expanded(
@@ -303,6 +303,18 @@ class AppUpdateService {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: () => launchUrl(Uri.parse(downloadUrl), mode: LaunchMode.externalApplication),
+                        icon: const Icon(Icons.open_in_browser_rounded, size: 16, color: Color(0xFF2563EB)),
+                        label: Text(
+                          '🌐 బ్రౌజర్ ద్వారా డైరెక్ట్ డౌన్‌లోడ్ (Direct APK)',
+                          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF2563EB)),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             );
