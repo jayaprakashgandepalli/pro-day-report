@@ -37,6 +37,7 @@ model User {
   keyPersons       KeyPerson[] @relation("EmployeeKeyPersons")
   relativeContacts RelativeContact[] @relation("EmployeeRelatives")
   tasks            EmployeeTask[] @relation("EmployeeTasks")
+  institutionVisits InstitutionVisit[] @relation("EmployeeInstitutionVisits")
   
   collegeId        String?
   college          College?  @relation(fields: [collegeId], references: [id], onDelete: SetNull)
@@ -361,3 +362,30 @@ model CollegeBranch {
   @@index([name])
   @@index([employeeId])
 }
+
+model InstitutionVisit {
+  id               String    @id @default(cuid())
+  employeeId       String
+  employee         User      @relation("EmployeeInstitutionVisits", fields: [employeeId], references: [employeeId], onDelete: Cascade)
+  
+  type             String    @default("SCHOOL") // "SCHOOL" or "TUITION" or "COLLEGE"
+  name             String    // School / Tuition Center name
+  contactPerson    String?   // Headmaster, Incharge, Tutor name
+  phone            String?
+  village          String?
+  mandal           String?
+  district         String?
+  address          String?
+  
+  studentsMetCount Int       @default(0) // Approximate 10th students addressed
+  visitDate        DateTime  @default(now())
+  remarks          String?   @db.Text
+  
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([visitDate])
+  @@index([type])
+}
+

@@ -1727,4 +1727,92 @@ class ApiService {
       return false;
     }
   }
+
+  // ================= INSTITUTION VISITS (SCHOOLS & TUITIONS) =================
+
+  static Future<Map<String, dynamic>> getInstitutionVisits({
+    String? startDate,
+    String? endDate,
+    String? date,
+    String? type,
+    String? search,
+  }) async {
+    try {
+      final headers = await getAuthHeaders();
+      final query = <String, String>{};
+      if (startDate != null && startDate.isNotEmpty) query['startDate'] = startDate;
+      if (endDate != null && endDate.isNotEmpty) query['endDate'] = endDate;
+      if (date != null && date.isNotEmpty) query['date'] = date;
+      if (type != null && type.isNotEmpty && type != 'ALL') query['type'] = type;
+      if (search != null && search.isNotEmpty) query['search'] = search;
+
+      final uri = await buildUri('/api/institution-visits', query.isNotEmpty ? query : null);
+      final response = await http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {'success': false, 'visits': [], 'error': 'Failed to load visits'};
+    } catch (e) {
+      debugPrint('Error getting institution visits: $e');
+      return {'success': false, 'visits': [], 'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createInstitutionVisit(Map<String, dynamic> data) async {
+    try {
+      final headers = await getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      final uri = await buildUri('/api/institution-visits');
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(data),
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {'success': true, 'visit': body['visit']};
+      }
+      return {'success': false, 'error': body['error'] ?? 'Failed to save visit'};
+    } catch (e) {
+      debugPrint('Error creating institution visit: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateInstitutionVisit(String id, Map<String, dynamic> data) async {
+    try {
+      final headers = await getAuthHeaders();
+      headers['Content-Type'] = 'application/json';
+      final uri = await buildUri('/api/institution-visits/$id');
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(data),
+      ).timeout(const Duration(seconds: 15));
+
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        return {'success': true, 'visit': body['visit']};
+      }
+      return {'success': false, 'error': body['error'] ?? 'Failed to update visit'};
+    } catch (e) {
+      debugPrint('Error updating institution visit: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<bool> deleteInstitutionVisit(String id) async {
+    try {
+      final headers = await getAuthHeaders();
+      final uri = await buildUri('/api/institution-visits/$id');
+      final response = await http.delete(uri, headers: headers).timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error deleting institution visit: $e');
+      return false;
+    }
+  }
 }
+

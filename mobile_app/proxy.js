@@ -81,6 +81,155 @@ const server = http.createServer((req, res) => {
     const bodyText = rawBody.toString('utf8');
 
     // ==========================================
+    // 0. INSTITUTION VISITS (Schools & Tuitions Direct DB Handlers)
+    // ==========================================
+    if (parsedUrl.pathname === '/api/institution-visits') {
+      const reqEmpId = parsedUrl.query.employeeId || employeeId || null;
+      if (req.method === 'GET') {
+        try {
+          const whereClause = {};
+          if (reqEmpId) {
+            whereClause.employeeId = reqEmpId;
+          }
+          const { startDate, endDate, date, type, search } = parsedUrl.query;
+          if (type && type !== 'ALL') {
+            whereClause.type = type.toUpperCase();
+          }
+          if (startDate && endDate) {
+            const s = new Date(startDate);
+            s.setHours(0, 0, 0, 0);
+            const e = new Date(endDate);
+            e.setHours(23, 59, 59, 999);
+            whereClause.visitDate = { gte: s, lte: e };
+          } else if (date) {
+            const s = new Date(date);
+            s.setHours(0, 0, 0, 0);
+            const e = new Date(date);
+            e.setHours(23, 59, 59, 999);
+            whereClause.visitDate = { gte: s, lte: e };
+          }
+          if (search) {
+            whereClause.OR = [
+              { name: { contains: search, mode: 'insensitive' } },
+              { contactPerson: { contains: search, mode: 'insensitive' } },
+              { phone: { contains: search, mode: 'insensitive' } },
+              { village: { contains: search, mode: 'insensitive' } },
+              { remarks: { contains: search, mode: 'insensitive' } },
+            ];
+          }
+
+          const visits = await prisma.institutionVisit.findMany({
+            where: whereClause,
+            orderBy: { visitDate: 'desc' },
+          });
+          const payload = JSON.stringify({ success: true, visits, total: visits.length });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          return;
+        } catch (err) {
+          console.error('[PROXY GET INSTITUTION VISITS ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+
+      if (req.method === 'POST') {
+        try {
+          const body = JSON.parse(bodyText);
+          const { type, name, contactPerson, phone, village, mandal, district, address, studentsMetCount, visitDate, remarks } = body;
+          const visitEmpId = body.employeeId || reqEmpId;
+          if (!name || typeof name !== 'string' || !name.trim()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Name is required' }));
+            return;
+          }
+
+          const visit = await prisma.institutionVisit.create({
+            data: {
+              employeeId: visitEmpId || '9010737882',
+              type: (type || 'SCHOOL').toUpperCase(),
+              name: name.trim(),
+              contactPerson: contactPerson && typeof contactPerson === 'string' ? contactPerson.trim() : null,
+              phone: phone && typeof phone === 'string' ? phone.trim() : null,
+              village: village && typeof village === 'string' ? village.trim() : null,
+              mandal: mandal && typeof mandal === 'string' ? mandal.trim() : null,
+              district: district && typeof district === 'string' ? district.trim() : null,
+              address: address && typeof address === 'string' ? address.trim() : null,
+              studentsMetCount: typeof studentsMetCount === 'number' ? studentsMetCount : parseInt(studentsMetCount || '0', 10) || 0,
+              visitDate: visitDate ? new Date(visitDate) : new Date(),
+              remarks: remarks && typeof remarks === 'string' ? remarks.trim() : null,
+            }
+          });
+
+          const payload = JSON.stringify({ success: true, visit });
+          res.writeHead(201, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          return;
+        } catch (err) {
+          console.error('[PROXY POST INSTITUTION VISIT ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+    }
+
+    const matchInstVisitId = parsedUrl.pathname && parsedUrl.pathname.match(/^\/api\/institution-visits\/([a-zA-Z0-9_-]+)$/);
+    if (matchInstVisitId) {
+      const vId = matchInstVisitId[1];
+      if (req.method === 'PUT') {
+        try {
+          const body = JSON.parse(bodyText);
+          const updateData = {};
+          if (body.type !== undefined) updateData.type = body.type.toUpperCase();
+          if (body.name !== undefined) updateData.name = body.name.trim();
+          if (body.contactPerson !== undefined) updateData.contactPerson = body.contactPerson?.trim() || null;
+          if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
+          if (body.village !== undefined) updateData.village = body.village?.trim() || null;
+          if (body.mandal !== undefined) updateData.mandal = body.mandal?.trim() || null;
+          if (body.district !== undefined) updateData.district = body.district?.trim() || null;
+          if (body.address !== undefined) updateData.address = body.address?.trim() || null;
+          if (body.studentsMetCount !== undefined) {
+            updateData.studentsMetCount = typeof body.studentsMetCount === 'number' ? body.studentsMetCount : parseInt(body.studentsMetCount || '0', 10) || 0;
+          }
+          if (body.visitDate !== undefined) updateData.visitDate = new Date(body.visitDate);
+          if (body.remarks !== undefined) updateData.remarks = body.remarks?.trim() || null;
+
+          const visit = await prisma.institutionVisit.update({
+            where: { id: vId },
+            data: updateData,
+          });
+
+          const payload = JSON.stringify({ success: true, visit });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          return;
+        } catch (err) {
+          console.error('[PROXY PUT INSTITUTION VISIT ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+
+      if (req.method === 'DELETE') {
+        try {
+          await prisma.institutionVisit.delete({ where: { id: vId } });
+          const payload = JSON.stringify({ success: true, message: 'Visit deleted' });
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) });
+          res.end(payload);
+          return;
+        } catch (err) {
+          console.error('[PROXY DELETE INSTITUTION VISIT ERROR]:', err.message);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+          return;
+        }
+      }
+    }
+
+    // ==========================================
     // 1. COLLEGE BRANCHES CRUD (Direct DB Handlers)
     // ==========================================
     if (parsedUrl.pathname === '/api/college-branches') {

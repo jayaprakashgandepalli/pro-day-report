@@ -18,6 +18,16 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
   final _searchController = TextEditingController();
   final Set<String> _expandedIds = <String>{};
 
+  List<Map<String, dynamic>> _districts = [];
+  List<Map<String, dynamic>> _mandals = [];
+  List<Map<String, dynamic>> _villages = [];
+  List<Map<String, dynamic>> _schools = [];
+  final Map<String, String> _mandalToDistrict = {};
+  final Map<String, String> _villageToMandal = {};
+  final Map<String, String> _districtNames = {};
+  final Map<String, String> _mandalNames = {};
+  final Map<String, String> _villageNames = {};
+
   static const List<String> _schoolDesignations = [
     'Senior Teacher',
     'Physical Director / PET',
@@ -47,24 +57,94 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
       _error = null;
     });
 
-    final configFuture = ApiService.getConfigMap();
-    final res = await ApiService.getKeyPersons(forceRefresh: forceRefresh);
-    await configFuture;
+    try {
+      final configFuture = ApiService.getConfigMap();
+      final confsFuture = ApiService.getConfigsList(forceRefresh: forceRefresh);
+      final resFuture = ApiService.getKeyPersons(forceRefresh: forceRefresh);
 
-    if (!mounted) return;
+      final results = await Future.wait([configFuture, confsFuture, resFuture]);
+      final confs = results[1] as List<dynamic>;
+      final res = results[2] as Map<String, dynamic>;
 
-    if (res['success'] == true) {
-      final list = res['keyPersons'] as List<dynamic>? ?? [];
-      setState(() {
-        _keyPersons = list;
-        _filteredPersons = list;
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _error = res['error'] ?? 'Failed to load school key persons';
-        _isLoading = false;
-      });
+      final districts = <Map<String, dynamic>>[];
+      final mandals = <Map<String, dynamic>>[];
+      final villages = <Map<String, dynamic>>[];
+      final schools = <Map<String, dynamic>>[];
+      final mToD = <String, String>{};
+      final vToM = <String, String>{};
+      final dNames = <String, String>{};
+      final mNames = <String, String>{};
+      final vNames = <String, String>{};
+
+      for (final c in confs) {
+        if (c is Map<String, dynamic>) {
+          final type = (c['type'] ?? '').toString();
+          final id = (c['id'] ?? '').toString();
+          final val = (c['value'] ?? '').toString();
+          final parentId = (c['parentId'] ?? '').toString();
+
+          if (type == 'DISTRICT') {
+            districts.add(c);
+            dNames[id] = val;
+          } else if (type == 'MANDAL') {
+            mandals.add(c);
+            mNames[id] = val;
+            if (parentId.isNotEmpty) mToD[id] = parentId;
+          } else if (type == 'VILLAGE') {
+            villages.add(c);
+            vNames[id] = val;
+            if (parentId.isNotEmpty) vToM[id] = parentId;
+          } else if (type == 'SCHOOL') {
+            schools.add(c);
+          }
+        }
+      }
+
+      districts.sort((a, b) => (a['value'] ?? '').toString().compareTo((b['value'] ?? '').toString()));
+      mandals.sort((a, b) => (a['value'] ?? '').toString().compareTo((b['value'] ?? '').toString()));
+      villages.sort((a, b) => (a['value'] ?? '').toString().compareTo((b['value'] ?? '').toString()));
+      schools.sort((a, b) => (a['value'] ?? '').toString().compareTo((b['value'] ?? '').toString()));
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        final list = res['keyPersons'] as List<dynamic>? ?? [];
+        setState(() {
+          _districts = districts;
+          _mandals = mandals;
+          _villages = villages;
+          _schools = schools;
+          _mandalToDistrict.addAll(mToD);
+          _villageToMandal.addAll(vToM);
+          _districtNames.addAll(dNames);
+          _mandalNames.addAll(mNames);
+          _villageNames.addAll(vNames);
+          _keyPersons = list;
+          _filteredPersons = list;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _districts = districts;
+          _mandals = mandals;
+          _villages = villages;
+          _schools = schools;
+          _mandalToDistrict.addAll(mToD);
+          _villageToMandal.addAll(vToM);
+          _districtNames.addAll(dNames);
+          _mandalNames.addAll(mNames);
+          _villageNames.addAll(vNames);
+          _error = res['error'] ?? 'Failed to load school key persons';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -109,8 +189,101 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
     final desigCtrl = TextEditingController(text: item?['designation']?.toString() ?? '');
     final villageCtrl = TextEditingController(text: ApiService.resolveConfig(item?['village']));
     final mandalCtrl = TextEditingController(text: ApiService.resolveConfig(item?['mandal']));
-    final districtCtrl = TextEditingController(text: ApiService.resolveConfig(item?['district']));
+    final districtCtrl = TextEditingController(
+      text: (item?['district'] != null && item!['district'].toString().isNotEmpty)
+          ? ApiService.resolveConfig(item['district'])
+          : 'Anakapalli',
+    );
     bool isSaving = false;
+
+    String? selectedDistrictId;
+    String? selectedMandalId;
+    String? selectedVillageId;
+    String? selectedSchoolId = item?['schoolId']?.toString();
+    bool isCustomVillage = false;
+    bool isCustomSchool = false;
+
+    // Detect existing district ID or name
+    final rawDistrict = districtCtrl.text.trim();
+    if (rawDistrict.isNotEmpty) {
+      final foundD = _districts.firstWhere(
+        (d) => d['id']?.toString() == rawDistrict || d['value']?.toString().toLowerCase() == rawDistrict.toLowerCase(),
+        orElse: () => {},
+      );
+      if (foundD.isNotEmpty) {
+        selectedDistrictId = foundD['id']?.toString();
+        districtCtrl.text = foundD['value']?.toString() ?? rawDistrict;
+      }
+    }
+
+    // Detect existing mandal ID or name
+    final rawMandal = mandalCtrl.text.trim();
+    if (rawMandal.isNotEmpty) {
+      final foundM = _mandals.firstWhere(
+        (m) => m['id']?.toString() == rawMandal || m['value']?.toString().toLowerCase() == rawMandal.toLowerCase(),
+        orElse: () => {},
+      );
+      if (foundM.isNotEmpty) {
+        selectedMandalId = foundM['id']?.toString();
+        mandalCtrl.text = foundM['value']?.toString() ?? rawMandal;
+        if (selectedDistrictId == null && foundM['parentId'] != null) {
+          selectedDistrictId = foundM['parentId']?.toString();
+          final dObj = _districts.firstWhere((d) => d['id']?.toString() == selectedDistrictId, orElse: () => {});
+          if (dObj.isNotEmpty) districtCtrl.text = dObj['value']?.toString() ?? '';
+        }
+      }
+    }
+
+    // Detect existing village ID or name
+    final rawVillage = villageCtrl.text.trim();
+    if (rawVillage.isNotEmpty) {
+      final foundV = _villages.firstWhere(
+        (v) => v['id']?.toString() == rawVillage || v['value']?.toString().toLowerCase() == rawVillage.toLowerCase(),
+        orElse: () => {},
+      );
+      if (foundV.isNotEmpty) {
+        selectedVillageId = foundV['id']?.toString();
+        villageCtrl.text = foundV['value']?.toString() ?? rawVillage;
+        if (selectedMandalId == null && foundV['parentId'] != null) {
+          selectedMandalId = foundV['parentId']?.toString();
+          final mObj = _mandals.firstWhere((m) => m['id']?.toString() == selectedMandalId, orElse: () => {});
+          if (mObj.isNotEmpty) mandalCtrl.text = mObj['value']?.toString() ?? '';
+          if (selectedDistrictId == null && mObj['parentId'] != null) {
+            selectedDistrictId = mObj['parentId']?.toString();
+            final dObj = _districts.firstWhere((d) => d['id']?.toString() == selectedDistrictId, orElse: () => {});
+            if (dObj.isNotEmpty) districtCtrl.text = dObj['value']?.toString() ?? '';
+          }
+        }
+      } else {
+        isCustomVillage = true;
+      }
+    }
+
+    // Default district to Anakapalli if not selected
+    if (selectedDistrictId == null) {
+      final anakapalli = _districts.firstWhere(
+        (d) => (d['value'] ?? '').toString().toLowerCase().contains('anakapalli'),
+        orElse: () => _districts.isNotEmpty ? _districts.first : {},
+      );
+      if (anakapalli.isNotEmpty) {
+        selectedDistrictId = anakapalli['id']?.toString();
+        districtCtrl.text = anakapalli['value']?.toString() ?? 'Anakapalli';
+      }
+    }
+
+    // Detect existing school
+    final rawSchool = schoolCtrl.text.trim();
+    if (rawSchool.isNotEmpty && selectedSchoolId == null) {
+      final foundS = _schools.firstWhere(
+        (s) => s['value']?.toString().toLowerCase() == rawSchool.toLowerCase() || s['id']?.toString() == rawSchool,
+        orElse: () => {},
+      );
+      if (foundS.isNotEmpty) {
+        selectedSchoolId = foundS['id']?.toString();
+      } else {
+        isCustomSchool = true;
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -142,11 +315,11 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isEdit ? 'Edit School Key Person' : 'Add School Key Person',
+                              isEdit ? 'Edit School / Tuition Contact' : 'Add School / Tuition Contact',
                               style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700),
                             ),
                             Text(
-                              'Important person in school other than HM',
+                              'Key contact person in school or tuition center',
                               style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF64748B)),
                             ),
                           ],
@@ -159,7 +332,119 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
                     ),
                     const Divider(height: 20),
 
-                    _buildField('School Name *', 'e.g. ZPHS Kothapeta, Sri Chaitanya School', schoolCtrl),
+                    // School / Tuition Name
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'School / Tuition Center Name *',
+                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                        ),
+                        if (_schools.isNotEmpty)
+                          GestureDetector(
+                            onTap: () => setModalState(() => isCustomSchool = !isCustomSchool),
+                            child: Text(
+                              isCustomSchool ? '🏫 Pick from School List' : '✏️ Type Custom Name',
+                              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (!isCustomSchool && _schools.isNotEmpty) ...[
+                      Builder(
+                        builder: (context) {
+                          final filteredSchools = _schools.where((s) {
+                            final sParent = s['parentId']?.toString();
+                            if (selectedVillageId != null) return sParent == selectedVillageId;
+                            if (selectedMandalId != null) {
+                              final pMandal = _villageToMandal[sParent];
+                              return pMandal == selectedMandalId || sParent == selectedMandalId;
+                            }
+                            return true;
+                          }).toList();
+
+                          final schoolVal = filteredSchools.any((s) => s['id']?.toString() == selectedSchoolId)
+                              ? selectedSchoolId
+                              : null;
+
+                          return DropdownButtonFormField<String?>(
+                            value: schoolVal,
+                            isExpanded: true,
+                            decoration: InputDecoration(
+                              hintText: '-- Select Existing School (${filteredSchools.length} Available) --',
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                            ),
+                            items: [
+                              DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('-- Choose Existing School --', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+                              ),
+                              ...filteredSchools.map((s) {
+                                return DropdownMenuItem<String?>(
+                                  value: s['id']?.toString(),
+                                  child: Text(s['value']?.toString() ?? '', style: GoogleFonts.inter(fontSize: 13), overflow: TextOverflow.ellipsis),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              setModalState(() {
+                                selectedSchoolId = val;
+                                if (val != null) {
+                                  final sObj = _schools.firstWhere((s) => s['id']?.toString() == val, orElse: () => {});
+                                  schoolCtrl.text = sObj['value']?.toString() ?? '';
+                                  final sParent = sObj['parentId']?.toString() ?? '';
+                                  if (_villageNames.containsKey(sParent)) {
+                                    selectedVillageId = sParent;
+                                    villageCtrl.text = _villageNames[sParent]!;
+                                    final mId = _villageToMandal[sParent];
+                                    if (mId != null && mId.isNotEmpty) {
+                                      selectedMandalId = mId;
+                                      final mObj = _mandals.firstWhere((m) => m['id']?.toString() == mId, orElse: () => {});
+                                      if (mObj.isNotEmpty) mandalCtrl.text = mObj['value']?.toString() ?? '';
+                                      final dId = _mandalToDistrict[mId];
+                                      if (dId != null && dId.isNotEmpty) {
+                                        selectedDistrictId = dId;
+                                        final dObj = _districts.firstWhere((d) => d['id']?.toString() == dId, orElse: () => {});
+                                        if (dObj.isNotEmpty) districtCtrl.text = dObj['value']?.toString() ?? '';
+                                      }
+                                    }
+                                  } else if (_mandalNames.containsKey(sParent)) {
+                                    selectedMandalId = sParent;
+                                    mandalCtrl.text = _mandalNames[sParent]!;
+                                    final dId = _mandalToDistrict[sParent];
+                                    if (dId != null && dId.isNotEmpty) {
+                                      selectedDistrictId = dId;
+                                      final dObj = _districts.firstWhere((d) => d['id']?.toString() == dId, orElse: () => {});
+                                      if (dObj.isNotEmpty) districtCtrl.text = dObj['value']?.toString() ?? '';
+                                    }
+                                  }
+                                }
+                              });
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    TextField(
+                      controller: schoolCtrl,
+                      style: GoogleFonts.inter(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'e.g. ZPHS Kothapeta, Sri Chaitanya School, Tuition Center',
+                        hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5)),
+                      ),
+                    ),
                     const SizedBox(height: 12),
 
                     _buildField('Staff / Person Name *', 'Enter full name', nameCtrl),
@@ -168,14 +453,14 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
                     _buildField('Mobile Number *', '10-digit number', phoneCtrl, keyboardType: TextInputType.phone),
                     const SizedBox(height: 12),
 
-                    Text('Designation in School *',
+                    Text('Designation in School / Center *',
                         style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
                     const SizedBox(height: 6),
                     // Quick Designation Suggestions
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: _schoolDesignations.take(4).map((d) {
+                        children: _schoolDesignations.map((d) {
                           final shortName = d.split(' (')[0];
                           return Padding(
                             padding: const EdgeInsets.only(right: 6.0),
@@ -205,17 +490,267 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
-                    _buildField('Village / Town', 'Enter village or town of school', villageCtrl),
-                    const SizedBox(height: 12),
+                    // LOCATION SECTION (District -> Mandal -> Village Cascading Dropdowns)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFF1D4ED8)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'LOCATION DETAILS (DROPDOWN)',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1D4ED8),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
 
-                    Row(
-                      children: [
-                        Expanded(child: _buildField('Mandal', 'Enter mandal', mandalCtrl)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildField('District', 'Enter district', districtCtrl)),
-                      ],
+                          // 1. District Dropdown
+                          Text(
+                            '1. Select District *',
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 5),
+                          Builder(
+                            builder: (context) {
+                              final districtVal = _districts.any((d) => d['id']?.toString() == selectedDistrictId)
+                                  ? selectedDistrictId
+                                  : null;
+
+                              return DropdownButtonFormField<String?>(
+                                value: districtVal,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                ),
+                                items: [
+                                  DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('-- Choose District (${_districts.length}) --', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+                                  ),
+                                  ..._districts.map((d) {
+                                    return DropdownMenuItem<String?>(
+                                      value: d['id']?.toString(),
+                                      child: Text(d['value']?.toString() ?? '', style: GoogleFonts.inter(fontSize: 13), overflow: TextOverflow.ellipsis),
+                                    );
+                                  }),
+                                ],
+                                onChanged: (val) {
+                                  setModalState(() {
+                                    selectedDistrictId = val;
+                                    if (val != null) {
+                                      final dObj = _districts.firstWhere((d) => d['id']?.toString() == val, orElse: () => {});
+                                      districtCtrl.text = dObj['value']?.toString() ?? '';
+                                      // If current mandal doesn't belong to this district, reset mandal and village
+                                      if (selectedMandalId != null && _mandalToDistrict[selectedMandalId] != val) {
+                                        selectedMandalId = null;
+                                        mandalCtrl.text = '';
+                                        selectedVillageId = null;
+                                        villageCtrl.text = '';
+                                      }
+                                    } else {
+                                      districtCtrl.text = '';
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // 2. Mandal Dropdown
+                          Text(
+                            '2. Select Mandal *',
+                            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                          ),
+                          const SizedBox(height: 5),
+                          Builder(
+                            builder: (context) {
+                              final filteredMandals = _mandals.where((m) {
+                                if (selectedDistrictId == null) return true;
+                                return m['parentId']?.toString() == selectedDistrictId;
+                              }).toList();
+
+                              final mandalVal = filteredMandals.any((m) => m['id']?.toString() == selectedMandalId)
+                                  ? selectedMandalId
+                                  : null;
+
+                              return DropdownButtonFormField<String?>(
+                                value: mandalVal,
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                ),
+                                items: [
+                                  DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text(
+                                      selectedDistrictId != null
+                                          ? '-- Choose Mandal (${filteredMandals.length} in District) --'
+                                          : '-- Choose Mandal (All ${filteredMandals.length}) --',
+                                      style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                  ...filteredMandals.map((m) {
+                                    return DropdownMenuItem<String?>(
+                                      value: m['id']?.toString(),
+                                      child: Text(m['value']?.toString() ?? '', style: GoogleFonts.inter(fontSize: 13), overflow: TextOverflow.ellipsis),
+                                    );
+                                  }),
+                                ],
+                                onChanged: (val) {
+                                  setModalState(() {
+                                    selectedMandalId = val;
+                                    if (val != null) {
+                                      final mObj = _mandals.firstWhere((m) => m['id']?.toString() == val, orElse: () => {});
+                                      mandalCtrl.text = mObj['value']?.toString() ?? '';
+                                      final dId = _mandalToDistrict[val];
+                                      if (dId != null && dId.isNotEmpty) {
+                                        selectedDistrictId = dId;
+                                        final dObj = _districts.firstWhere((d) => d['id']?.toString() == dId, orElse: () => {});
+                                        if (dObj.isNotEmpty) districtCtrl.text = dObj['value']?.toString() ?? '';
+                                      }
+                                      if (selectedVillageId != null && _villageToMandal[selectedVillageId] != val) {
+                                        selectedVillageId = null;
+                                        villageCtrl.text = '';
+                                      }
+                                    } else {
+                                      mandalCtrl.text = '';
+                                    }
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+
+                          // 3. Village Dropdown
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '3. Select Village / Town *',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF334155)),
+                              ),
+                              GestureDetector(
+                                onTap: () => setModalState(() => isCustomVillage = !isCustomVillage),
+                                child: Text(
+                                  isCustomVillage ? '📋 Pick from List' : '✏️ Type Other Village',
+                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF2563EB)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          if (isCustomVillage)
+                            TextField(
+                              controller: villageCtrl,
+                              style: GoogleFonts.inter(fontSize: 14),
+                              decoration: InputDecoration(
+                                hintText: 'Enter village or town name',
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                              ),
+                            )
+                          else
+                            Builder(
+                              builder: (context) {
+                                final filteredVillages = _villages.where((v) {
+                                  if (selectedMandalId != null) {
+                                    return v['parentId']?.toString() == selectedMandalId;
+                                  }
+                                  if (selectedDistrictId != null) {
+                                    final pMandal = v['parentId']?.toString();
+                                    return _mandalToDistrict[pMandal] == selectedDistrictId;
+                                  }
+                                  return true;
+                                }).toList();
+
+                                final villageVal = filteredVillages.any((v) => v['id']?.toString() == selectedVillageId)
+                                    ? selectedVillageId
+                                    : null;
+
+                                return DropdownButtonFormField<String?>(
+                                  value: villageVal,
+                                  isExpanded: true,
+                                  decoration: InputDecoration(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFBFDBFE))),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text(
+                                        selectedMandalId != null
+                                            ? '-- Choose Village (${filteredVillages.length} in Mandal) --'
+                                            : '-- Choose Village (All ${filteredVillages.length}) --',
+                                        style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B)),
+                                      ),
+                                    ),
+                                    ...filteredVillages.map((v) {
+                                      return DropdownMenuItem<String?>(
+                                        value: v['id']?.toString(),
+                                        child: Text(v['value']?.toString() ?? '', style: GoogleFonts.inter(fontSize: 13), overflow: TextOverflow.ellipsis),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (val) {
+                                    setModalState(() {
+                                      selectedVillageId = val;
+                                      if (val != null) {
+                                        final vObj = _villages.firstWhere((v) => v['id']?.toString() == val, orElse: () => {});
+                                        villageCtrl.text = vObj['value']?.toString() ?? '';
+                                        final mId = _villageToMandal[val];
+                                        if (mId != null && mId.isNotEmpty) {
+                                          selectedMandalId = mId;
+                                          final mObj = _mandals.firstWhere((m) => m['id']?.toString() == mId, orElse: () => {});
+                                          if (mObj.isNotEmpty) mandalCtrl.text = mObj['value']?.toString() ?? '';
+                                          final dId = _mandalToDistrict[mId];
+                                          if (dId != null && dId.isNotEmpty) {
+                                            selectedDistrictId = dId;
+                                            final dObj = _districts.firstWhere((d) => d['id']?.toString() == dId, orElse: () => {});
+                                            if (dObj.isNotEmpty) districtCtrl.text = dObj['value']?.toString() ?? '';
+                                          }
+                                        }
+                                      } else {
+                                        villageCtrl.text = '';
+                                      }
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 24),
 
@@ -243,12 +778,13 @@ class _KeyPersonsScreenState extends State<KeyPersonsScreen> {
 
                                 final payload = {
                                   'schoolName': schoolName,
+                                  'schoolId': ?selectedSchoolId,
                                   'name': name,
                                   'phone': phone,
                                   'designation': desigCtrl.text.trim(),
                                   'village': villageCtrl.text.trim(),
                                   'mandal': mandalCtrl.text.trim(),
-                                  'district': districtCtrl.text.trim(),
+                                  'district': districtCtrl.text.trim().isNotEmpty ? districtCtrl.text.trim() : 'Anakapalli',
                                 };
 
                                 Map<String, dynamic> res;

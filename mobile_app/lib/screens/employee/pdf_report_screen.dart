@@ -39,6 +39,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   List<dynamic> _mandals = [];
   List<dynamic> _villages = [];
   List<dynamic> _schools = [];
+  List<dynamic> _institutionVisits = [];
 
   // Available Columns to Download / Include
   final List<Map<String, String>> _availableColumns = [
@@ -139,7 +140,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     });
 
     try {
-      final res = await ApiService.getStudents(
+      final studentsFuture = ApiService.getStudents(
         limit: 10000,
         startDate: _isAllTime ? null : _formatApiDate(_startDate),
         endDate: _isAllTime ? null : _formatApiDate(_endDate),
@@ -149,11 +150,21 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         schoolName: _filterSchool.isNotEmpty ? _filterSchool : null,
       );
 
+      final instFuture = ApiService.getInstitutionVisits(
+        startDate: _isAllTime ? null : _formatApiDate(_startDate),
+        endDate: _isAllTime ? null : _formatApiDate(_endDate),
+      );
+
+      final results = await Future.wait([studentsFuture, instFuture]);
+      final res = results[0];
+      final instRes = results[1];
+
       if (!mounted) return;
 
       if (res['success'] == true) {
         setState(() {
           _students = (res['students'] as List<dynamic>?) ?? [];
+          _institutionVisits = (instRes['visits'] as List<dynamic>?) ?? [];
           _loading = false;
         });
       } else {
@@ -395,6 +406,16 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final Map<String, List<_ReportPdfEntry>> dateGroups = {};
     for (final entry in allEntries) {
       dateGroups.putIfAbsent(entry.dateKey, () => []).add(entry);
+    }
+
+    final Map<String, List<Map<String, dynamic>>> instVisitsByDate = {};
+    for (final iv in _institutionVisits) {
+      if (iv is Map<String, dynamic>) {
+        final dt = DateTime.tryParse(iv['visitDate']?.toString() ?? '') ?? DateTime.now();
+        final dKey = _formatApiDate(dt);
+        instVisitsByDate.putIfAbsent(dKey, () => []).add(iv);
+        dateGroups.putIfAbsent(dKey, () => []);
+      }
     }
 
     final sortedDateKeys = dateGroups.keys.toList()..sort();
@@ -677,18 +698,38 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
           for (int dIndex = 0; dIndex < sortedDateKeys.length; dIndex++) {
             final dKey = sortedDateKeys[dIndex];
-            final dayItems = dateGroups[dKey]!;
-            final dFormatted = dayItems.first.dateFormatted;
-            final dName = dayItems.first.dayName;
+            final dayItems = dateGroups[dKey] ?? [];
+            final dayInstVisits = instVisitsByDate[dKey] ?? [];
+
+            String dFormatted;
+            String dName;
+            if (dayItems.isNotEmpty) {
+              dFormatted = dayItems.first.dateFormatted;
+              dName = dayItems.first.dayName;
+            } else {
+              final parsedDt = DateTime.tryParse(dKey) ?? DateTime.now();
+              dFormatted = _formatDisplayDate(parsedDt);
+              dName = _getDayName(parsedDt);
+            }
+
             final itemLabel = _reportType == 'new_students'
                 ? (dayItems.length == 1 ? 'New Student' : 'New Students')
                 : (dayItems.length == 1 ? 'Visit' : 'Visits');
 
+            final regularInstVisits = dayInstVisits.where((iv) => iv['type'] != 'OTHER').toList();
+            final otherDuties = dayInstVisits.where((iv) => iv['type'] == 'OTHER').toList();
+
+            String bannerSubtext = '${dayItems.length} $itemLabel';
+            if (regularInstVisits.isNotEmpty) {
+              bannerSubtext += '   |   ${regularInstVisits.length} School/Tuition ${regularInstVisits.length == 1 ? "Visit" : "Visits"}';
+            }
+            if (otherDuties.isNotEmpty) {
+              bannerSubtext += '   |   ${otherDuties.length} Official Duty / Work Log';
+            }
+
             // Smart keep-together: Prevent orphaned Date Banner and table headers at bottom of page.
-            // If there isn't enough vertical space for Date Banner + Table Header + data rows,
-            // push the whole section cleanly to the next page.
             if (dIndex > 0) {
-              final double neededForDay = 52.0 + (dayItems.length * 28.0);
+              final double neededForDay = 52.0 + (dayItems.length * 28.0) + (regularInstVisits.length * 24.0) + (otherDuties.length * 36.0);
               final double keepSpace = neededForDay > 240.0 ? 240.0 : neededForDay;
               contentWidgets.add(pw.NewPage(freeSpace: keepSpace));
             }
@@ -704,7 +745,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   border: pw.Border.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
                 ),
                 child: pw.Text(
-                  'DATE: $dFormatted ($dName)   |   ${dayItems.length} $itemLabel',
+                  'DATE: $dFormatted ($dName)   |   $bannerSubtext',
                   style: pw.TextStyle(
                     fontSize: 9.0,
                     fontWeight: pw.FontWeight.bold,
@@ -714,28 +755,152 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               ),
             );
 
+            // 1. Institution Visits Table (Schools & Tuition Centers)
+            if (regularInstVisits.isNotEmpty) {
+              contentWidgets.add(
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 3, bottom: 2),
+                  child: pw.Text(
+                    'SCHOOLS & TUITION CENTERS VISITED (${regularInstVisits.length}):',
+                    style: pw.TextStyle(
+                      fontSize: 8.0,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromHex('#B45309'),
+                    ),
+                  ),
+                ),
+              );
+
+              final instRows = <List<String>>[];
+              for (int ivIdx = 0; ivIdx < regularInstVisits.length; ivIdx++) {
+                final iv = regularInstVisits[ivIdx];
+                final metCount = (iv['studentsMetCount'] as num?)?.toInt() ?? 0;
+                instRows.add([
+                  '${ivIdx + 1}',
+                  iv['type']?.toString() ?? 'SCHOOL',
+                  iv['name']?.toString() ?? '-',
+                  iv['village']?.toString() ?? '-',
+                  iv['contactPerson']?.toString() ?? '-',
+                  iv['phone']?.toString() ?? '-',
+                  metCount > 0 ? '$metCount' : '-',
+                  iv['remarks']?.toString() ?? '-',
+                ]);
+              }
+
+              contentWidgets.add(
+                pw.TableHelper.fromTextArray(
+                  headers: const ['S.No', 'Type', 'Institution Name', 'Location', 'Incharge / HM', 'Phone', 'Met', 'Remarks'],
+                  data: instRows,
+                  border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                  headerStyle: pw.TextStyle(
+                    fontSize: 8.0,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                  ),
+                  headerDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#B45309'),
+                  ),
+                  cellStyle: const pw.TextStyle(fontSize: 7.5),
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.0),
+                  headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.0),
+                ),
+              );
+              contentWidgets.add(pw.SizedBox(height: 5));
+            }
+
+            // 2. Official Duties & Special Work Log Table (Phone Follow-up / Rain / Office / Meetings)
+            if (otherDuties.isNotEmpty) {
+              contentWidgets.add(
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(top: 3, bottom: 2),
+                  child: pw.Text(
+                    'OFFICIAL DUTIES & WORK LOG (${otherDuties.length}):',
+                    style: pw.TextStyle(
+                      fontSize: 8.0,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromHex('#7E22CE'),
+                    ),
+                  ),
+                ),
+              );
+
+              final dutyRows = <List<String>>[];
+              for (int dIdx = 0; dIdx < otherDuties.length; dIdx++) {
+                final duty = otherDuties[dIdx];
+                final reachedCount = (duty['studentsMetCount'] as num?)?.toInt() ?? 0;
+                dutyRows.add([
+                  '${dIdx + 1}',
+                  duty['name']?.toString() ?? '-',
+                  duty['contactPerson']?.toString() ?? '-',
+                  duty['village']?.toString() ?? '-',
+                  duty['phone']?.toString() ?? '-',
+                  reachedCount > 0 ? '$reachedCount' : '-',
+                  duty['remarks']?.toString() ?? '-',
+                ]);
+              }
+
+              contentWidgets.add(
+                pw.TableHelper.fromTextArray(
+                  headers: const ['S.No', 'Duty / Work Task', 'Category', 'Location', 'Phone', 'Reached', 'Detailed Work Description'],
+                  data: dutyRows,
+                  border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                  headerStyle: pw.TextStyle(
+                    fontSize: 8.0,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                  ),
+                  headerDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#7E22CE'),
+                  ),
+                  cellStyle: const pw.TextStyle(fontSize: 7.5),
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.0),
+                  headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.0),
+                ),
+              );
+              contentWidgets.add(pw.SizedBox(height: 5));
+            }
+
+            // 3. Student Visits Table
             final dayTableData = dayTables[dKey] ?? [];
-            contentWidgets.add(
-              pw.TableHelper.fromTextArray(
-                headers: tableHeaders,
-                data: dayTableData,
-                columnWidths: columnWidths,
-                border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
-                headerStyle: pw.TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: pw.FontWeight.bold,
-                  color: PdfColors.white,
+            if (dayTableData.isNotEmpty) {
+              if (regularInstVisits.isNotEmpty || otherDuties.isNotEmpty) {
+                contentWidgets.add(
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 2, bottom: 2),
+                    child: pw.Text(
+                      'STUDENTS DOORSTEP VISITS (${dayTableData.length}):',
+                      style: pw.TextStyle(
+                        fontSize: 8.0,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColor.fromHex('#0F766E'),
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              contentWidgets.add(
+                pw.TableHelper.fromTextArray(
+                  headers: tableHeaders,
+                  data: dayTableData,
+                  columnWidths: columnWidths,
+                  border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                  headerStyle: pw.TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                  ),
+                  headerDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#0F766E'),
+                  ),
+                  cellStyle: const pw.TextStyle(fontSize: 8.0),
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
+                  headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
+                  cellAlignment: pw.Alignment.centerLeft,
+                  headerAlignment: pw.Alignment.centerLeft,
                 ),
-                headerDecoration: pw.BoxDecoration(
-                  color: PdfColor.fromHex('#0F766E'),
-                ),
-                cellStyle: const pw.TextStyle(fontSize: 8.0),
-                cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
-                headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
-                cellAlignment: pw.Alignment.centerLeft,
-                headerAlignment: pw.Alignment.centerLeft,
-              ),
-            );
+              );
+            }
 
             contentWidgets.add(pw.SizedBox(height: 8));
           }
@@ -791,13 +956,13 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   Future<void> _handleDownloadPdf() async {
-    if (_students.isEmpty) {
+    if (_students.isEmpty && _institutionVisits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students found in the selected date range.')),
+        const SnackBar(content: Text('No records or duties found in the selected date range.')),
       );
       return;
     }
-    if (_selectedColumns.isEmpty) {
+    if (_students.isNotEmpty && _selectedColumns.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least one column to download.')),
       );
@@ -899,9 +1064,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   Future<void> _handleShareReport() async {
-    if (_students.isEmpty) {
+    if (_students.isEmpty && _institutionVisits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No students found to share.')),
+        const SnackBar(content: Text('No records or duties found to share.')),
       );
       return;
     }
@@ -909,28 +1074,44 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final int doorstepDone = _students.where((s) => s['doorstepCompleted'] == true).length;
     final int pending = _students.length - doorstepDone;
 
-    // Group breakdown for the summary
-    final groupCounts = <String, int>{};
-    for (final s in _students) {
-      final rawG = s['group']?.toString().trim() ?? '';
-      final g = ApiService.resolveConfig(rawG);
-      final groupName = g.isNotEmpty ? g : (rawG.isNotEmpty ? rawG : 'Others');
-      groupCounts[groupName] = (groupCounts[groupName] ?? 0) + 1;
-    }
-    final groupSummary = groupCounts.entries.map((e) => '${e.key}: ${e.value}').join(', ');
-
     final collegeLine = _collegeName.isNotEmpty ? '🏫 *$_collegeName*\n' : '';
-    final summary = '$collegeLine'
-        '📊 *PRO DAY PROGRESS REPORT*\n'
-        '👤 *Employee:* $_employeeName\n'
-        '📅 *Date Range:* $_dateRangeDisplay\n'
-        '━━━━━━━━━━━━━━━━━━━━\n'
-        '📋 *Total Leads:* ${_students.length}\n'
-        '✅ *Doorstep Done:* $doorstepDone\n'
-        '⏳ *Pending Leads:* $pending\n'
-        '🏷 *Category:* $_reportTypeDisplay\n'
-        '${groupSummary.isNotEmpty ? "📚 *Groups:* $groupSummary\n" : ""}'
-        '━━━━━━━━━━━━━━━━━━━━';
+    String summary;
+
+    if (_students.isEmpty && _institutionVisits.isNotEmpty) {
+      final otherDutiesCount = _institutionVisits.where((iv) => iv['type'] == 'OTHER').length;
+      final instCount = _institutionVisits.length - otherDutiesCount;
+      summary = '$collegeLine'
+          '💼 *PRO DAY WORK & DUTY REPORT*\n'
+          '👤 *Employee:* $_employeeName\n'
+          '📅 *Date Range:* $_dateRangeDisplay\n'
+          '━━━━━━━━━━━━━━━━━━━━\n'
+          '📝 *Official Duties Logged:* $otherDutiesCount\n'
+          '🏛️ *School/Tuition Visits:* $instCount\n'
+          '🏷 *Category:* $_reportTypeDisplay\n'
+          '━━━━━━━━━━━━━━━━━━━━';
+    } else {
+      // Group breakdown for the summary
+      final groupCounts = <String, int>{};
+      for (final s in _students) {
+        final rawG = s['group']?.toString().trim() ?? '';
+        final g = ApiService.resolveConfig(rawG);
+        final groupName = g.isNotEmpty ? g : (rawG.isNotEmpty ? rawG : 'Others');
+        groupCounts[groupName] = (groupCounts[groupName] ?? 0) + 1;
+      }
+      final groupSummary = groupCounts.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+
+      summary = '$collegeLine'
+          '📊 *PRO DAY PROGRESS REPORT*\n'
+          '👤 *Employee:* $_employeeName\n'
+          '📅 *Date Range:* $_dateRangeDisplay\n'
+          '━━━━━━━━━━━━━━━━━━━━\n'
+          '📋 *Total Leads:* ${_students.length}\n'
+          '✅ *Doorstep Done:* $doorstepDone\n'
+          '⏳ *Pending Leads:* $pending\n'
+          '🏷 *Category:* $_reportTypeDisplay\n'
+          '${groupSummary.isNotEmpty ? "📚 *Groups:* $groupSummary\n" : ""}'
+          '━━━━━━━━━━━━━━━━━━━━';
+    }
 
     showModalBottomSheet(
       context: context,
@@ -1035,6 +1216,25 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       }
     }
 
+    int otherDutiesCount = 0;
+    int regularInstCount = 0;
+    for (final iv in _institutionVisits) {
+      if (iv is Map<String, dynamic>) {
+        final dt = DateTime.tryParse(iv['visitDate']?.toString() ?? '');
+        if (dt != null) {
+          if (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
+                                dt.isBefore(endDay.add(const Duration(milliseconds: 1))))) {
+            activeDates.add(_formatApiDate(dt));
+            if (iv['type'] == 'OTHER') {
+              otherDutiesCount++;
+            } else {
+              regularInstCount++;
+            }
+          }
+        }
+      }
+    }
+
     final int doorstepDone = _students.where((s) => s['doorstepCompleted'] == true).length;
     final int pendingCount = _students.length - doorstepDone;
 
@@ -1079,7 +1279,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             const SizedBox(height: 16),
 
             // CARD 3: Report Summary & Actions
-            _buildSummaryAndActionsCard(totalVisitsCount, activeDates.length, doorstepDone, pendingCount),
+            _buildSummaryAndActionsCard(totalVisitsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount),
             const SizedBox(height: 20),
 
             // CARD 4: Records Preview
@@ -1517,14 +1717,21 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   // ==================== CARD 3: SUMMARY & ACTIONS ====================
-  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int activeDatesCount, int doorstepDone, int pendingCount) {
-    String subtitle = 'Found ${_students.length} $_reportTypeDisplay';
+  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount) {
+    final hasRecords = _students.isNotEmpty || _institutionVisits.isNotEmpty;
+    String subtitle;
     if (_reportType == 'visits') {
-      subtitle = 'Found $totalVisitsCount Visits across ${_students.length} Students on $activeDatesCount Dates';
+      if (_students.isEmpty && otherDutiesCount > 0) {
+        subtitle = 'Found $otherDutiesCount Official Duties on $activeDatesCount Active ${activeDatesCount == 1 ? "Date" : "Dates"}';
+      } else if (otherDutiesCount > 0 || regularInstCount > 0) {
+        subtitle = 'Found $totalVisitsCount Visits & ${otherDutiesCount + regularInstCount} Duties/Institutions across ${_students.length} Students on $activeDatesCount Dates';
+      } else {
+        subtitle = 'Found $totalVisitsCount Visits across ${_students.length} Students on $activeDatesCount Dates';
+      }
     } else if (_reportType == 'new_students') {
       subtitle = 'Found ${_students.length} New Admission Students';
     } else {
-      final totalEntries = _students.length + totalVisitsCount;
+      final totalEntries = _students.length + totalVisitsCount + otherDutiesCount + regularInstCount;
       subtitle = 'Found $totalEntries Entries across ${_students.length} Students';
     }
 
@@ -1556,13 +1763,23 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (_reportType == 'visits') ...[
-                _buildHeaderMetric('Total Visits', totalVisitsCount.toString(), const Color(0xFF38BDF8)),
-                const SizedBox(width: 16),
-                _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
-                const SizedBox(width: 16),
-                _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
-                const SizedBox(width: 16),
-                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                if (_students.isEmpty && otherDutiesCount > 0) ...[
+                  _buildHeaderMetric('Total Visits', totalVisitsCount.toString(), const Color(0xFF38BDF8)),
+                  const SizedBox(width: 16),
+                  _buildHeaderMetric('Official Duties', otherDutiesCount.toString(), const Color(0xFFA855F7)),
+                  const SizedBox(width: 16),
+                  _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
+                  const SizedBox(width: 16),
+                  _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                ] else ...[
+                  _buildHeaderMetric('Total Visits', (totalVisitsCount + otherDutiesCount + regularInstCount).toString(), const Color(0xFF38BDF8)),
+                  const SizedBox(width: 16),
+                  _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
+                  const SizedBox(width: 16),
+                  _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
+                  const SizedBox(width: 16),
+                  _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                ],
               ] else if (_reportType == 'new_students') ...[
                 _buildHeaderMetric('New Students', _students.length.toString(), const Color(0xFF38BDF8)),
                 const SizedBox(width: 24),
@@ -1570,13 +1787,13 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 const SizedBox(width: 24),
                 _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
               ] else ...[
-                _buildHeaderMetric('Total Entries', (_students.length + totalVisitsCount).toString(), const Color(0xFF38BDF8)),
+                _buildHeaderMetric('Total Entries', (_students.length + totalVisitsCount + otherDutiesCount + regularInstCount).toString(), const Color(0xFF38BDF8)),
                 const SizedBox(width: 16),
                 _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
                 const SizedBox(width: 16),
-                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
                 const SizedBox(width: 16),
-                _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
+                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
               ],
             ],
           ),
@@ -1585,7 +1802,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: (_students.isEmpty || _generatingPdf) ? null : _handleDownloadPdf,
+                  onPressed: (!hasRecords || _generatingPdf) ? null : _handleDownloadPdf,
                   icon: _generatingPdf
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.file_download_outlined),
@@ -1601,7 +1818,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: (_students.isEmpty || _generatingPdf) ? null : _handleShareReport,
+                  onPressed: (!hasRecords || _generatingPdf) ? null : _handleShareReport,
                   icon: const Icon(Icons.share_outlined, color: Color(0xFF25D366)),
                   label: const Text('Share to WhatsApp'),
                   style: ElevatedButton.styleFrom(
@@ -1624,9 +1841,15 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
   // ==================== CARD 4: RECORDS PREVIEW ====================
   Widget _buildRecordsPreview(int totalVisitsCount) {
-    String previewTitle = 'Report Records Preview (${_students.length})';
+    String previewTitle = 'Report Records Preview (${_students.length + _institutionVisits.length})';
     if (_reportType == 'visits') {
-      previewTitle = 'Report Records Preview ($totalVisitsCount Visits across ${_students.length} Students)';
+      if (_students.isEmpty && _institutionVisits.isNotEmpty) {
+        previewTitle = 'Report Records Preview (${_institutionVisits.length} Duty/Institution Logs)';
+      } else if (_institutionVisits.isNotEmpty) {
+        previewTitle = 'Report Records Preview ($totalVisitsCount Visits & ${_institutionVisits.length} Duties/Institutions)';
+      } else {
+        previewTitle = 'Report Records Preview ($totalVisitsCount Visits across ${_students.length} Students)';
+      }
     }
 
     return Column(
@@ -1651,7 +1874,148 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         ),
         const SizedBox(height: 10),
 
-        if (_students.isEmpty)
+        // 1. Institution Visits & Duties Preview Section
+        if (_institutionVisits.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3E8FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE9D5FF)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.assignment_rounded, size: 18, color: Color(0xFF9333EA)),
+                const SizedBox(width: 8),
+                Text(
+                  'Official Duties & Institution Visits (${_institutionVisits.length})',
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: const Color(0xFF7E22CE)),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE9D5FF)),
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _institutionVisits.length,
+              separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF3E8FF)),
+              itemBuilder: (context, idx) {
+                final iv = _institutionVisits[idx];
+                final type = iv['type']?.toString() ?? 'OTHER';
+                final isOther = type == 'OTHER';
+                final isSchool = type == 'SCHOOL';
+                final dt = DateTime.tryParse(iv['visitDate']?.toString() ?? '');
+                final dateStr = dt != null ? _formatDisplayDate(dt) : (iv['visitDate']?.toString() ?? '');
+
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: isOther
+                              ? const Color(0xFFF3E8FF)
+                              : isSchool
+                                  ? const Color(0xFFFEF3C7)
+                                  : const Color(0xFFDCFCE7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          isOther
+                              ? Icons.assignment_rounded
+                              : isSchool
+                                  ? Icons.school_rounded
+                                  : Icons.menu_book_rounded,
+                          size: 18,
+                          color: isOther
+                              ? const Color(0xFF9333EA)
+                              : isSchool
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFF16A34A),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isOther
+                                        ? const Color(0xFFF3E8FF)
+                                        : isSchool
+                                            ? const Color(0xFFFDE68A)
+                                            : const Color(0xFFBBF7D0),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    isOther ? 'OTHER DUTY' : type,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: isOther
+                                          ? const Color(0xFF7E22CE)
+                                          : isSchool
+                                              ? const Color(0xFF92400E)
+                                              : const Color(0xFF166534),
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  dateStr,
+                                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              iv['name']?.toString() ?? 'Duty Log',
+                              style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700),
+                            ),
+                            if (iv['village'] != null && iv['village'].toString().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'Location: ${iv['village']}',
+                                  style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFF64748B)),
+                                ),
+                              ),
+                            if (iv['remarks'] != null && iv['remarks'].toString().trim().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'Remarks: "${iv['remarks']}"',
+                                  style: GoogleFonts.inter(fontSize: 11, fontStyle: FontStyle.italic, color: const Color(0xFF64748B)),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+
+        // 2. Students Doorstep List Section
+        if (_students.isEmpty && _institutionVisits.isEmpty)
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
@@ -1665,7 +2029,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   const Icon(Icons.folder_open_rounded, size: 40, color: Color(0xFF94A3B8)),
                   const SizedBox(height: 8),
                   Text(
-                    'No students found in the selected date range / filters.',
+                    'No students or duties found in the selected date range / filters.',
                     style: GoogleFonts.inter(color: const Color(0xFF64748B)),
                   ),
                   const SizedBox(height: 8),
@@ -1680,7 +2044,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               ),
             ),
           )
-        else
+        else if (_students.isNotEmpty)
           Container(
             decoration: BoxDecoration(
               color: Colors.white,

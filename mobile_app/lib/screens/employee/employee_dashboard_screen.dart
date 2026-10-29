@@ -17,6 +17,7 @@ import 'analytics_screen.dart';
 import 'employee_profile_screen.dart';
 import 'whatsapp_templates_screen.dart';
 import 'college_branches_screen.dart';
+import 'institution_visits_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../../services/app_update_service.dart';
 
@@ -1183,6 +1184,15 @@ class _EmployeeDashboardScreenState extends State<EmployeeDashboardScreen> {
                               ),
                             );
                             _loadCachedStats();
+                          },
+                        ),
+                        _buildMobileMenuItem(
+                          icon: Icons.domain_rounded,
+                          iconColor: const Color(0xFF2563EB),
+                          title: 'School & Tuition Visits',
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const InstitutionVisitsScreen()));
                           },
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
