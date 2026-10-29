@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
-import 'student/student_dashboard_screen.dart';
 import 'employee/employee_dashboard_screen.dart';
+import 'pricing_registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,11 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Tab index: 0 = Student, 1 = Employee (Default set to Employee)
-  int _selectedRoleIndex = 1;
-
   // Controllers
-  final _phoneController = TextEditingController();
   final _employeeIdController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -26,46 +22,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _phoneController.dispose();
     _employeeIdController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
+    if (_employeeIdController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Employee ID and Password are required';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    final isStudent = _selectedRoleIndex == 0;
-
-    Map<String, dynamic> result;
-    if (isStudent) {
-      if (_phoneController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Phone number and Password are required';
-        });
-        return;
-      }
-      result = await ApiService.loginStudent(
-        phone: _phoneController.text,
-        password: _passwordController.text,
-      );
-    } else {
-      if (_employeeIdController.text.trim().isEmpty || _passwordController.text.trim().isEmpty) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'Employee ID and Password are required';
-        });
-        return;
-      }
-      result = await ApiService.loginEmployee(
-        employeeId: _employeeIdController.text,
-        password: _passwordController.text,
-      );
-    }
+    final result = await ApiService.loginEmployee(
+      employeeId: _employeeIdController.text.trim(),
+      password: _passwordController.text,
+    );
 
     if (!mounted) return;
 
@@ -74,28 +52,18 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (result['success'] == true) {
-      if (isStudent) {
-        final studentName = result['data']?['user']?['name'] ?? 'Student';
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => StudentDashboardScreen(studentName: studentName),
+      final user = result['data']?['user'] ?? {};
+      final employeeName = user['name'] ?? 'Employee';
+      final employeeId = user['employeeId'] ?? _employeeIdController.text.trim();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EmployeeDashboardScreen(
+            employeeName: employeeName,
+            employeeId: employeeId,
           ),
-        );
-      } else {
-        final user = result['data']?['user'] ?? {};
-        final employeeName = user['name'] ?? 'Employee';
-        final employeeId = user['employeeId'] ?? _employeeIdController.text.trim();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => EmployeeDashboardScreen(
-              employeeName: employeeName,
-              employeeId: employeeId,
-            ),
-          ),
-        );
-      }
+        ),
+      );
     } else {
       setState(() {
         _errorMessage = result['error'] ?? 'Login failed. Please try again.';
@@ -105,8 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isStudent = _selectedRoleIndex == 0;
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -127,21 +93,42 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // Brand Logo & Title
                     Container(
-                      padding: const EdgeInsets.all(16),
+                      width: 76,
+                      height: 76,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          width: 2,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.school_rounded,
-                        size: 48,
-                        color: Color(0xFF818CF8),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/app_icon.png',
+                          width: 76,
+                          height: 76,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            child: const Icon(
+                              Icons.menu_book_rounded,
+                              size: 40,
+                              color: Color(0xFF818CF8),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'PRO Day Report',
+                      'PRO Diary',
                       style: GoogleFonts.outfit(
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
@@ -158,48 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: const Color(0xFF94A3B8),
                       ),
                     ),
-                    const SizedBox(height: 32),
-
-                    // Role Selector Card
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _buildRoleTab(
-                              title: 'Student Portal',
-                              icon: Icons.person_outline_rounded,
-                              isSelected: isStudent,
-                              onTap: () {
-                                setState(() {
-                                  _selectedRoleIndex = 0;
-                                  _errorMessage = null;
-                                });
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildRoleTab(
-                              title: 'Employee Portal',
-                              icon: Icons.badge_outlined,
-                              isSelected: !isStudent,
-                              onTap: () {
-                                setState(() {
-                                  _selectedRoleIndex = 1;
-                                  _errorMessage = null;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 28),
 
                     // Login Box Card
                     Container(
@@ -219,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
-                            isStudent ? 'Student Login' : 'Employee Login',
+                            'Employee Login',
                             style: GoogleFonts.outfit(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
@@ -228,9 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            isStudent
-                                ? 'Enter your registered phone number'
-                                : 'Enter your designated Employee ID or Mobile',
+                            'Enter your designated Employee ID or Mobile',
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               color: const Color(0xFF64748B),
@@ -266,9 +210,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 16),
                           ],
 
-                          // Input 1: Phone or Employee ID
+                          // Input 1: Employee ID
                           Text(
-                            isStudent ? 'Mobile Number' : 'Employee ID / Mobile Number',
+                            'Employee ID / Mobile Number',
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -277,16 +221,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 6),
                           TextField(
-                            controller: isStudent ? _phoneController : _employeeIdController,
-                            keyboardType: isStudent ? TextInputType.phone : TextInputType.text,
+                            controller: _employeeIdController,
+                            keyboardType: TextInputType.text,
                             textCapitalization: TextCapitalization.none,
                             style: GoogleFonts.inter(fontSize: 15, color: const Color(0xFF0F172A)),
                             decoration: InputDecoration(
-                              hintText: isStudent ? 'e.g. 9876543210' : 'e.g. 9010737882 or EMP001',
+                              hintText: 'Enter Employee ID or Mobile',
                               hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8)),
-                              prefixIcon: Icon(
-                                isStudent ? Icons.phone_android_rounded : Icons.badge_outlined,
-                                color: const Color(0xFF6366F1),
+                              prefixIcon: const Icon(
+                                Icons.badge_outlined,
+                                color: Color(0xFF6366F1),
                                 size: 20,
                               ),
                               filled: true,
@@ -396,6 +340,81 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ],
                                   ),
                           ),
+                          const SizedBox(height: 20),
+
+                          // Divider
+                          Row(
+                            children: [
+                              const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                child: Text(
+                                  'New College / Client?',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: const Color(0xFF94A3B8),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Quick Action Buttons (Pricing & Register)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const PricingRegistrationScreen(initialTabIndex: 0),
+                                      ),
+                                    );
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF4F46E5),
+                                    side: const BorderSide(color: Color(0xFFC7D2FE)),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.sell_outlined, size: 16),
+                                  label: Text(
+                                    'Pricing',
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const PricingRegistrationScreen(initialTabIndex: 1),
+                                      ),
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFEEF2FF),
+                                    foregroundColor: const Color(0xFF4338CA),
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.app_registration_rounded, size: 16),
+                                  label: Text(
+                                    'Register',
+                                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -425,49 +444,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRoleTab({
-    required String title,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF4F46E5) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                title,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
