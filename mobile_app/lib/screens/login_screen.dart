@@ -93,36 +93,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // Brand Logo & Title
                     Container(
-                      width: 76,
-                      height: 76,
+                      width: 84,
+                      height: 84,
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
+                            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                            blurRadius: 24,
+                            offset: const Offset(0, 8),
                           ),
                         ],
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 2,
-                        ),
                       ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/app_icon.png',
-                          width: 76,
-                          height: 76,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            child: const Icon(
-                              Icons.menu_book_rounded,
-                              size: 40,
-                              color: Color(0xFF818CF8),
-                            ),
-                          ),
+                      child: Image.asset(
+                        'assets/images/app_icon.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.menu_book_rounded,
+                          size: 40,
+                          color: Color(0xFF818CF8),
                         ),
                       ),
                     ),
