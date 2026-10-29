@@ -92,33 +92,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Brand Logo & Title
-                    Container(
-                      width: 84,
-                      height: 84,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.3),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Image.asset(
-                        'assets/images/app_icon.png',
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
-                          Icons.menu_book_rounded,
-                          size: 40,
-                          color: Color(0xFF818CF8),
-                        ),
+                    Image.asset(
+                      'assets/images/app_icon.png',
+                      width: 96,
+                      height: 96,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.menu_book_rounded,
+                        size: 64,
+                        color: Color(0xFF818CF8),
                       ),
                     ),
                     const SizedBox(height: 16),
