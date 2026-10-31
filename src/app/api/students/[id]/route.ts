@@ -83,6 +83,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       admissionDate: data.admissionDate !== undefined ? (data.admissionDate ? new Date(data.admissionDate) : null) : (data.leadStatus === 'Admitted' ? new Date() : undefined),
       studentPhoto: data.studentPhoto !== undefined ? data.studentPhoto : undefined,
       applicationPhoto: data.applicationPhoto !== undefined ? data.applicationPhoto : undefined,
+      leadStatus: data.leadStatus !== undefined ? data.leadStatus : undefined,
       remarks: data.remarks !== undefined ? data.remarks : undefined,
       nextFollowUpType: data.nextFollowUpType !== undefined ? data.nextFollowUpType : undefined,
       nextFollowUpDate,

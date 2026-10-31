@@ -538,7 +538,7 @@ const server = http.createServer((req, res) => {
             if (json && Array.isArray(json.students)) {
               const existingIds = new Set(json.students.map(s => s.id));
 
-              // Where clause: include all students belonging to this employee or any with photos/branch
+              // Where clause: include all students belonging to this employee or any with photos/branch/star/admitted
               let whereClause = {
                 OR: [
                   { studentPhoto: { not: null } },
@@ -546,6 +546,8 @@ const server = http.createServer((req, res) => {
                   { collegeBranchId: { not: null } },
                   { joinedCollegeId: { not: null } },
                   { leadStatus: 'Admitted' },
+                  { leadStatus: 'Star Lead' },
+                  { leadStatus: { contains: 'Star', mode: 'insensitive' } },
                 ]
               };
 
@@ -558,6 +560,8 @@ const server = http.createServer((req, res) => {
                     { collegeBranchId: { not: null } },
                     { joinedCollegeId: { not: null } },
                     { leadStatus: 'Admitted' },
+                    { leadStatus: 'Star Lead' },
+                    { leadStatus: { contains: 'Star', mode: 'insensitive' } },
                   ]
                 };
               }
