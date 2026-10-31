@@ -22,18 +22,25 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId, password }),
+        body: JSON.stringify({ employeeId: employeeId.trim(), password }),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        router.push('/');
-        router.refresh();
+        const role = data.user?.role;
+        let target = '/employee';
+        if (role === 'ADMIN') target = '/admin';
+        else if (role === 'TELECALLER') target = '/telecaller';
+        else if (role === 'COLLEGE') target = '/college';
+        else if (role === 'AGM') target = '/agm';
+
+        window.location.href = target;
       } else {
-        const data = await res.json();
         setError(data.error || 'Login failed');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +93,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} action="javascript:void(0);">
           <div style={{ marginBottom: '1.25rem' }}>
             <label htmlFor="employeeId" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem', fontWeight: 600, color: '#004d40' }}>Login ID</label>
             <input
@@ -95,6 +102,9 @@ export default function LoginPage() {
               placeholder="Enter your ID"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               required
               style={{
                 width: '100%',

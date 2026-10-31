@@ -5,7 +5,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(self.clients ? self.clients.claim() : Promise.resolve());
 });
 
 self.addEventListener('fetch', (event) => {

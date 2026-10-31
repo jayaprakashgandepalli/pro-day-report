@@ -218,17 +218,30 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
                   style={{ flex: 1 }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', alignItems: 'center' }}>
                 <input 
                   type="text" 
                   className="form-control" 
-                  placeholder="Add School Name..." 
+                  placeholder="Enter School Name..." 
                   value={valueState}
                   onChange={(e) => setValueState(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && onAddClick()}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, minWidth: 0 }}
                 />
-                <button className="btn btn-primary" onClick={onAddClick} style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={onAddClick} 
+                  style={{ 
+                    width: 'auto', 
+                    whiteSpace: 'nowrap', 
+                    flexShrink: 0, 
+                    padding: '0.65rem 1.25rem', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '0.35rem',
+                    fontSize: '0.9rem'
+                  }}
+                >
                   <Plus size={18} /> Add School
                 </button>
               </div>
@@ -238,7 +251,7 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
       )}
 
       {type !== 'SCHOOL' && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
           <input 
             type="text" 
             className="form-control" 
@@ -246,8 +259,21 @@ function ConfigSection({ type, items, configs, handleDelete, handleAdd, handleEd
             value={valueState}
             onChange={(e) => setValueState(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onAddClick()}
+            style={{ flex: 1, minWidth: 0 }}
           />
-          <button className="btn btn-primary" onClick={onAddClick} style={{ padding: '0.5rem' }}>
+          <button 
+            className="btn btn-primary" 
+            onClick={onAddClick} 
+            style={{ 
+              width: 'auto', 
+              whiteSpace: 'nowrap', 
+              flexShrink: 0, 
+              padding: '0.65rem 1rem', 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}
+          >
             <Plus size={20} />
           </button>
         </div>
