@@ -165,12 +165,19 @@ export async function GET(req: Request) {
       whereClause.AND.push({ employeeId: payload.employeeId });
     }
 
-      // Hide students who joined external competitor colleges
-      whereClause.AND.push({
-        NOT: {
-          leadStatus: 'Joined Other College'
-        }
-      });
+      // Hide students who joined external competitor colleges (except when generating day/visit reports or querying dates)
+      const isReportOrDateQuery = searchParams.has('reportType') || 
+                                  searchParams.has('startDate') || 
+                                  searchParams.has('endDate') || 
+                                  searchParams.has('date') || 
+                                  searchParams.get('includeJoinedOther') === 'true';
+      if (!isReportOrDateQuery) {
+        whereClause.AND.push({
+          NOT: {
+            leadStatus: 'Joined Other College'
+          }
+        });
+      }
     
     const callStatus = searchParams.get('callStatus');
     if (callStatus === 'not_called') {

@@ -538,7 +538,7 @@ const server = http.createServer((req, res) => {
             if (json && Array.isArray(json.students)) {
               const existingIds = new Set(json.students.map(s => s.id));
 
-              // Where clause: include all students belonging to this employee or any with photos/branch/star/admitted
+              // Where clause: include all students belonging to this employee or any with photos/branch/star/admitted/joined other
               let whereClause = {
                 OR: [
                   { studentPhoto: { not: null } },
@@ -547,6 +547,7 @@ const server = http.createServer((req, res) => {
                   { joinedCollegeId: { not: null } },
                   { leadStatus: 'Admitted' },
                   { leadStatus: 'Star Lead' },
+                  { leadStatus: 'Joined Other College' },
                   { leadStatus: { contains: 'Star', mode: 'insensitive' } },
                 ]
               };
@@ -561,6 +562,7 @@ const server = http.createServer((req, res) => {
                     { joinedCollegeId: { not: null } },
                     { leadStatus: 'Admitted' },
                     { leadStatus: 'Star Lead' },
+                    { leadStatus: 'Joined Other College' },
                     { leadStatus: { contains: 'Star', mode: 'insensitive' } },
                   ]
                 };
@@ -573,18 +575,21 @@ const server = http.createServer((req, res) => {
                   collegeBranch: { select: { id: true, name: true, location: true, code: true } },
                   joinedCollege: { select: { id: true, name: true } },
                   visits: {
-                    orderBy: { visitDate: 'desc' },
-                    take: 1
+                    orderBy: { visitDate: 'asc' },
                   }
                 }
               });
 
-              const isFilteredQuery = !!(
-                parsedUrl.query.followup ||
+              const isDateOrReportQuery = !!(
                 parsedUrl.query.reportType ||
                 parsedUrl.query.startDate ||
                 parsedUrl.query.endDate ||
-                parsedUrl.query.date ||
+                parsedUrl.query.date
+              );
+
+              const isFilteredQuery = !!(
+                parsedUrl.query.followup ||
+                isDateOrReportQuery ||
                 parsedUrl.query.preset ||
                 parsedUrl.query.doorstep ||
                 parsedUrl.query.admissionStatus ||
@@ -601,7 +606,7 @@ const server = http.createServer((req, res) => {
                 parsedUrl.query.profileStatus
               );
 
-              // 1. Prepend missing admitted/employee students (filtered out by upstream joinedCollegeId bug) ONLY on default unfiltered list
+              // 1. Prepend missing admitted/employee students
               if (!isFilteredQuery) {
                 for (const dbSt of dbStudents) {
                   if (employeeId && dbSt.employeeId === employeeId && !existingIds.has(dbSt.id)) {
@@ -613,6 +618,41 @@ const server = http.createServer((req, res) => {
                     };
                     json.students.unshift(formatted);
                     existingIds.add(dbSt.id);
+                  }
+                }
+              } else if (isDateOrReportQuery) {
+                const sDate = parsedUrl.query.startDate || parsedUrl.query.date;
+                const eDate = parsedUrl.query.endDate || parsedUrl.query.date;
+                let startDay = null;
+                let endDay = null;
+                if (sDate) {
+                  startDay = new Date(sDate);
+                  startDay.setHours(0, 0, 0, 0);
+                }
+                if (eDate) {
+                  endDay = new Date(eDate);
+                  endDay.setHours(23, 59, 59, 999);
+                }
+
+                for (const dbSt of dbStudents) {
+                  if (employeeId && dbSt.employeeId === employeeId && !existingIds.has(dbSt.id)) {
+                    const hasVisitInRange = dbSt.visits && dbSt.visits.some(v => {
+                      if (!startDay || !endDay) return true;
+                      const vDate = new Date(v.visitDate);
+                      return vDate >= startDay && vDate <= endDay;
+                    });
+                    const hasCreatedInRange = !startDay || !endDay || (new Date(dbSt.createdAt) >= startDay && new Date(dbSt.createdAt) <= endDay);
+
+                    if (hasVisitInRange || hasCreatedInRange) {
+                      const formatted = {
+                        ...dbSt,
+                        visits: dbSt.visits || [],
+                        collegeBranch: dbSt.collegeBranch || null,
+                        joinedCollege: dbSt.collegeBranch ? { name: dbSt.collegeBranch.name } : (dbSt.joinedCollege || null),
+                      };
+                      json.students.push(formatted);
+                      existingIds.add(dbSt.id);
+                    }
                   }
                 }
               }
@@ -633,6 +673,7 @@ const server = http.createServer((req, res) => {
                   if (dbData.joinedCollegeId) st.joinedCollegeId = dbData.joinedCollegeId;
                   if (dbData.applicationNumber) st.applicationNumber = dbData.applicationNumber;
                   if (dbData.admissionDate) st.admissionDate = dbData.admissionDate;
+                  if (dbData.visits && dbData.visits.length > 0) st.visits = dbData.visits;
                 }
               });
 

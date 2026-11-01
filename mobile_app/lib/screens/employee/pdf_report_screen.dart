@@ -1201,17 +1201,28 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final DateTime endDay = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59, 999);
 
     int totalVisitsCount = 0;
+    int newStudentsWithoutVisitsCount = 0;
     final Set<String> activeDates = {};
     for (final s in _students) {
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      int matchingVisitsForStudent = 0;
       for (final v in rawVisits) {
         final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '');
         if (dt != null) {
           if (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
                                 dt.isBefore(endDay.add(const Duration(milliseconds: 1))))) {
             totalVisitsCount++;
+            matchingVisitsForStudent++;
             activeDates.add(_formatApiDate(dt));
           }
+        }
+      }
+      if (matchingVisitsForStudent == 0) {
+        newStudentsWithoutVisitsCount++;
+        final dt = DateTime.tryParse(s['createdAt']?.toString() ?? '');
+        if (dt != null && (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
+                                             dt.isBefore(endDay.add(const Duration(milliseconds: 1)))))) {
+          activeDates.add(_formatApiDate(dt));
         }
       }
     }
@@ -1279,7 +1290,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             const SizedBox(height: 16),
 
             // CARD 3: Report Summary & Actions
-            _buildSummaryAndActionsCard(totalVisitsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount),
+            _buildSummaryAndActionsCard(totalVisitsCount, newStudentsWithoutVisitsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount),
             const SizedBox(height: 20),
 
             // CARD 4: Records Preview
@@ -1717,7 +1728,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   // ==================== CARD 3: SUMMARY & ACTIONS ====================
-  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount) {
+  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int newStudentsWithoutVisitsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount) {
     final hasRecords = _students.isNotEmpty || _institutionVisits.isNotEmpty;
     String subtitle;
     if (_reportType == 'visits') {
@@ -1731,8 +1742,12 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     } else if (_reportType == 'new_students') {
       subtitle = 'Found ${_students.length} New Admission Students';
     } else {
-      final totalEntries = _students.length + totalVisitsCount + otherDutiesCount + regularInstCount;
-      subtitle = 'Found $totalEntries Entries across ${_students.length} Students';
+      final totalEntries = totalVisitsCount + newStudentsWithoutVisitsCount + otherDutiesCount + regularInstCount;
+      if (otherDutiesCount > 0 || regularInstCount > 0) {
+        subtitle = 'Found $totalEntries Entries across ${_students.length} Students & ${otherDutiesCount + regularInstCount} Duties/Institutions';
+      } else {
+        subtitle = 'Found $totalEntries Entries across ${_students.length} Students';
+      }
     }
 
     return Container(
@@ -1787,7 +1802,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 const SizedBox(width: 24),
                 _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
               ] else ...[
-                _buildHeaderMetric('Total Entries', (_students.length + totalVisitsCount + otherDutiesCount + regularInstCount).toString(), const Color(0xFF38BDF8)),
+                _buildHeaderMetric('Total Entries', (totalVisitsCount + newStudentsWithoutVisitsCount + otherDutiesCount + regularInstCount).toString(), const Color(0xFF38BDF8)),
                 const SizedBox(width: 16),
                 _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
                 const SizedBox(width: 16),
