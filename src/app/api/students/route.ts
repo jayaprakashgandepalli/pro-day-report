@@ -118,8 +118,10 @@ export async function GET(req: Request) {
       });
       if (user && user.assignedEmployees && user.assignedEmployees.length > 0) {
         whereClause.AND.push({ employeeId: { in: user.assignedEmployees } });
+      } else {
+        // If no assigned employees, telecaller cannot view any leads
+        whereClause.AND.push({ id: 'none' });
       }
-      // If no specific assigned employees, telecaller sees all students
     } else if (userRole === 'COLLEGE') {
       const user = await prisma.user.findUnique({
         where: { employeeId: payload.employeeId },

@@ -88,6 +88,15 @@ export default function TelecallerDashboard() {
             </div>
           )}
 
+          {students.length === 0 && (
+            <div style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '1rem', borderRadius: '8px', marginBottom: '1.25rem', border: '1px solid #fde68a' }}>
+              <strong>ℹ️ No leads assigned yet.</strong>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem' }}>
+                Your telecaller account currently has no employees assigned to it. Please ask an Administrator to open <strong>Manage Users &gt; Permissions</strong> and select the employees whose student leads you should handle.
+              </p>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginTop: '1rem', marginBottom: '2rem' }}>
             <div className="card" style={{ padding: '1.5rem', textAlign: 'center', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
               <h3 style={{ margin: 0, fontSize: '2rem', color: '#1e40af' }}>{students.length}</h3>

@@ -52,7 +52,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const userRole = (payload.role || '').toUpperCase();
-    if (userRole !== 'ADMIN' && userRole !== 'TELECALLER' && userRole !== 'COLLEGE') {
+    if (userRole === 'TELECALLER') {
+      const user = await prisma.user.findUnique({
+        where: { employeeId: payload.employeeId },
+        select: { assignedEmployees: true }
+      });
+      const assigned = user?.assignedEmployees || [];
+      if (!assigned.includes(student.employeeId)) {
+        return NextResponse.json({ error: 'Forbidden: You do not have permission to record visits for this student.' }, { status: 403 });
+      }
+    } else if (userRole !== 'ADMIN' && userRole !== 'COLLEGE') {
       if (student.employeeId !== payload.employeeId) {
         return NextResponse.json({ error: 'Forbidden: You can only record visits for your own students.' }, { status: 403 });
       }

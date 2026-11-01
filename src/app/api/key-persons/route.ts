@@ -32,6 +32,8 @@ export async function GET(req: Request) {
       });
       if (user && user.assignedEmployees && user.assignedEmployees.length > 0) {
         where.employeeId = { in: user.assignedEmployees };
+      } else {
+        where.id = 'none';
       }
     } else {
       // Non-admin field employee: STRICT ISOLATION

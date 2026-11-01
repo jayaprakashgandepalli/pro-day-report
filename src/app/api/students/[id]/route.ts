@@ -24,7 +24,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const userRole = (payload.role || '').toUpperCase();
-    if (userRole !== 'ADMIN' && userRole !== 'TELECALLER' && userRole !== 'COLLEGE') {
+    if (userRole === 'TELECALLER') {
+      const user = await prisma.user.findUnique({
+        where: { employeeId: payload.employeeId },
+        select: { assignedEmployees: true }
+      });
+      const assigned = user?.assignedEmployees || [];
+      if (!assigned.includes(currentStudent.employeeId)) {
+        return NextResponse.json({ error: 'Forbidden: You do not have permission to edit this student.' }, { status: 403 });
+      }
+    } else if (userRole !== 'ADMIN' && userRole !== 'COLLEGE') {
       if (currentStudent.employeeId !== payload.employeeId) {
         return NextResponse.json({ error: 'Forbidden: You can only edit your own students.' }, { status: 403 });
       }
@@ -208,7 +217,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     const userRole = (payload.role || '').toUpperCase();
-    if (userRole !== 'ADMIN' && userRole !== 'TELECALLER') {
+    if (userRole === 'TELECALLER') {
+      return NextResponse.json({ error: 'Forbidden: Telecallers are not authorized to delete students.' }, { status: 403 });
+    } else if (userRole !== 'ADMIN') {
       if (currentStudent.employeeId !== payload.employeeId) {
         return NextResponse.json({ error: 'Forbidden: You can only delete your own students.' }, { status: 403 });
       }
