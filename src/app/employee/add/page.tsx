@@ -135,7 +135,7 @@ export default function AddStudentPage() {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSave = async (e: React.FormEvent, addAnother = false) => {
+  const handleSave = async (e: React.FormEvent, addAnother = false, keepSchool = false) => {
     e.preventDefault();
     if (phoneExistsError) {
       setError('Cannot save. ' + phoneExistsError);
@@ -169,36 +169,59 @@ export default function AddStudentPage() {
       });
 
       if (res.ok) {
-        setSuccessMsg('Student added successfully.');
         if (addAnother) {
-          setFormData({
-            studentName: '',
-            gender: '',
-            fatherName: '',
-            occupation: '',
-            phone: '',
-            whatsapp: '',
-            group: '',
-            visitNumber: '',
-            schoolName: '',
-            schoolArea: '',
-            schoolDistrict: '',
-            schoolMandal: '',
-            schoolVillage: '',
-            marks: '',
-            remarks: '',
-            district: '',
-            mandal: '',
-            village: '',
-            studyInterestedAt: '',
-            educationStage: '',
-            ableToBearFee: '',
-            doorstepCompleted: false,
-            address: '',
-          });
-          setSameAsSchoolAddress(false);
+          const schoolRetained = formData.schoolName;
+          if (keepSchool) {
+            setFormData(prev => ({
+              ...prev,
+              studentName: '',
+              gender: '',
+              fatherName: '',
+              occupation: '',
+              phone: '',
+              whatsapp: '',
+              group: '',
+              visitNumber: '',
+              marks: '',
+              remarks: '',
+              address: '',
+              studyInterestedAt: '',
+              educationStage: '',
+              ableToBearFee: '',
+              doorstepCompleted: false,
+              ...(sameAsSchoolAddress ? {} : { district: '', mandal: '', village: '' }),
+            }));
+            setSuccessMsg(`Student added! Retained school: "${schoolRetained}". Enter next student details.`);
+          } else {
+            setFormData({
+              studentName: '',
+              gender: '',
+              fatherName: '',
+              occupation: '',
+              phone: '',
+              whatsapp: '',
+              group: '',
+              visitNumber: '',
+              schoolName: '',
+              schoolArea: '',
+              schoolDistrict: '',
+              schoolMandal: '',
+              schoolVillage: '',
+              marks: '',
+              remarks: '',
+              district: '',
+              mandal: '',
+              village: '',
+              studyInterestedAt: '',
+              educationStage: '',
+              ableToBearFee: '',
+              doorstepCompleted: false,
+              address: '',
+            });
+            setSameAsSchoolAddress(false);
+            setSuccessMsg('Student added successfully! You can add another.');
+          }
           window.scrollTo(0, 0);
-          setSuccessMsg('Student added successfully! You can add another.');
         } else {
           setIsSuccessScreen(true);
         }
@@ -245,9 +268,30 @@ export default function AddStudentPage() {
           <p style={{ color: '#475569', fontSize: '1.1rem', marginBottom: '2.5rem' }}>
             <strong>{formData.studentName}</strong> has been successfully added to the database.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '300px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '340px', margin: '0 auto' }}>
+            {formData.schoolName && (
+              <button 
+                type="button"
+                className="btn" 
+                style={{ backgroundColor: '#059669', color: '#fff', padding: '0.85rem', fontWeight: 700, borderRadius: '10px' }}
+                onClick={() => {
+                  setFormData(prev => ({
+                    ...prev,
+                    studentName: '', gender: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', marks: '', remarks: '', address: '', studyInterestedAt: '', educationStage: '', ableToBearFee: '', doorstepCompleted: false,
+                    ...(sameAsSchoolAddress ? {} : { district: '', mandal: '', village: '' }),
+                  }));
+                  setIsSuccessScreen(false);
+                  setSuccessMsg(`Adding next student for "${formData.schoolName}". School location is retained.`);
+                  window.scrollTo(0, 0);
+                }}
+              >
+                🏫 Add Another from {formData.schoolName}
+              </button>
+            )}
             <button 
+              type="button"
               className="btn btn-primary" 
+              style={{ padding: '0.85rem' }}
               onClick={() => {
                 setFormData({
                   studentName: '', gender: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', schoolName: '', schoolArea: '', schoolDistrict: '', schoolMandal: '', schoolVillage: '', marks: '', remarks: '', district: '', mandal: '', village: '', studyInterestedAt: '', educationStage: '', ableToBearFee: '', doorstepCompleted: false, address: ''
@@ -258,9 +302,9 @@ export default function AddStudentPage() {
                 window.scrollTo(0, 0);
               }}
             >
-              Add Another Student
+              {formData.schoolName ? 'Add Student from New School' : 'Add Another Student'}
             </button>
-            <Link href="/employee" className="btn btn-outline">
+            <Link href="/employee" className="btn btn-outline" style={{ padding: '0.85rem' }}>
               Go to Dashboard
             </Link>
           </div>
@@ -667,16 +711,28 @@ export default function AddStudentPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="form-actions">
+          <div className="form-actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <button type="submit" className="btn btn-primary" disabled={isLoading} onClick={(e) => handleSave(e, false)} style={{ padding: '1rem', fontSize: '1.1rem', borderRadius: '12px' }}>
               <Save size={20} /> {isLoading ? 'Saving...' : 'Save Student Details'}
             </button>
             
-            <button type="button" className="btn btn-outline" disabled={isLoading} onClick={(e) => handleSave(e, true)} style={{ padding: '1rem', borderRadius: '12px', background: '#fff' }}>
-              <Plus size={20} /> Save & Add Another
+            {formData.schoolName && (
+              <button 
+                type="button" 
+                className="btn" 
+                disabled={isLoading} 
+                onClick={(e) => handleSave(e, true, true)} 
+                style={{ padding: '1rem', borderRadius: '12px', background: '#059669', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                🏫 Save & Add Next (Same School)
+              </button>
+            )}
+
+            <button type="button" className="btn btn-outline" disabled={isLoading} onClick={(e) => handleSave(e, true, false)} style={{ padding: '1rem', borderRadius: '12px', background: '#fff' }}>
+              <Plus size={20} /> {formData.schoolName ? 'Save & Add (Different School)' : 'Save & Add Another'}
             </button>
 
-            <Link href="/" className="btn btn-outline" style={{ border: 'none', color: '#64748b', marginTop: '0.5rem' }}>
+            <Link href="/" className="btn btn-outline" style={{ border: 'none', color: '#64748b', marginTop: '0.25rem', textAlign: 'center' }}>
               Cancel & Go Back
             </Link>
           </div>

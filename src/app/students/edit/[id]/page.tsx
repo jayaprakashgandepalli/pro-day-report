@@ -36,6 +36,7 @@ export default function EditStudent() {
     doorstepCompleted: false,
   });
 
+  const [studentRaw, setStudentRaw] = useState<any>(null);
   const [sameAsSchoolAddress, setSameAsSchoolAddress] = useState(false);
   const [configs, setConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,32 +111,7 @@ export default function EditStudent() {
       const res = await fetch(`/api/students/${studentId}`);
       if (res.ok) {
         const data = await res.json();
-        const s = data.student;
-        setFormData({
-          employeeId: s.employeeId || '',
-          studentName: s.studentName || '',
-          gender: s.gender || '',
-          fatherName: s.fatherName || '',
-          occupation: s.occupation || '',
-          address: s.address || '',
-          phone: s.phone || '',
-          whatsapp: s.whatsapp || '',
-          group: s.group || '',
-          visitNumber: s.visitNumber || '',
-          schoolName: s.schoolName || '',
-          marks: s.marks || '',
-          remarks: s.remarks || '',
-          district: s.district || '',
-          mandal: s.mandal || '',
-          village: s.village || '',
-          studyInterestedAt: s.studyInterestedAt || '',
-          educationStage: s.educationStage || '',
-          ableToBearFee: s.ableToBearFee || '',
-          schoolDistrict: '',
-          schoolMandal: '',
-          schoolVillage: '',
-          doorstepCompleted: s.doorstepCompleted || false,
-        });
+        setStudentRaw(data.student);
       } else {
         alert("Failed to load student details");
         router.back();
@@ -147,26 +123,115 @@ export default function EditStudent() {
     }
   };
 
-  // Reverse engineer school location for pre-filling dropdowns if possible when configs load
+  // Robustly resolve both school and residence address hierarchies when configs or student data load
   useEffect(() => {
-    if (configs.length > 0 && formData.schoolName && !formData.schoolVillage) {
-      const schoolConfig = configs.find(c => c.type === 'SCHOOL' && c.value === formData.schoolName);
-      if (schoolConfig && schoolConfig.parentId) {
-        const villageConfig = configs.find(c => c.id === schoolConfig.parentId);
-        if (villageConfig && villageConfig.parentId) {
-          const mandalConfig = configs.find(c => c.id === villageConfig.parentId);
-          if (mandalConfig) {
-            setFormData(prev => ({
-              ...prev,
-              schoolVillage: villageConfig.id,
-              schoolMandal: mandalConfig.id,
-              schoolDistrict: mandalConfig.parentId || ''
-            }));
+    if (!studentRaw) return;
+    const s = studentRaw;
+
+    // 1. Resolve School Hierarchy
+    let schoolVillage = '';
+    let schoolMandal = '';
+    let schoolDistrict = '';
+
+    // First try from schoolName if available
+    if (s.schoolName && configs.length > 0) {
+      const sNorm = s.schoolName.trim().toLowerCase();
+      const schoolCfg = configs.find(c => c.type === 'SCHOOL' && (c.value?.trim().toLowerCase() === sNorm || c.id === s.schoolName));
+      if (schoolCfg && schoolCfg.parentId) {
+        schoolVillage = schoolCfg.parentId;
+      }
+    }
+
+    // Fallback to stored schoolArea if schoolVillage not resolved
+    if (!schoolVillage && s.schoolArea) {
+      schoolVillage = s.schoolArea;
+    }
+
+    // Climb up from schoolVillage
+    if (schoolVillage && configs.length > 0) {
+      const vNorm = schoolVillage.trim().toLowerCase();
+      const villageCfg = configs.find(c => c.type === 'VILLAGE' && (c.id === schoolVillage || c.value?.trim().toLowerCase() === vNorm));
+      if (villageCfg) {
+        schoolVillage = villageCfg.id;
+        if (villageCfg.parentId) {
+          schoolMandal = villageCfg.parentId;
+          const mandalCfg = configs.find(c => c.type === 'MANDAL' && (c.id === schoolMandal || c.value?.trim().toLowerCase() === schoolMandal.toLowerCase()));
+          if (mandalCfg && mandalCfg.parentId) {
+            schoolDistrict = mandalCfg.parentId;
           }
         }
       }
     }
-  }, [configs, formData.schoolName]);
+
+    // 2. Resolve Residence Hierarchy
+    let resVillage = s.village || '';
+    let resMandal = s.mandal || '';
+    let resDistrict = s.district || '';
+
+    if (resVillage && configs.length > 0) {
+      const vNorm = resVillage.trim().toLowerCase();
+      const vCfg = configs.find(c => c.type === 'VILLAGE' && (c.id === resVillage || c.value?.trim().toLowerCase() === vNorm));
+      if (vCfg) {
+        resVillage = vCfg.id;
+        if (!resMandal && vCfg.parentId) {
+          resMandal = vCfg.parentId;
+        }
+      }
+    }
+    if (resMandal && configs.length > 0) {
+      const mNorm = resMandal.trim().toLowerCase();
+      const mCfg = configs.find(c => c.type === 'MANDAL' && (c.id === resMandal || c.value?.trim().toLowerCase() === mNorm));
+      if (mCfg) {
+        resMandal = mCfg.id;
+        if (!resDistrict && mCfg.parentId) {
+          resDistrict = mCfg.parentId;
+        }
+      }
+    }
+    if (resDistrict && configs.length > 0) {
+      const dNorm = resDistrict.trim().toLowerCase();
+      const dCfg = configs.find(c => c.type === 'DISTRICT' && (c.id === resDistrict || c.value?.trim().toLowerCase() === dNorm));
+      if (dCfg) {
+        resDistrict = dCfg.id;
+      }
+    }
+
+    // 3. Auto-detect if residence is same as school
+    const isSame = Boolean(
+      schoolDistrict &&
+      resDistrict &&
+      schoolDistrict === resDistrict &&
+      schoolMandal === resMandal &&
+      schoolVillage === resVillage
+    );
+    setSameAsSchoolAddress(isSame);
+
+    setFormData({
+      employeeId: s.employeeId || '',
+      studentName: s.studentName || '',
+      gender: s.gender || '',
+      fatherName: s.fatherName || '',
+      occupation: s.occupation || '',
+      address: s.address || '',
+      phone: s.phone || '',
+      whatsapp: s.whatsapp || '',
+      group: s.group || '',
+      visitNumber: s.visitNumber || '',
+      schoolName: s.schoolName || '',
+      marks: s.marks || '',
+      remarks: s.remarks || '',
+      district: resDistrict,
+      mandal: resMandal,
+      village: resVillage,
+      studyInterestedAt: s.studyInterestedAt || '',
+      educationStage: s.educationStage || '',
+      ableToBearFee: s.ableToBearFee || '',
+      schoolDistrict,
+      schoolMandal,
+      schoolVillage,
+      doorstepCompleted: s.doorstepCompleted || false,
+    });
+  }, [configs, studentRaw]);
 
   const getByType = (type: string) => configs.filter(c => c.type === type);
   const getByParent = (type: string, parentId: string) => configs.filter(c => c.type === type && c.parentId === parentId);
@@ -218,6 +283,7 @@ export default function EditStudent() {
     setSaving(true);
     const submitData = {
       ...formData,
+      schoolArea: formData.schoolVillage || '',
       whatsapp: formData.whatsapp
     };
 

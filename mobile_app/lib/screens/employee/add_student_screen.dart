@@ -259,6 +259,15 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         _schoolDistrict = dCfg['id'].toString();
       }
     }
+
+    // Auto-detect if residence matches school address
+    if (_schoolDistrict != null &&
+        _schoolDistrict!.isNotEmpty &&
+        _schoolDistrict == _residenceDistrict &&
+        _schoolMandal == _residenceMandal &&
+        _schoolVillage == _residenceVillage) {
+      _sameAsSchoolAddress = true;
+    }
   }
 
   // Filter helper matching web getByType and getByParent
@@ -416,7 +425,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     );
   }
 
-  void _clearForm() {
+  void _clearForm({bool keepSchool = false}) {
     _formKey.currentState?.reset();
     _nameController.clear();
     _fatherNameController.clear();
@@ -431,15 +440,24 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     setState(() {
       _gender = 'Male';
       _group = null;
-      _schoolDistrict = null;
-      _schoolMandal = null;
-      _schoolVillage = null;
-      _schoolName = null;
-      _schoolStats = null;
-      _sameAsSchoolAddress = false;
-      _residenceDistrict = null;
-      _residenceMandal = null;
-      _residenceVillage = null;
+      if (!keepSchool) {
+        _schoolDistrict = null;
+        _schoolMandal = null;
+        _schoolVillage = null;
+        _schoolName = null;
+        _schoolStats = null;
+        _sameAsSchoolAddress = false;
+        _residenceDistrict = null;
+        _residenceMandal = null;
+        _residenceVillage = null;
+      } else {
+        // If same as school address, keep residence synced; otherwise clear residence
+        if (!_sameAsSchoolAddress) {
+          _residenceDistrict = null;
+          _residenceMandal = null;
+          _residenceVillage = null;
+        }
+      }
       _studyInterestedAt = null;
       _educationStage = null;
       _ableToBearFee = null;
@@ -456,7 +474,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
     );
   }
 
-  Future<void> _handleSave({bool addAnother = false}) async {
+  Future<void> _handleSave({bool addAnother = false, bool keepSchool = false}) async {
     if (_phoneExistsError != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -565,9 +583,12 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
           : 'Student "$studentName" added successfully!';
 
       if (addAnother) {
-        _clearForm();
+        final schoolRetained = _schoolName;
+        _clearForm(keepSchool: keepSchool);
         setState(() {
-          _bannerSuccessMsg = '$msg You can add another.';
+          _bannerSuccessMsg = keepSchool && schoolRetained != null
+              ? '$msg Retained school "$schoolRetained". Enter next student.'
+              : '$msg You can add another.';
         });
       } else {
         setState(() {
@@ -1496,11 +1517,35 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                             ),
                     ),
 
-                    // Secondary Action: Save & Add Another (only for new students)
+                    // Secondary Actions (only for new students)
                     if (!_isEditing) ...[
+                      if (_schoolName != null && _schoolName!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : () => _handleSave(addAnother: true, keepSchool: true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF059669),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            elevation: 1,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.school_rounded, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Save & Add Next (Same School)',
+                                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       OutlinedButton(
-                        onPressed: _isLoading ? null : () => _handleSave(addAnother: true),
+                        onPressed: _isLoading ? null : () => _handleSave(addAnother: true, keepSchool: false),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF4F46E5),
                           side: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
@@ -1514,7 +1559,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                             const Icon(Icons.add_circle_outline_rounded, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              'Save & Add Another',
+                              _schoolName != null && _schoolName!.isNotEmpty
+                                  ? 'Save & Add (Different School)'
+                                  : 'Save & Add Another',
                               style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
                             ),
                           ],
@@ -1706,22 +1753,49 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
+                  if (_schoolName != null && _schoolName!.isNotEmpty) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.school_rounded, size: 20),
+                        label: Text(
+                          'Add Another from $_schoolName',
+                          style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: () {
+                          _clearForm(keepSchool: true);
+                          setState(() => _isSuccessScreen = false);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: OutlinedButton(
                       onPressed: () {
-                        _clearForm();
+                        _clearForm(keepSchool: false);
                         setState(() => _isSuccessScreen = false);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F46E5),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 15),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF4F46E5),
+                        side: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Text(
-                        'Add Another Student',
-                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700),
+                        _schoolName != null && _schoolName!.isNotEmpty
+                            ? 'Add Student from New School'
+                            : 'Add Another Student',
+                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
