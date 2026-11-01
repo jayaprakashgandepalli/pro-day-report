@@ -34,6 +34,7 @@ export default function AddStudentPage() {
     address: '',
   });
 
+  const [sameAsSchoolAddress, setSameAsSchoolAddress] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccessScreen, setIsSuccessScreen] = useState(false);
@@ -98,6 +99,22 @@ export default function AddStudentPage() {
 
   const getByType = (t: string) => configs.filter(c => c.type === t);
   const getByParent = (t: string, parentId: string) => configs.filter(c => c.type === t && c.parentId === parentId);
+
+  const handleSameAsSchoolAddressToggle = (checked: boolean) => {
+    setSameAsSchoolAddress(checked);
+    if (checked) {
+      if (formData.schoolDistrict) {
+        setFormData(prev => ({
+          ...prev,
+          district: prev.schoolDistrict,
+          mandal: prev.schoolMandal,
+          village: prev.schoolVillage,
+        }));
+      } else {
+        alert('Please select Previous School (District, Mandal, Village) first.');
+      }
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -179,6 +196,7 @@ export default function AddStudentPage() {
             doorstepCompleted: false,
             address: '',
           });
+          setSameAsSchoolAddress(false);
           window.scrollTo(0, 0);
           setSuccessMsg('Student added successfully! You can add another.');
         } else {
@@ -234,6 +252,7 @@ export default function AddStudentPage() {
                 setFormData({
                   studentName: '', gender: '', fatherName: '', occupation: '', phone: '', whatsapp: '', group: '', visitNumber: '', schoolName: '', schoolArea: '', schoolDistrict: '', schoolMandal: '', schoolVillage: '', marks: '', remarks: '', district: '', mandal: '', village: '', studyInterestedAt: '', educationStage: '', ableToBearFee: '', doorstepCompleted: false, address: ''
                 });
+                setSameAsSchoolAddress(false);
                 setIsSuccessScreen(false);
                 setSuccessMsg('');
                 window.scrollTo(0, 0);
@@ -389,7 +408,17 @@ export default function AddStudentPage() {
 
             <div className="form-group">
               <label className="form-label">Previous School (District)</label>
-              <select id="schoolDistrict" name="schoolDistrict" className="form-control" value={formData.schoolDistrict} onChange={(e) => setFormData({...formData, schoolDistrict: e.target.value, schoolMandal: '', schoolVillage: '', schoolName: ''})}>
+              <select id="schoolDistrict" name="schoolDistrict" className="form-control" value={formData.schoolDistrict} onChange={(e) => {
+                const val = e.target.value;
+                setFormData(prev => ({
+                  ...prev, 
+                  schoolDistrict: val, 
+                  schoolMandal: '', 
+                  schoolVillage: '', 
+                  schoolName: '',
+                  ...(sameAsSchoolAddress ? { district: val, mandal: '', village: '' } : {})
+                }));
+              }}>
                 <option value="">Select District</option>
                 {getByType('DISTRICT').map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
               </select>
@@ -398,7 +427,16 @@ export default function AddStudentPage() {
             {formData.schoolDistrict && (
               <div className="form-group">
                 <label className="form-label">Previous School (Mandal)</label>
-                <select id="schoolMandal" name="schoolMandal" className="form-control" value={formData.schoolMandal} onChange={(e) => setFormData({...formData, schoolMandal: e.target.value, schoolVillage: '', schoolName: ''})}>
+                <select id="schoolMandal" name="schoolMandal" className="form-control" value={formData.schoolMandal} onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({
+                    ...prev, 
+                    schoolMandal: val, 
+                    schoolVillage: '', 
+                    schoolName: '',
+                    ...(sameAsSchoolAddress ? { mandal: val, village: '' } : {})
+                  }));
+                }}>
                   <option value="">Select Mandal</option>
                   {getByParent('MANDAL', formData.schoolDistrict).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>
@@ -408,7 +446,15 @@ export default function AddStudentPage() {
             {formData.schoolMandal && (
               <div className="form-group">
                 <label className="form-label">Previous School (Village)</label>
-                <select id="schoolVillage" name="schoolVillage" className="form-control" value={formData.schoolVillage} onChange={(e) => setFormData({...formData, schoolVillage: e.target.value, schoolName: ''})}>
+                <select id="schoolVillage" name="schoolVillage" className="form-control" value={formData.schoolVillage} onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => ({
+                    ...prev, 
+                    schoolVillage: val, 
+                    schoolName: '',
+                    ...(sameAsSchoolAddress ? { village: val } : {})
+                  }));
+                }}>
                   <option value="">Select Village</option>
                   {getByParent('VILLAGE', formData.schoolMandal).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>
@@ -480,9 +526,56 @@ export default function AddStudentPage() {
               <MapPin size={18} color="#f59e0b" /> Location & Preferences
             </h3>
 
+            {/* Same as School Address Checkbox */}
+            <div 
+              style={{ 
+                marginBottom: '1.25rem', 
+                padding: '0.85rem 1rem', 
+                borderRadius: '12px', 
+                background: sameAsSchoolAddress ? '#eff6ff' : '#f8fafc', 
+                border: sameAsSchoolAddress ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.75rem', 
+                cursor: 'pointer',
+                transition: 'all 0.2s ease' 
+              }}
+              onClick={() => handleSameAsSchoolAddressToggle(!sameAsSchoolAddress)}
+            >
+              <input 
+                type="checkbox" 
+                id="sameAsSchoolAddress" 
+                checked={sameAsSchoolAddress} 
+                onChange={(e) => handleSameAsSchoolAddressToggle(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#2563eb' }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <label 
+                htmlFor="sameAsSchoolAddress" 
+                style={{ margin: 0, cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
+              >
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: sameAsSchoolAddress ? '#1e40af' : '#1e293b' }}>
+                  Residential Address is Same as School address
+                </span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  Auto-fills Residence District, Mandal, and Village from School Address
+                </span>
+              </label>
+            </div>
+
+            {sameAsSchoolAddress && formData.village && (
+              <div style={{ marginBottom: '1rem', padding: '0.5rem 0.75rem', background: '#dcfce7', border: '1px solid #86efac', borderRadius: '8px', fontSize: '0.8rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <CheckCircle size={15} color="#16a34a" />
+                <span>Address copied from School. You can enter Landmark details below.</span>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label" htmlFor="district">Residence District</label>
-              <select id="district" name="district" className="form-control" value={formData.district} onChange={(e) => setFormData({...formData, district: e.target.value, mandal: '', village: ''})}>
+              <select id="district" name="district" className="form-control" value={formData.district} onChange={(e) => {
+                setSameAsSchoolAddress(false);
+                setFormData({...formData, district: e.target.value, mandal: '', village: ''});
+              }}>
                 <option value="">Select District</option>
                 {getByType('DISTRICT').map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
               </select>
@@ -491,7 +584,10 @@ export default function AddStudentPage() {
             {formData.district && (
               <div className="form-group">
                 <label className="form-label" htmlFor="mandal">Residence Mandal</label>
-                <select id="mandal" name="mandal" className="form-control" value={formData.mandal} onChange={(e) => setFormData({...formData, mandal: e.target.value, village: ''})}>
+                <select id="mandal" name="mandal" className="form-control" value={formData.mandal} onChange={(e) => {
+                  setSameAsSchoolAddress(false);
+                  setFormData({...formData, mandal: e.target.value, village: ''});
+                }}>
                   <option value="">Select Mandal</option>
                   {getByParent('MANDAL', formData.district).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>
@@ -501,7 +597,10 @@ export default function AddStudentPage() {
             {formData.mandal && (
               <div className="form-group">
                 <label className="form-label" htmlFor="village">Residence Village</label>
-                <select id="village" name="village" className="form-control" value={formData.village} onChange={handleChange}>
+                <select id="village" name="village" className="form-control" value={formData.village} onChange={(e) => {
+                  setSameAsSchoolAddress(false);
+                  handleChange(e);
+                }}>
                   <option value="">Select Village</option>
                   {getByParent('VILLAGE', formData.mandal).map(c => <option key={c.id} value={c.id}>{c.value}</option>)}
                 </select>

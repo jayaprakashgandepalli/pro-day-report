@@ -47,6 +47,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
   String? _residenceDistrict;
   String? _residenceMandal;
   String? _residenceVillage;
+  bool _sameAsSchoolAddress = false;
 
   // Additional Dropdowns
   String? _studyInterestedAt;
@@ -107,6 +108,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       _residenceDistrict = s['district']?.toString();
       _residenceMandal = s['mandal']?.toString();
       _residenceVillage = s['village']?.toString();
+      _sameAsSchoolAddress = false;
     }
   }
 
@@ -274,6 +276,27 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         .toList();
   }
 
+  void _onSameAsSchoolAddressChanged(bool val) {
+    setState(() {
+      _sameAsSchoolAddress = val;
+      if (val) {
+        if (_schoolDistrict != null && _schoolDistrict!.isNotEmpty) {
+          _residenceDistrict = _schoolDistrict;
+          _residenceMandal = _schoolMandal;
+          _residenceVillage = _schoolVillage;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select Previous School (District, Mandal, Village) first.'),
+              backgroundColor: Color(0xFFD97706),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    });
+  }
+
   // Phone number sanitizer & debounced duplicate checker
   void _onPhoneChanged(String val) {
     String cleaned = val.replaceAll(RegExp(r'\D'), '');
@@ -413,6 +436,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       _schoolVillage = null;
       _schoolName = null;
       _schoolStats = null;
+      _sameAsSchoolAddress = false;
       _residenceDistrict = null;
       _residenceMandal = null;
       _residenceVillage = null;
@@ -959,6 +983,11 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                               _schoolVillage = null;
                               _schoolName = null;
                               _schoolStats = null;
+                              if (_sameAsSchoolAddress) {
+                                _residenceDistrict = val;
+                                _residenceMandal = null;
+                                _residenceVillage = null;
+                              }
                             });
                           },
                         ),
@@ -982,6 +1011,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                 _schoolVillage = null;
                                 _schoolName = null;
                                 _schoolStats = null;
+                                if (_sameAsSchoolAddress) {
+                                  _residenceMandal = val;
+                                  _residenceVillage = null;
+                                }
                               });
                             },
                           ),
@@ -1005,6 +1038,9 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                 _schoolVillage = val;
                                 _schoolName = null;
                                 _schoolStats = null;
+                                if (_sameAsSchoolAddress) {
+                                  _residenceVillage = val;
+                                }
                               });
                             },
                           ),
@@ -1049,6 +1085,85 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                       icon: Icons.place_outlined,
                       iconColor: const Color(0xFFF59E0B),
                       children: [
+                        // Option: Residential Address is Same as School address
+                        InkWell(
+                          onTap: () => _onSameAsSchoolAddressChanged(!_sameAsSchoolAddress),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _sameAsSchoolAddress ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _sameAsSchoolAddress ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0),
+                                width: _sameAsSchoolAddress ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: Checkbox(
+                                    value: _sameAsSchoolAddress,
+                                    activeColor: const Color(0xFF2563EB),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                    onChanged: (val) => _onSameAsSchoolAddressChanged(val ?? false),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Residential Address is Same as School address',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: _sameAsSchoolAddress ? const Color(0xFF1D4ED8) : const Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Auto-fills District, Mandal, and Village from School Address',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11,
+                                          color: const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (_sameAsSchoolAddress && _residenceVillage != null) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFA7F3D0)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 15),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Address synced from School. You can enter Landmark details below.',
+                                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF065F46)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+
                         // Residence District
                         _buildDropdownField(
                           label: 'Residence District',
@@ -1062,6 +1177,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                               .toList(),
                           onChanged: (val) {
                             setState(() {
+                              _sameAsSchoolAddress = false;
                               _residenceDistrict = val;
                               _residenceMandal = null;
                               _residenceVillage = null;
@@ -1084,6 +1200,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                 .toList(),
                             onChanged: (val) {
                               setState(() {
+                                _sameAsSchoolAddress = false;
                                 _residenceMandal = val;
                                 _residenceVillage = null;
                               });
@@ -1104,7 +1221,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                       child: Text(c['value'].toString()),
                                     ))
                                 .toList(),
-                            onChanged: (val) => setState(() => _residenceVillage = val),
+                            onChanged: (val) => setState(() {
+                              _sameAsSchoolAddress = false;
+                              _residenceVillage = val;
+                            }),
                           ),
                         ],
 
