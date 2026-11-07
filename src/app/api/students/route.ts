@@ -219,46 +219,43 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate');
 
     if (startDate && endDate) {
-      const startOfDay = new Date(startDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Safe boundary covering both Indian Standard Time (UTC+05:30) and UTC representations
+      const queryStart = new Date(new Date(`${startDate}T00:00:00.000Z`).getTime() - 12 * 60 * 60 * 1000);
+      const queryEnd = new Date(new Date(`${endDate}T23:59:59.999Z`).getTime() + 12 * 60 * 60 * 1000);
 
       if (reportType === 'new_students') {
         whereClause.AND.push({
-          createdAt: { gte: startOfDay, lte: endOfDay }
+          createdAt: { gte: queryStart, lte: queryEnd }
         });
       } else if (reportType === 'visits') {
         whereClause.AND.push({
-          visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } }
+          visits: { some: { visitDate: { gte: queryStart, lte: queryEnd } } }
         });
       } else {
         whereClause.AND.push({
           OR: [
-            { createdAt: { gte: startOfDay, lte: endOfDay } },
-            { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
+            { createdAt: { gte: queryStart, lte: queryEnd } },
+            { visits: { some: { visitDate: { gte: queryStart, lte: queryEnd } } } }
           ]
         });
       }
     } else if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+      const queryStart = new Date(new Date(`${date}T00:00:00.000Z`).getTime() - 12 * 60 * 60 * 1000);
+      const queryEnd = new Date(new Date(`${date}T23:59:59.999Z`).getTime() + 12 * 60 * 60 * 1000);
 
       if (reportType === 'new_students') {
         whereClause.AND.push({
-          createdAt: { gte: startOfDay, lte: endOfDay }
+          createdAt: { gte: queryStart, lte: queryEnd }
         });
       } else if (reportType === 'visits') {
         whereClause.AND.push({
-          visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } }
+          visits: { some: { visitDate: { gte: queryStart, lte: queryEnd } } }
         });
       } else {
         whereClause.AND.push({
           OR: [
-            { createdAt: { gte: startOfDay, lte: endOfDay } },
-            { visits: { some: { visitDate: { gte: startOfDay, lte: endOfDay } } } }
+            { createdAt: { gte: queryStart, lte: queryEnd } },
+            { visits: { some: { visitDate: { gte: queryStart, lte: queryEnd } } } }
           ]
         });
       }
