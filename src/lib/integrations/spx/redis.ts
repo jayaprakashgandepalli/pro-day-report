@@ -9,12 +9,12 @@ export class RedisUnavailableError extends Error {
   }
 }
 
-interface SetOptions {
+export interface SetOptions {
   exSeconds?: number;
   nx?: boolean;
 }
 
-interface SpxRedisClient {
+export interface SpxRedisClient {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, options?: SetOptions): Promise<boolean>;
   del(key: string): Promise<boolean>;
@@ -25,8 +25,14 @@ interface SpxRedisClient {
   disconnect(): Promise<void>;
 }
 
+export interface NativeRedisOptions {
+  commandTimeoutMs?: number;
+  connectTimeoutMs?: number;
+  prefix?: string;
+}
+
 // In-memory test store used ONLY in non-production environments when SPX_ALLOW_DEV_FALLBACK is true
-class DevMemoryStore implements SpxRedisClient {
+export class DevMemoryStore implements SpxRedisClient {
   private store = new Map<string, { value: string; expiresAt: number | null }>();
 
   private cleanExpired(key: string): boolean {
@@ -86,76 +92,424 @@ class DevMemoryStore implements SpxRedisClient {
   }
 }
 
-/**
- * Lightweight, zero-dependency native Node.js RESP (Redis Serialization Protocol) client.
- * Connects over TCP or TLS (redis:// and rediss://).
- */
-class NativeSocketRedisClient implements SpxRedisClient {
-  private url: URL;
-  private prefix = 'spx:';
-  private socket: net.Socket | tls.TLSSocket | null = null;
-  private isConnecting = false;
+interface QueuedCommand {
+  args: string[];
+  resolve: (value: any) => void;
+  reject: (err: any) => void;
+  timeoutMs: number;
+}
 
-  constructor(connectionUrl: string) {
+interface ActiveCommandState {
+  args: string[];
+  resolve: (value: any) => void;
+  reject: (err: any) => void;
+  timer: NodeJS.Timeout;
+  settled: boolean;
+}
+
+interface ParseResult {
+  complete: boolean;
+  value?: any;
+  isError?: boolean;
+  remaining: Buffer;
+}
+
+/**
+ * Production-reliable, zero-dependency native Node.js RESP (Redis Serialization Protocol) client.
+ * Features:
+ * - Serialized command queue: guarantees zero response cross-talk under high concurrency.
+ * - Configurable per-command timeout (default 2000ms): prevents serverless function hangs.
+ * - Chunk-buffered RESP stream parser: immune to split TCP packets.
+ * - Stale connection detection & auto-reconnect with password re-authentication.
+ * - Preserves redis:// and rediss:// (TLS) support.
+ */
+export class NativeSocketRedisClient implements SpxRedisClient {
+  private url: URL;
+  private prefix: string;
+  private commandTimeoutMs: number;
+  private connectTimeoutMs: number;
+
+  private socket: net.Socket | tls.TLSSocket | null = null;
+  private connectPromise: Promise<net.Socket | tls.TLSSocket> | null = null;
+
+  private queue: QueuedCommand[] = [];
+  private activeCommand: ActiveCommandState | null = null;
+  private buffer: Buffer = Buffer.alloc(0);
+  private isProcessingQueue: boolean = false;
+
+  constructor(connectionUrl: string, options?: NativeRedisOptions) {
     this.url = new URL(connectionUrl);
+    this.prefix = options?.prefix ?? 'spx:';
+
+    const envCmdTimeout = process.env.SPX_REDIS_COMMAND_TIMEOUT_MS
+      ? parseInt(process.env.SPX_REDIS_COMMAND_TIMEOUT_MS, 10)
+      : undefined;
+    this.commandTimeoutMs = options?.commandTimeoutMs ?? (envCmdTimeout && !isNaN(envCmdTimeout) ? envCmdTimeout : 2000);
+
+    const envConnectTimeout = process.env.SPX_REDIS_CONNECT_TIMEOUT_MS
+      ? parseInt(process.env.SPX_REDIS_CONNECT_TIMEOUT_MS, 10)
+      : undefined;
+    this.connectTimeoutMs = options?.connectTimeoutMs ?? (envConnectTimeout && !isNaN(envConnectTimeout) ? envConnectTimeout : 3000);
   }
 
   private applyPrefix(key: string): string {
     return key.startsWith(this.prefix) ? key : `${this.prefix}${key}`;
   }
 
+  /**
+   * Returns a valid, authenticated, connected socket or creates a new one.
+   */
   private async getSocket(): Promise<net.Socket | tls.TLSSocket> {
-    if (this.socket && !this.socket.destroyed) {
+    if (this.socket && !this.socket.destroyed && this.socket.writable) {
       return this.socket;
     }
 
-    if (this.isConnecting) {
-      // Small sleep while waiting
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return this.getSocket();
+    if (this.connectPromise) {
+      return this.connectPromise;
     }
 
-    this.isConnecting = true;
-    try {
-      const isTls = this.url.protocol === 'rediss:';
-      const port = parseInt(this.url.port || '6379', 10);
-      const host = this.url.hostname || 'localhost';
+    this.connectPromise = (async () => {
+      try {
+        this.cleanupSocket();
 
-      const socket = await new Promise<net.Socket | tls.TLSSocket>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          client.destroy();
-          reject(new RedisUnavailableError(`Connection timeout to Redis at ${host}:${port}`));
-        }, 3000);
+        const isTls = this.url.protocol === 'rediss:';
+        const port = parseInt(this.url.port || '6379', 10);
+        const host = this.url.hostname || 'localhost';
 
-        let client: net.Socket | tls.TLSSocket;
-        if (isTls) {
-          client = tls.connect({ host, port, rejectUnauthorized: false }, () => {
-            clearTimeout(timeout);
-            resolve(client);
+        const socket = await new Promise<net.Socket | tls.TLSSocket>((resolve, reject) => {
+          let settled = false;
+          const timer = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              client.destroy();
+              reject(new RedisUnavailableError(`Connection timeout to Redis at ${host}:${port} (${this.connectTimeoutMs}ms)`));
+            }
+          }, this.connectTimeoutMs);
+
+          let client: net.Socket | tls.TLSSocket;
+          const onConnect = () => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              resolve(client);
+            }
+          };
+
+          if (isTls) {
+            client = tls.connect({ host, port, rejectUnauthorized: false }, onConnect);
+          } else {
+            client = net.createConnection({ host, port }, onConnect);
+          }
+
+          client.once('error', (err) => {
+            if (!settled) {
+              settled = true;
+              clearTimeout(timer);
+              reject(new RedisUnavailableError(`Redis socket connection error: ${err.message}`));
+            }
           });
-        } else {
-          client = net.createConnection({ host, port }, () => {
-            clearTimeout(timeout);
-            resolve(client);
-          });
+        });
+
+        // If password is present in URL, authenticate before handling user commands
+        if (this.url.password) {
+          await this.executeAuthDirect(socket, this.url.password);
         }
 
-        client.on('error', (err) => {
+        // Attach permanent lifecycle event listeners
+        socket.on('data', (chunk) => this.onSocketData(chunk));
+        socket.on('error', (err) => this.onSocketError(err));
+        socket.on('close', () => this.onSocketClose());
+        socket.on('end', () => this.onSocketClose());
+
+        this.socket = socket;
+        return socket;
+      } finally {
+        this.connectPromise = null;
+      }
+    })();
+
+    return this.connectPromise;
+  }
+
+  /**
+   * Directly authenticates a new socket before exposing it to the command pipeline.
+   */
+  private async executeAuthDirect(socket: net.Socket | tls.TLSSocket, password: string): Promise<void> {
+    const authCmd = this.encodeCommand(['AUTH', password]);
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          socket.destroy();
+          reject(new RedisUnavailableError('Redis AUTH command timed out'));
+        }
+      }, this.commandTimeoutMs);
+
+      const onAuthData = (data: Buffer) => {
+        if (!settled) {
+          settled = true;
           clearTimeout(timeout);
-          reject(new RedisUnavailableError(err.message));
-        });
+          socket.removeListener('data', onAuthData);
+          socket.removeListener('error', onAuthErr);
+
+          const str = data.toString('utf-8');
+          if (str.startsWith('+OK') || str.startsWith('+')) {
+            resolve();
+          } else {
+            socket.destroy();
+            reject(new RedisUnavailableError(`Redis AUTH failed: ${str.trim()}`));
+          }
+        }
+      };
+
+      const onAuthErr = (err: Error) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          socket.removeListener('data', onAuthData);
+          socket.removeListener('error', onAuthErr);
+          socket.destroy();
+          reject(new RedisUnavailableError(`Redis AUTH error: ${err.message}`));
+        }
+      };
+
+      socket.once('data', onAuthData);
+      socket.once('error', onAuthErr);
+      socket.write(authCmd);
+    });
+  }
+
+  /**
+   * Enqueues a command and initiates serialized processing.
+   */
+  private sendCommand(args: string[], overrideTimeoutMs?: number): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.queue.push({
+        args,
+        resolve,
+        reject,
+        timeoutMs: overrideTimeoutMs || this.commandTimeoutMs,
       });
+      this.processQueue();
+    });
+  }
 
-      this.socket = socket;
+  /**
+   * Serialized Command Queue Worker.
+   * Guarantees strictly sequential command execution over the socket.
+   */
+  private async processQueue(): Promise<void> {
+    if (this.isProcessingQueue || this.activeCommand !== null || this.queue.length === 0) {
+      return;
+    }
 
-      // Handle AUTH if password is present in URL
-      if (this.url.password) {
-        await this.sendCommand(['AUTH', this.url.password]);
+    this.isProcessingQueue = true;
+    const item = this.queue.shift()!;
+    let socket: net.Socket | tls.TLSSocket;
+
+    try {
+      socket = await this.getSocket();
+    } catch (err: any) {
+      this.isProcessingQueue = false;
+      item.reject(err instanceof RedisUnavailableError ? err : new RedisUnavailableError(err.message));
+      // Trigger next item in queue
+      this.processQueue();
+      return;
+    }
+
+    const cmdState: ActiveCommandState = {
+      args: item.args,
+      resolve: item.resolve,
+      reject: item.reject,
+      settled: false,
+      timer: (null as unknown) as NodeJS.Timeout,
+    };
+
+    cmdState.timer = setTimeout(() => {
+      if (!cmdState.settled) {
+        cmdState.settled = true;
+        // On timeout, destroy socket because the TCP stream sequence is desynchronized
+        this.cleanupSocket();
+        this.activeCommand = null;
+        this.buffer = Buffer.alloc(0);
+
+        cmdState.reject(
+          new RedisUnavailableError(
+            `Redis command '${item.args[0]}' timed out after ${item.timeoutMs}ms`
+          )
+        );
+
+        this.processQueue();
+      }
+    }, item.timeoutMs);
+
+    this.activeCommand = cmdState;
+    this.isProcessingQueue = false;
+
+    // Send encoded RESP command to Redis
+    const encoded = this.encodeCommand(item.args);
+    socket.write(encoded);
+
+    // If buffered data is already waiting, process immediately
+    if (this.buffer.length > 0) {
+      this.tryParseActiveCommand();
+    }
+  }
+
+  /**
+   * Data reception handler. Appends chunks to internal stream buffer and attempts parsing.
+   */
+  private onSocketData(chunk: Buffer): void {
+    if (this.buffer.length === 0) {
+      this.buffer = chunk;
+    } else {
+      this.buffer = Buffer.concat([this.buffer, chunk]);
+    }
+
+    this.tryParseActiveCommand();
+  }
+
+  /**
+   * Attempts to parse the current active command from buffered RESP data.
+   */
+  private tryParseActiveCommand(): void {
+    if (!this.activeCommand || this.activeCommand.settled) {
+      return;
+    }
+
+    const parseResult = this.parseRespFromBuffer(this.buffer);
+    if (!parseResult.complete) {
+      // Message is incomplete, wait for subsequent TCP chunks
+      return;
+    }
+
+    this.buffer = parseResult.remaining;
+    const cmd = this.activeCommand;
+    this.activeCommand = null;
+
+    if (!cmd.settled) {
+      cmd.settled = true;
+      clearTimeout(cmd.timer);
+
+      if (parseResult.isError) {
+        cmd.reject(new Error(parseResult.value));
+      } else {
+        cmd.resolve(parseResult.value);
+      }
+    }
+
+    // Process next queued command
+    this.processQueue();
+  }
+
+  /**
+   * Robust chunk-buffered RESP parser.
+   * Handles partial TCP packets, multi-chunk bulk strings, nulls, integers, simple strings, and errors.
+   */
+  private parseRespFromBuffer(buf: Buffer): ParseResult {
+    if (buf.length === 0) {
+      return { complete: false, remaining: buf };
+    }
+
+    const typeByte = String.fromCharCode(buf[0]);
+
+    // 1. Simple String (+OK\r\n)
+    if (typeByte === '+') {
+      const crlf = buf.indexOf('\r\n');
+      if (crlf === -1) return { complete: false, remaining: buf };
+      const value = buf.toString('utf-8', 1, crlf);
+      return { complete: true, value, isError: false, remaining: buf.slice(crlf + 2) };
+    }
+
+    // 2. Error (-ERR ...\r\n)
+    if (typeByte === '-') {
+      const crlf = buf.indexOf('\r\n');
+      if (crlf === -1) return { complete: false, remaining: buf };
+      const value = buf.toString('utf-8', 1, crlf);
+      return { complete: true, value, isError: true, remaining: buf.slice(crlf + 2) };
+    }
+
+    // 3. Integer (:1\r\n)
+    if (typeByte === ':') {
+      const crlf = buf.indexOf('\r\n');
+      if (crlf === -1) return { complete: false, remaining: buf };
+      const value = parseInt(buf.toString('utf-8', 1, crlf), 10);
+      return { complete: true, value, isError: false, remaining: buf.slice(crlf + 2) };
+    }
+
+    // 4. Bulk String ($4\r\ntest\r\n or $-1\r\n)
+    if (typeByte === '$') {
+      const firstCrlf = buf.indexOf('\r\n');
+      if (firstCrlf === -1) return { complete: false, remaining: buf };
+
+      const lengthStr = buf.toString('utf-8', 1, firstCrlf);
+      const length = parseInt(lengthStr, 10);
+
+      // Null Bulk String ($-1\r\n)
+      if (length === -1) {
+        return { complete: true, value: null, isError: false, remaining: buf.slice(firstCrlf + 2) };
       }
 
-      return socket;
-    } finally {
-      this.isConnecting = false;
+      const totalExpected = firstCrlf + 2 + length + 2; // header + \r\n + payload + \r\n
+      if (buf.length < totalExpected) {
+        // Incomplete packet: await remaining payload bytes
+        return { complete: false, remaining: buf };
+      }
+
+      const value = buf.toString('utf-8', firstCrlf + 2, firstCrlf + 2 + length);
+      return { complete: true, value, isError: false, remaining: buf.slice(totalExpected) };
+    }
+
+    // 5. Fallback for unexpected line-terminated response
+    const fallbackCrlf = buf.indexOf('\r\n');
+    if (fallbackCrlf !== -1) {
+      const value = buf.toString('utf-8', 0, fallbackCrlf).trim();
+      return { complete: true, value, isError: false, remaining: buf.slice(fallbackCrlf + 2) };
+    }
+
+    return { complete: false, remaining: buf };
+  }
+
+  private onSocketError(err: Error): void {
+    this.handleConnectionFailure(new RedisUnavailableError(`Redis socket error: ${err.message}`));
+  }
+
+  private onSocketClose(): void {
+    this.handleConnectionFailure(new RedisUnavailableError('Redis connection closed unexpectedly'));
+  }
+
+  private handleConnectionFailure(error: RedisUnavailableError): void {
+    this.cleanupSocket();
+    this.buffer = Buffer.alloc(0);
+
+    if (this.activeCommand && !this.activeCommand.settled) {
+      this.activeCommand.settled = true;
+      clearTimeout(this.activeCommand.timer);
+      this.activeCommand.reject(error);
+      this.activeCommand = null;
+    }
+
+    // Reject all waiting queued commands to prevent cascading delays
+    while (this.queue.length > 0) {
+      const queued = this.queue.shift()!;
+      queued.reject(error);
+    }
+
+    this.isProcessingQueue = false;
+  }
+
+  private cleanupSocket(): void {
+    if (this.socket) {
+      this.socket.removeAllListeners('data');
+      this.socket.removeAllListeners('error');
+      this.socket.removeAllListeners('close');
+      this.socket.removeAllListeners('end');
+      if (!this.socket.destroyed) {
+        this.socket.destroy();
+      }
+      this.socket = null;
     }
   }
 
@@ -168,55 +522,7 @@ class NativeSocketRedisClient implements SpxRedisClient {
     return resp;
   }
 
-  private async sendCommand(args: string[]): Promise<any> {
-    const socket = await this.getSocket();
-    const command = this.encodeCommand(args);
-
-    return new Promise((resolve, reject) => {
-      const onData = (data: Buffer) => {
-        socket.removeListener('data', onData);
-        socket.removeListener('error', onError);
-
-        const responseStr = data.toString('utf-8');
-        const firstChar = responseStr[0];
-
-        if (firstChar === '-') {
-          // Redis Error
-          const line = responseStr.substring(1, responseStr.indexOf('\r\n'));
-          reject(new Error(line));
-        } else if (firstChar === '+') {
-          // Simple String (e.g. +OK\r\n)
-          const line = responseStr.substring(1, responseStr.indexOf('\r\n'));
-          resolve(line);
-        } else if (firstChar === ':') {
-          // Integer (e.g. :1\r\n)
-          const line = responseStr.substring(1, responseStr.indexOf('\r\n'));
-          resolve(parseInt(line, 10));
-        } else if (firstChar === '$') {
-          // Bulk String (e.g. $4\r\ntest\r\n or $-1\r\n)
-          const firstLineEnd = responseStr.indexOf('\r\n');
-          const length = parseInt(responseStr.substring(1, firstLineEnd), 10);
-          if (length === -1) {
-            resolve(null);
-          } else {
-            const content = responseStr.substring(firstLineEnd + 2, firstLineEnd + 2 + length);
-            resolve(content);
-          }
-        } else {
-          resolve(responseStr.trim());
-        }
-      };
-
-      const onError = (err: Error) => {
-        socket.removeListener('data', onData);
-        reject(new RedisUnavailableError(err.message));
-      };
-
-      socket.once('data', onData);
-      socket.once('error', onError);
-      socket.write(command);
-    });
-  }
+  // --- Public API Methods ---
 
   async get(key: string): Promise<string | null> {
     try {
@@ -224,6 +530,7 @@ class NativeSocketRedisClient implements SpxRedisClient {
       const res = await this.sendCommand(['GET', prefixed]);
       return typeof res === 'string' ? res : null;
     } catch (err: any) {
+      if (err instanceof RedisUnavailableError) throw err;
       throw new RedisUnavailableError(err.message);
     }
   }
@@ -241,6 +548,7 @@ class NativeSocketRedisClient implements SpxRedisClient {
       const res = await this.sendCommand(args);
       return res === 'OK';
     } catch (err: any) {
+      if (err instanceof RedisUnavailableError) throw err;
       throw new RedisUnavailableError(err.message);
     }
   }
@@ -249,8 +557,9 @@ class NativeSocketRedisClient implements SpxRedisClient {
     try {
       const prefixed = this.applyPrefix(key);
       const res = await this.sendCommand(['DEL', prefixed]);
-      return res > 0;
+      return typeof res === 'number' ? res > 0 : Boolean(res);
     } catch (err: any) {
+      if (err instanceof RedisUnavailableError) throw err;
       throw new RedisUnavailableError(err.message);
     }
   }
@@ -259,11 +568,13 @@ class NativeSocketRedisClient implements SpxRedisClient {
     try {
       const prefixed = this.applyPrefix(key);
       const res = await this.sendCommand(['INCR', prefixed]);
-      if (exSeconds && res === 1) {
+      const nextCount = typeof res === 'number' ? res : parseInt(res, 10);
+      if (exSeconds && nextCount === 1) {
         await this.sendCommand(['EXPIRE', prefixed, exSeconds.toString()]);
       }
-      return typeof res === 'number' ? res : parseInt(res, 10);
+      return nextCount;
     } catch (err: any) {
+      if (err instanceof RedisUnavailableError) throw err;
       throw new RedisUnavailableError(err.message);
     }
   }
@@ -274,6 +585,7 @@ class NativeSocketRedisClient implements SpxRedisClient {
       const res = await this.sendCommand(['TTL', prefixed]);
       return typeof res === 'number' ? res : parseInt(res, 10);
     } catch (err: any) {
+      if (err instanceof RedisUnavailableError) throw err;
       throw new RedisUnavailableError(err.message);
     }
   }
@@ -292,10 +604,7 @@ class NativeSocketRedisClient implements SpxRedisClient {
   }
 
   async disconnect(): Promise<void> {
-    if (this.socket && !this.socket.destroyed) {
-      this.socket.destroy();
-      this.socket = null;
-    }
+    this.handleConnectionFailure(new RedisUnavailableError('Client disconnected'));
   }
 }
 
@@ -344,4 +653,3 @@ export function getSpxRedis(): SpxRedisClient {
 export function setSpxRedisClientForTesting(client: SpxRedisClient | null): void {
   redisClientInstance = client;
 }
-

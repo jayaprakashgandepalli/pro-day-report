@@ -5,6 +5,10 @@ on:
     branches:
       - main
       - master
+    paths:
+      - 'mobile_app/**'
+      - '!mobile_app/**.md'
+      - '.github/workflows/build-apk.yml'
   workflow_dispatch: # Allows manual triggering from GitHub UI
 
 permissions:
