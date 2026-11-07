@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Phone, MessageCircle, Edit, Trash2, Search, FileText, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Phone, MessageCircle, Edit, Trash2, Search, FileText, PlusCircle, Bot, Loader2, Sparkles } from 'lucide-react';
 
 type Student = {
   id: string;
@@ -52,12 +52,12 @@ export default function AllStudents() {
   const [callStatus, setCallStatus] = useState<'' | 'not_called'>('');
   const [profileStatus, setProfileStatus] = useState<'' | 'incomplete'>('');
   const [addedDate, setAddedDate] = useState('');
-  
+
   // Custom Filters
   const [filterMandal, setFilterMandal] = useState('');
   const [filterVillage, setFilterVillage] = useState('');
   const [filterSchool, setFilterSchool] = useState('');
-  
+
   const [stats, setStats] = useState<{ mandals: any[], villages: any[], schools: any[] }>({ mandals: [], villages: [], schools: [] });
 
   const [nextFollowUpType, setNextFollowUpType] = useState('');
@@ -74,6 +74,51 @@ export default function AllStudents() {
   const [viewStudent, setViewStudent] = useState<Student | null>(null);
   const [configMap, setConfigMap] = useState<Record<string, string>>({});
   const [configParentMap, setConfigParentMap] = useState<Record<string, string>>({});
+
+  // AI Voice Call Modal State
+  const [aiCallModalOpen, setAiCallModalOpen] = useState(false);
+  const [aiCallStudent, setAiCallStudent] = useState<Student | null>(null);
+  const [initiatingAiCall, setInitiatingAiCall] = useState(false);
+  const [aiCallResult, setAiCallResult] = useState<{ success: boolean; message: string; runId?: number } | null>(null);
+
+  const handleOpenAiCallModal = (student: Student, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAiCallStudent(student);
+    setAiCallResult(null);
+    setAiCallModalOpen(true);
+  };
+
+  const handleTriggerAiCall = async () => {
+    if (!aiCallStudent || initiatingAiCall) return;
+    setInitiatingAiCall(true);
+    setAiCallResult(null);
+    try {
+      const res = await fetch(`/api/students/${aiCallStudent.id}/ai-call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAiCallResult({
+          success: true,
+          message: data.message || 'Call successfully initiated!',
+          runId: data.workflowRunId,
+        });
+      } else {
+        setAiCallResult({
+          success: false,
+          message: data.message || data.error || 'Failed to initiate AI call',
+        });
+      }
+    } catch (err: any) {
+      setAiCallResult({
+        success: false,
+        message: err.message || 'Network error initiating AI call',
+      });
+    } finally {
+      setInitiatingAiCall(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -102,8 +147,8 @@ export default function AllStudents() {
         const data = await res.json();
         const map: Record<string, string> = {};
         const parentMap: Record<string, string> = {};
-        data.configs.forEach((c: any) => { 
-          map[c.id] = c.value; 
+        data.configs.forEach((c: any) => {
+          map[c.id] = c.value;
           if (c.parentId) parentMap[c.id] = c.parentId;
         });
         setConfigMap(map);
@@ -120,7 +165,7 @@ export default function AllStudents() {
         const query = new URLSearchParams();
         if (filterMandal) query.set('mandal', filterMandal);
         if (filterVillage) query.set('village', filterVillage);
-        
+
         const statsRes = await fetch(`/api/students/filters?${query.toString()}`);
         if (statsRes.ok) {
           const statsData = await statsRes.json();
@@ -160,7 +205,7 @@ export default function AllStudents() {
       query.set('_t', Date.now().toString()); // Cache buster
 
       const res = await fetch(`/api/students?${query.toString()}`);
-      
+
       // Prevent race conditions: only update if this is the most recent fetch
       if (currentFetchId !== fetchIdRef.current) return;
 
@@ -188,10 +233,10 @@ export default function AllStudents() {
       const res = await fetch(`/api/students/${selectedStudentId}/visits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          remarks: visitRemarks, 
+        body: JSON.stringify({
+          remarks: visitRemarks,
           nextFollowUpType: nextFollowUpType || null,
-          nextFollowUpDate: (nextFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null 
+          nextFollowUpDate: (nextFollowUpType === 'Date' && nextFollowUpDate) ? nextFollowUpDate : null
         })
       });
       if (res.ok) {
@@ -219,14 +264,14 @@ export default function AllStudents() {
       { key: s.gender, label: 'Gender' },
       { key: s.occupation, label: 'Occupation' }
     ];
-    
+
     const missing = fields.filter(f => !f.key || f.key.trim() === '').map(f => f.label);
     const filledCount = fields.length - missing.length;
-    
+
     let status = 'Complete';
     let color = '#10b981'; // Green
     let bg = '#d1fae5';
-    
+
     if (missing.length === fields.length) {
       status = 'Incomplete';
       color = '#ef4444'; // Red
@@ -260,7 +305,7 @@ export default function AllStudents() {
           </Link>
         </div>
       </header>
-      
+
       <div style={{ padding: '1rem' }}>
         {preset === 'prime' && (
           <div style={{ background: '#fffbeb', color: '#d97706', padding: '0.75rem 1rem', borderRadius: '12px', marginBottom: '1rem', fontSize: '0.875rem', fontWeight: 600, border: '1px solid #fde68a', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
@@ -299,54 +344,54 @@ export default function AllStudents() {
             </div>
             {/* Dropdown Filters */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <select 
-            value={filterMandal} 
-            onChange={(e) => { setFilterMandal(e.target.value); setPage(1); }}
-            style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
-          >
-            <option value="">All Mandals</option>
-            {stats.mandals.map(m => (
-              <option key={m.id} value={m.id}>{resolveName(m.id)} ({m.count})</option>
-            ))}
-          </select>
+              <select
+                value={filterMandal}
+                onChange={(e) => { setFilterMandal(e.target.value); setPage(1); }}
+                style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
+              >
+                <option value="">All Mandals</option>
+                {stats.mandals.map(m => (
+                  <option key={m.id} value={m.id}>{resolveName(m.id)} ({m.count})</option>
+                ))}
+              </select>
 
-          <select 
-            value={filterVillage} 
-            onChange={(e) => { setFilterVillage(e.target.value); setFilterSchool(''); setPage(1); }}
-            style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
-          >
-            <option value="">All Villages</option>
-            {stats.villages.map(v => (
-              <option key={v.id} value={v.id}>{resolveName(v.id)} ({v.count})</option>
-            ))}
-          </select>
+              <select
+                value={filterVillage}
+                onChange={(e) => { setFilterVillage(e.target.value); setFilterSchool(''); setPage(1); }}
+                style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
+              >
+                <option value="">All Villages</option>
+                {stats.villages.map(v => (
+                  <option key={v.id} value={v.id}>{resolveName(v.id)} ({v.count})</option>
+                ))}
+              </select>
 
-          <select 
-            value={filterSchool} 
-            onChange={(e) => { setFilterSchool(e.target.value); setPage(1); }}
-            style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
-          >
-            <option value="">All Schools</option>
-            {stats.schools.map(s => (
-              <option key={s.id} value={s.id}>{resolveName(s.id)} ({s.count})</option>
-            ))}
-          </select>
+              <select
+                value={filterSchool}
+                onChange={(e) => { setFilterSchool(e.target.value); setPage(1); }}
+                style={{ padding: '0.375rem 2rem 0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500, flex: '1 1 120px' }}
+              >
+                <option value="">All Schools</option>
+                {stats.schools.map(s => (
+                  <option key={s.id} value={s.id}>{resolveName(s.id)} ({s.count})</option>
+                ))}
+              </select>
 
-          <input 
-            type="date" 
-            value={addedDate} 
-            onChange={(e) => { setAddedDate(e.target.value); setPage(1); }}
-            style={{ padding: '0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500 }}
-            title="Filter by Date Added"
-          />
-          {addedDate && (
-             <button 
-               onClick={() => { setAddedDate(''); setPage(1); }} 
-               style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, padding: '0 0.25rem' }}>
-               Clear Date
-             </button>
-          )}
-        </div>
+              <input
+                type="date"
+                value={addedDate}
+                onChange={(e) => { setAddedDate(e.target.value); setPage(1); }}
+                style={{ padding: '0.375rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.75rem', backgroundColor: '#fff', color: '#334155', fontWeight: 500 }}
+                title="Filter by Date Added"
+              />
+              {addedDate && (
+                <button
+                  onClick={() => { setAddedDate(''); setPage(1); }}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, padding: '0 0.25rem' }}>
+                  Clear Date
+                </button>
+              )}
+            </div>
           </>
         )}
 
@@ -356,9 +401,9 @@ export default function AllStudents() {
             <div style={{ position: 'absolute', left: '0.75rem', top: '0', bottom: '0', display: 'flex', alignItems: 'center', pointerEvents: 'none', color: '#94a3b8' }}>
               <Search size={16} />
             </div>
-            <input 
-              type="text" 
-              placeholder="Search name or phone..." 
+            <input
+              type="text"
+              placeholder="Search name or phone..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: '100%', backgroundColor: '#ffffff', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '12px', padding: '0.625rem 2.5rem 0.625rem 2.25rem', fontSize: '0.75rem', color: '#1e293b', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
@@ -392,7 +437,7 @@ export default function AllStudents() {
               const comp = getProfileCompletion(s);
               return (
                 <article key={s.id} className="student-card-ios" onClick={(e) => toggleExpand(s.id, e)}>
-                  
+
                   <div className="student-card-ios-header">
                     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1, paddingRight: '0.5rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -412,24 +457,32 @@ export default function AllStudents() {
                           </span>
                         )}
                       </div>
-                      
+
                       {comp.missing.length > 0 && (
                         <div style={{ fontSize: '0.6875rem', color: '#ef4444', marginTop: '0.25rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           Missing: {comp.missing.join(', ')}
                         </div>
                       )}
                     </div>
-                    
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexShrink: 0 }}>
                       <a href={`tel:${s.phone}`} className="ios-btn-icon ios-btn-call" onClick={(e) => e.stopPropagation()} title="Call">
                         <Phone size={14} />
                       </a>
+                      <button
+                        className="ios-btn-icon"
+                        style={{ backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}
+                        onClick={(e) => { e.stopPropagation(); handleOpenAiCallModal(s); }}
+                        title="AI Voice Call (SPX)"
+                      >
+                        <Bot size={14} />
+                      </button>
                       <div className={`chevron-icon ${isExpanded ? 'rotate' : ''}`} style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className={`accordion-body ${isExpanded ? 'expanded' : ''}`}>
                     <div className="accordion-content">
                       <div style={{ padding: '0 0.875rem 0.875rem 0.875rem' }}>
@@ -446,7 +499,7 @@ export default function AllStudents() {
                             {s.employee?.name || 'Unknown'}
                           </span>
                         </div>
-                        
+
                         {s.leadStatus === 'Admitted' && (
                           <div style={{ marginTop: '0.75rem', backgroundColor: '#f0fdf4', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #bbf7d0' }}>
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem', marginBottom: '0.25rem' }}>
@@ -463,13 +516,13 @@ export default function AllStudents() {
                             </div>
                           </div>
                         )}
-                        
+
                         <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '0.625rem 0' }} />
-                        
+
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             {s.whatsapp && (
-                              <a href={`https://wa.me/${s.whatsapp.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" className="ios-btn-icon ios-btn-whatsapp" onClick={(e) => e.stopPropagation()} title="WhatsApp">
+                              <a href={`https://wa.me/${s.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="ios-btn-icon ios-btn-whatsapp" onClick={(e) => e.stopPropagation()} title="WhatsApp">
                                 <MessageCircle size={14} />
                               </a>
                             )}
@@ -477,12 +530,21 @@ export default function AllStudents() {
                               Full Details <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </button>
                           </div>
-                          
+
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <button
+                              className="ios-btn-icon"
+                              style={{ backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', display: 'flex', alignItems: 'center', gap: '3px', padding: '0 0.5rem', width: 'auto' }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenAiCallModal(s); }}
+                              title="Trigger SPX AI Voice Call"
+                            >
+                              <Bot size={13} />
+                              <span style={{ fontSize: '0.6875rem', fontWeight: 600 }}>AI Call</span>
+                            </button>
                             <Link href={`/students/edit/${s.id}`} className="ios-btn-icon ios-btn-action" onClick={(e) => e.stopPropagation()} title="Edit">
                               <Edit size={14} />
                             </Link>
-                            <button 
+                            <button
                               className="ios-btn-icon ios-btn-primary"
                               onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.id); setVisitModalOpen(true); }}
                               title="Add Visit"
@@ -497,10 +559,10 @@ export default function AllStudents() {
                 </article>
               );
             })}
-            
+
             {totalPages > 1 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 0', marginTop: '0.5rem' }}>
-                <button 
+                <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
                   style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: page === 1 ? '#f8fafc' : '#ffffff', color: page === 1 ? '#94a3b8' : '#334155', fontSize: '0.875rem', fontWeight: 500 }}
@@ -510,7 +572,7 @@ export default function AllStudents() {
                 <span style={{ fontSize: '0.875rem', color: '#64748b', fontWeight: 500 }}>
                   Page {page} of {totalPages}
                 </span>
-                <button 
+                <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                   style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: page === totalPages ? '#f8fafc' : '#ffffff', color: page === totalPages ? '#94a3b8' : '#334155', fontSize: '0.875rem', fontWeight: 500 }}
@@ -563,23 +625,23 @@ export default function AllStudents() {
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#116d66', margin: 0 }}>Student Details</h1>
                 <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500, letterSpacing: '0.025em' }}>స్టూడెంట్ వివరాలు • Field Survey</span>
               </div>
-              <button 
-                onClick={() => setViewStudent(null)} 
+              <button
+                onClick={() => setViewStudent(null)}
                 style={{ width: '2.25rem', height: '2.25rem', borderRadius: '9999px', border: '1px solid #cbd5e1', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', cursor: 'pointer' }}
               >
                 <svg width="16" height="16" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" viewBox="0 0 24 24"><line x1="18" x2="6" y1="6" y2="18"></line><line x1="6" x2="18" y1="6" y2="18"></line></svg>
               </button>
             </header>
-            
+
             <div style={{ padding: '1.5rem', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.9375rem', overflowY: 'auto' }}>
-              
+
               <section style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 700, color: '#334155' }}>Name:</span>
                   <span style={{ fontWeight: 700, color: '#0f172a', letterSpacing: '0.025em', textTransform: 'uppercase' }}>{viewStudent.studentName}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.125rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.6875rem', fontWeight: 600, backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>Verified</span>
                 </div>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                     <span style={{ fontWeight: 700, color: '#334155' }}>Phone:</span>
@@ -592,13 +654,13 @@ export default function AllStudents() {
                     <span style={{ fontWeight: 700, color: '#334155' }}>Alt Phone:</span>
                     <span style={{ color: '#1e293b', fontWeight: 500 }}>{viewStudent.whatsapp || 'N/A'}</span>
                     {viewStudent.whatsapp && (
-                      <a href={`tel:${viewStudent.whatsapp.replace(/\D/g,'')}`} style={{ color: '#116d66', padding: '0.25rem' }}>
+                      <a href={`tel:${viewStudent.whatsapp.replace(/\D/g, '')}`} style={{ color: '#116d66', padding: '0.25rem' }}>
                         <Phone size={14} />
                       </a>
                     )}
                   </div>
                 </div>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
                     <span style={{ fontWeight: 700, color: '#334155' }}>Father:</span>
@@ -610,9 +672,9 @@ export default function AllStudents() {
                   </div>
                 </div>
               </section>
-              
+
               <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
-              
+
               <section style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontWeight: 700, color: '#334155' }}>Group:</span>
@@ -635,9 +697,9 @@ export default function AllStudents() {
                   </div>
                 )}
               </section>
-              
+
               <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
-              
+
               <section style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', alignItems: 'start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -655,13 +717,13 @@ export default function AllStudents() {
                     </div>
                     <span style={{ color: '#334155', fontWeight: 500, fontSize: '0.875rem' }}>{viewStudent.doorstepCompleted ? 'Yes' : 'No'}</span>
                   </div>
-                  
+
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.375rem' }}>
                     <span style={{ fontWeight: 700, color: '#334155' }}>Fee capacity:</span>
                     <span style={{ color: '#1e293b', fontWeight: 500 }}>{resolveName(viewStudent.ableToBearFee) || 'N/A'}</span>
                   </div>
                 </div>
-                
+
                 {(viewStudent.nextFollowUpType || viewStudent.nextFollowUpDate || viewStudent.remarks) && (
                   <>
                     <hr style={{ borderTop: '1px solid rgba(226, 232, 240, 0.8)', margin: '0.25rem 0' }} />
@@ -680,16 +742,146 @@ export default function AllStudents() {
                   </>
                 )}
               </section>
-              
-              <footer style={{ paddingTop: '0.75rem' }}>
-                <button 
+
+              <footer style={{ paddingTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={() => {
+                    const s = viewStudent;
+                    setViewStudent(null);
+                    handleOpenAiCallModal(s);
+                  }}
+                  style={{ flex: 1, padding: '0.75rem 1rem', backgroundColor: '#059669', color: '#ffffff', fontWeight: 600, borderRadius: '0.75rem', fontSize: '0.9375rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                >
+                  <Bot size={16} /> AI Admissions Call
+                </button>
+                <button
                   onClick={() => setViewStudent(null)}
-                  style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: '#116d66', color: '#ffffff', fontWeight: 600, borderRadius: '0.75rem', fontSize: '1rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+                  style={{ padding: '0.75rem 1.25rem', backgroundColor: '#e2e8f0', color: '#334155', fontWeight: 600, borderRadius: '0.75rem', fontSize: '0.9375rem', border: 'none', cursor: 'pointer' }}
                 >
                   Close
                 </button>
               </footer>
-              
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Voice Call Confirmation & Status Modal */}
+      {aiCallModalOpen && aiCallStudent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)', padding: '1rem' }}>
+          <div style={{ width: '100%', maxWidth: '28rem', backgroundColor: '#ffffff', borderRadius: '1rem', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', border: '1px solid #e2e8f0' }}>
+            <div style={{ padding: '1.25rem', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '0.625rem', backgroundColor: '#f0fdf4' }}>
+              <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '9999px', backgroundColor: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Bot size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#166534' }}>SPX Voice AI Call</h3>
+                <p style={{ margin: 0, fontSize: '0.75rem', color: '#15803d' }}>Automated Telugu admissions conversation</p>
+              </div>
+            </div>
+
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ backgroundColor: '#f8fafc', padding: '0.875rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.8125rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+                  <span style={{ color: '#64748b' }}>Student Name:</span>
+                  <span style={{ fontWeight: 600, color: '#1e293b' }}>{aiCallStudent.studentName}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+                  <span style={{ color: '#64748b' }}>Target Phone:</span>
+                  <span style={{ fontWeight: 600, color: '#0f766e', fontFamily: 'monospace' }}>{aiCallStudent.phone}</span>
+                </div>
+                {aiCallStudent.fatherName && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
+                    <span style={{ color: '#64748b' }}>Father Name:</span>
+                    <span style={{ fontWeight: 500, color: '#334155' }}>{aiCallStudent.fatherName}</span>
+                  </div>
+                )}
+                {aiCallStudent.group && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Stream / Group:</span>
+                    <span style={{ fontWeight: 500, color: '#334155' }}>{aiCallStudent.group}</span>
+                  </div>
+                )}
+              </div>
+
+              {aiCallResult && (
+                <div style={{
+                  padding: '0.75rem',
+                  borderRadius: '0.5rem',
+                  fontSize: '0.8125rem',
+                  backgroundColor: aiCallResult.success ? '#f0fdf4' : '#fef2f2',
+                  border: `1px solid ${aiCallResult.success ? '#bbf7d0' : '#fecaca'}`,
+                  color: aiCallResult.success ? '#166534' : '#991b1b',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem'
+                }}>
+                  <div style={{ fontWeight: 600 }}>
+                    {aiCallResult.success ? 'Call Dispatched Successfully' : 'Initiation Error'}
+                  </div>
+                  <div>{aiCallResult.message}</div>
+                  {aiCallResult.runId && (
+                    <div style={{ fontSize: '0.75rem', color: '#15803d', marginTop: '0.25rem' }}>
+                      Workflow Run ID: <strong>#{aiCallResult.runId}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setAiCallModalOpen(false)}
+                  disabled={initiatingAiCall}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.5rem',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: initiatingAiCall ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {aiCallResult?.success ? 'Done' : 'Cancel'}
+                </button>
+
+                {!aiCallResult?.success && (
+                  <button
+                    type="button"
+                    onClick={handleTriggerAiCall}
+                    disabled={initiatingAiCall}
+                    style={{
+                      padding: '0.5rem 1.25rem',
+                      borderRadius: '0.5rem',
+                      border: 'none',
+                      backgroundColor: initiatingAiCall ? '#94a3b8' : '#059669',
+                      color: '#ffffff',
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      cursor: initiatingAiCall ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.375rem',
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                    }}
+                  >
+                    {initiatingAiCall ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Dialing via SPX...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        <span>Start AI Call</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

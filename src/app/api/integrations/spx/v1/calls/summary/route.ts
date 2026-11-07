@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Validate Required Fields
-    const spxCallId = body.spxCallId || body.callId;
+    const spxCallId = body.spxCallId || body.callId || (body.workflow_run_id ? String(body.workflow_run_id) : null);
     if (!spxCallId || typeof spxCallId !== 'string' || !spxCallId.trim()) {
       return NextResponse.json(
         { success: false, error: 'MISSING_CALL_ID', message: 'spxCallId is required' },
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     }
 
     // 6. Validate Student Ownership if Student ID is supplied
-    const studentId = body.studentId && typeof body.studentId === 'string' && body.studentId.trim() ? body.studentId.trim() : null;
+    const studentId = (body.studentId || body.student_id) && typeof (body.studentId || body.student_id) === 'string' && (body.studentId || body.student_id).trim() ? (body.studentId || body.student_id).trim() : null;
 
     if (studentId) {
       const studentValidation = await validateStudentTenantOwnership(
@@ -126,13 +126,13 @@ export async function POST(req: Request) {
       startedAt: body.startedAt || null,
       endedAt: body.endedAt || null,
       durationSeconds: typeof body.durationSeconds === 'number' ? body.durationSeconds : (typeof body.duration === 'number' ? body.duration : 0),
-      summary: body.summary || null,
-      studentInterest: body.studentInterest || null,
+      summary: body.summary || body.remarks || null,
+      studentInterest: body.studentInterest || body.looking_for || null,
       collectedInfo: body.collectedInfo || null,
       followUpRequired: Boolean(body.followUpRequired),
       followUpDate: validatedFollowUpDate,
       followUpType: validatedFollowUpType,
-      recordingUrl: body.recordingUrl || null,
+      recordingUrl: body.recordingUrl || body.recording_url || null,
       idempotencyKey: body.idempotencyKey || null,
     });
 
