@@ -68,10 +68,14 @@ export async function triggerOutboundStudentCall(
   const endpoint = 'SPX_OUTBOUND_CLIENT';
 
   // 1. Resolve SPX Configuration
-  const baseUrl = (process.env.SPX_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
-  const apiKey = process.env.SPX_API_KEY;
-  const agentUuid = process.env.SPX_AGENT_UUID;
-  const rawTelephonyConfigId = process.env.SPX_TELEPHONY_CONFIG_ID;
+  const baseUrl = (process.env.SPX_API_BASE_URL || process.env.SPX_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  const apiKey = (process.env.SPX_API_KEY || process.env.SPX_VOICE_API_KEY)?.trim();
+  const agentUuid = (
+    process.env.SPX_AGENT_UUID ||
+    process.env.AGENT_UUID ||
+    process.env.SPX_VOICE_AGENT_UUID
+  )?.trim();
+  const rawTelephonyConfigId = process.env.SPX_TELEPHONY_CONFIG_ID || process.env.TELEPHONY_CONFIG_ID;
   const telephonyConfigId = rawTelephonyConfigId && !isNaN(parseInt(rawTelephonyConfigId, 10))
     ? parseInt(rawTelephonyConfigId, 10)
     : undefined;
@@ -148,18 +152,44 @@ export async function triggerOutboundStudentCall(
   }
   const normalizedPhone = normalizePhoneForSpx(rawPhone);
 
-  // 4. Resolve Tenant College
-  const collegeId = student.collegeId || student.joinedCollegeId || student.employee?.collegeId;
+  // 4. Resolve Tenant College (Optional - not required)
+  let collegeId = student.collegeId || student.joinedCollegeId || student.employee?.collegeId;
+  let collegeName = student.college?.name || student.joinedCollege?.name || student.employee?.college?.name;
+  let collegeCode = student.college?.code || student.employee?.college?.code;
+
   if (!collegeId) {
-    return {
-      success: false,
-      error: 'UNRESOLVED_TENANT',
-      message: 'Student record has no associated college tenant',
-    };
+    // Attempt fallback from environment or first available college in database
+    const envCollegeId = process.env.SPX_DEFAULT_COLLEGE_ID || process.env.DEFAULT_COLLEGE_ID;
+    try {
+      let fallbackCollege = envCollegeId
+        ? await prisma.college.findUnique({ where: { id: envCollegeId } })
+        : null;
+
+      if (!fallbackCollege) {
+        fallbackCollege = await prisma.college.findFirst({
+          where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
+        }) || await prisma.college.findFirst({
+          orderBy: { createdAt: 'asc' },
+        });
+      }
+
+      if (fallbackCollege) {
+        collegeId = fallbackCollege.id;
+        collegeName = fallbackCollege.name;
+        collegeCode = fallbackCollege.code;
+      }
+    } catch (e) {
+      console.warn('[SPX_OUTBOUND] Could not fetch fallback college:', e);
+    }
+
+    if (!collegeId) {
+      collegeId = 'DEFAULT';
+    }
   }
 
-  const collegeName = student.college?.name || student.joinedCollege?.name || 'Admissions Office';
-  const collegeCode = student.college?.code || 'PRO';
+  collegeName = collegeName || 'Admissions Office';
+  collegeCode = collegeCode || 'PRO';
 
   // 5. Generate Short-Lived M2M JWT for this Call Session
   // This allows SPX tools (lookup, profile, missing-fields, updates, address, follow-up)
