@@ -17,8 +17,8 @@ import jwt from 'jsonwebtoken';
 let testsPassed = 0;
 let testsFailed = 0;
 
-function assert(condition: boolean, testName: string, detail?: string) {
-  if (condition) {
+function assert(condition: any, testName: string, detail?: string) {
+  if (Boolean(condition)) {
     console.log(`  ✓ PASS: ${testName}`);
     testsPassed++;
   } else {
@@ -211,7 +211,7 @@ async function runStage4aTests() {
     assert(lookupTool?.definition.config.method === 'POST', 'lookup_student uses POST method');
 
     const profileTool = tools.find((t) => t.name === 'get_student_profile');
-    assert(profileTool?.definition.config.url.includes('{{initial_context.student_id}}'), 'get_student_profile binds URL to student_id template');
+    assert(Boolean(profileTool?.definition.config.url.includes('{{initial_context.student_id}}')), 'get_student_profile binds URL to student_id template');
 
     const updateTool = tools.find((t) => t.name === 'update_student_profile');
     assert(updateTool?.definition.config.method === 'POST', 'update_student_profile uses POST method');
