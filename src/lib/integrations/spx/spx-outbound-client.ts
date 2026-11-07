@@ -70,11 +70,17 @@ export async function triggerOutboundStudentCall(
   // 1. Resolve SPX Configuration
   const baseUrl = (process.env.SPX_API_BASE_URL || process.env.SPX_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
   const apiKey = (process.env.SPX_API_KEY || process.env.SPX_VOICE_API_KEY)?.trim();
-  const agentUuid = (
+  let agentUuid = (
     process.env.SPX_AGENT_UUID ||
     process.env.AGENT_UUID ||
     process.env.SPX_VOICE_AGENT_UUID
   )?.trim();
+
+  // If a full endpoint URL was pasted (e.g. .../public/agent/<uuid>), extract just the UUID
+  if (agentUuid && agentUuid.includes('/')) {
+    const parts = agentUuid.replace(/\/+$/, '').split('/');
+    agentUuid = parts[parts.length - 1];
+  }
   const rawTelephonyConfigId = process.env.SPX_TELEPHONY_CONFIG_ID || process.env.TELEPHONY_CONFIG_ID;
   const telephonyConfigId = rawTelephonyConfigId && !isNaN(parseInt(rawTelephonyConfigId, 10))
     ? parseInt(rawTelephonyConfigId, 10)
@@ -250,7 +256,7 @@ export async function triggerOutboundStudentCall(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch(targetUrl, {
+    let response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -261,6 +267,27 @@ export async function triggerOutboundStudentCall(
       signal: controller.signal,
     });
     clearTimeout(timeout);
+
+    // If production endpoint returned 404, automatically try test/draft endpoint as fallback
+    if (response.status === 404) {
+      try {
+        const testUrl = `${baseUrl}/api/v1/public/agent/test/${agentUuid}`;
+        const testResp = await fetch(testUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey,
+            'X-Correlation-ID': correlationId,
+          },
+          body: JSON.stringify(requestBody),
+        });
+        if (testResp.ok) {
+          response = testResp;
+        }
+      } catch {
+        // Fallback failed, keep original response
+      }
+    }
 
     const responseData = await response.json().catch(() => null);
 
