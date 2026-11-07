@@ -116,6 +116,7 @@ model Student {
   applicationPhoto  String?
   
   visits            Visit[]
+  callRecords       SpxCallRecord[]
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -344,6 +345,7 @@ model College {
   users             User[]
   students          Student[]
   schools           ConfigValue[]
+  callRecords       SpxCallRecord[]
 }
 
 model CollegeBranch {
@@ -388,4 +390,45 @@ model InstitutionVisit {
   @@index([visitDate])
   @@index([type])
 }
+
+// ==========================================
+// SPX VOICE AI INTEGRATION CALL RECORDS
+// ==========================================
+
+model SpxCallRecord {
+  id               String    @id @default(cuid())
+  spxCallId        String    @unique
+  collegeId        String
+  college          College   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  studentId        String?
+  student          Student?  @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  direction        String    // 'INBOUND' | 'OUTBOUND'
+  status           String    @default("COMPLETED")
+  outcome          String?
+
+  startedAt        DateTime?
+  endedAt          DateTime?
+  durationSeconds  Int       @default(0)
+
+  summary          String?   @db.Text
+  studentInterest  String?
+  collectedInfo    Json?
+
+  followUpRequired Boolean   @default(false)
+  followUpDate     DateTime?
+  followUpType     String?
+
+  recordingUrl     String?
+  idempotencyKey   String?   @unique
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([collegeId])
+  @@index([studentId])
+  @@index([spxCallId])
+  @@index([createdAt])
+}
+
 
