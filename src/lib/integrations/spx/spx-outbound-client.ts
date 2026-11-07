@@ -119,7 +119,11 @@ export async function triggerOutboundStudentCall(
     where: { id: params.studentId },
     include: {
       college: true,
-      employee: true,
+      employee: {
+        include: {
+          college: true,
+        },
+      },
       joinedCollege: true,
     },
   });
@@ -154,7 +158,7 @@ export async function triggerOutboundStudentCall(
 
   // 4. Resolve Tenant College (Optional - not required)
   let collegeId = student.collegeId || student.joinedCollegeId || student.employee?.collegeId;
-  let collegeName = student.college?.name || student.joinedCollege?.name || student.employee?.college?.name;
+  let collegeName = student.college?.name || student.employee?.college?.name;
   let collegeCode = student.college?.code || student.employee?.college?.code;
 
   if (!collegeId) {
