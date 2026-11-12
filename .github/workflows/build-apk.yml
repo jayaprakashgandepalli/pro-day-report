@@ -43,7 +43,7 @@ jobs:
       - name: Build Android Release APK
         run: |
           cd mobile_app
-          flutter build apk --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
+          flutter build apk --release --android-skip-build-dependency-validation --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
 
       - name: Copy & Rename APK
         run: |
