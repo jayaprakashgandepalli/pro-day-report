@@ -42,17 +42,20 @@ export function normalizePhoneForSpx(rawPhone: string): string {
  */
 function identifyMissingFields(student: any): string[] {
   const missing: string[] = [];
+  if (!student.studentName?.trim()) missing.push('studentName');
   if (!student.fatherName?.trim()) missing.push('fatherName');
-  if (!student.motherName?.trim()) missing.push('motherName');
+  if (!student.whatsapp?.trim()) missing.push('whatsapp');
   if (!student.gender?.trim()) missing.push('gender');
-  if (!student.occupation?.trim()) missing.push('occupation');
   if (!student.district?.trim()) missing.push('district');
   if (!student.mandal?.trim()) missing.push('mandal');
   if (!student.village?.trim()) missing.push('village');
   if (!student.address?.trim()) missing.push('address');
+  if (!student.schoolName?.trim()) missing.push('schoolName');
+  if (!student.schoolArea?.trim()) missing.push('schoolArea');
   if (!student.group?.trim()) missing.push('group');
-  if (student.tenthMarks === null || student.tenthMarks === undefined) missing.push('tenthMarks');
-  if (student.interMarks === null || student.interMarks === undefined) missing.push('interMarks');
+  if (!student.educationStage?.trim()) missing.push('educationStage');
+  if (!student.studyInterestedAt?.trim()) missing.push('studyInterestedAt');
+  if (!student.ableToBearFee?.trim()) missing.push('ableToBearFee');
   return missing;
 }
 
@@ -238,6 +241,7 @@ export async function triggerOutboundStudentCall(
     group: student.group || '',
     spx_token: spxM2mToken,
     pro_api_url: proPublicUrl,
+    pro_public_url: proPublicUrl,
     triggered_by: params.requestedByEmployeeId || 'SYSTEM',
     triggered_role: params.requestedByRole || 'TELECALLER',
   };

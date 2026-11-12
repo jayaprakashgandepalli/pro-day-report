@@ -214,7 +214,7 @@ export function getSpxProToolManifest(proBaseUrl: string = '{{initial_context.pr
     },
     {
       name: 'update_student_profile',
-      description: 'Submit fill-only profile updates collected during the call (father name, mother name, occupation, address, group, marks).',
+      description: 'Submit fill-only profile updates collected during the call (student name, father name, WhatsApp, gender, group, education stage, school name, school area, location hierarchy, address, campus preference, fee bearability). For studentName, only submit after explicitly confirming with caller. Never submit unconfirmed names.',
       category: 'http_api',
       definition: {
         schema_version: 1,
@@ -225,21 +225,27 @@ export function getSpxProToolManifest(proBaseUrl: string = '{{initial_context.pr
           headers: authHeaders,
           parameters: [
             {
+              name: 'studentName',
+              type: 'string',
+              description: "Student's full name. Must be explicitly confirmed with the caller before submitting. Fill-only: only saves if studentName is currently missing or blank.",
+              required: false,
+            },
+            {
               name: 'fatherName',
               type: 'string',
               description: "Student's father name",
               required: false,
             },
             {
-              name: 'motherName',
+              name: 'whatsapp',
               type: 'string',
-              description: "Student's mother name",
+              description: '10-digit WhatsApp contact number',
               required: false,
             },
             {
-              name: 'occupation',
+              name: 'gender',
               type: 'string',
-              description: "Parent's occupation",
+              description: "Student's gender (e.g. Male, Female, Other)",
               required: false,
             },
             {
@@ -249,9 +255,33 @@ export function getSpxProToolManifest(proBaseUrl: string = '{{initial_context.pr
               required: false,
             },
             {
+              name: 'educationStage',
+              type: 'string',
+              description: 'Current education stage (e.g. 10th Standard, Intermediate 1st Year)',
+              required: false,
+            },
+            {
+              name: 'schoolName',
+              type: 'string',
+              description: 'Name of the high school or previous school attended',
+              required: false,
+            },
+            {
+              name: 'schoolArea',
+              type: 'string',
+              description: 'Area or neighborhood where the school is located',
+              required: false,
+            },
+            {
               name: 'district',
               type: 'string',
               description: 'Validated district name',
+              required: false,
+            },
+            {
+              name: 'districtId',
+              type: 'string',
+              description: 'Official config value ID for the district',
               required: false,
             },
             {
@@ -261,15 +291,39 @@ export function getSpxProToolManifest(proBaseUrl: string = '{{initial_context.pr
               required: false,
             },
             {
+              name: 'mandalId',
+              type: 'string',
+              description: 'Official config value ID for the mandal',
+              required: false,
+            },
+            {
               name: 'village',
               type: 'string',
               description: 'Validated village name',
               required: false,
             },
             {
+              name: 'villageId',
+              type: 'string',
+              description: 'Official config value ID for the village',
+              required: false,
+            },
+            {
               name: 'address',
               type: 'string',
-              description: 'Street address or landmark',
+              description: 'Residential street address or landmark',
+              required: false,
+            },
+            {
+              name: 'studyInterestedAt',
+              type: 'string',
+              description: 'Campus attendance preference: Day Scholar, Hostel',
+              required: false,
+            },
+            {
+              name: 'ableToBearFee',
+              type: 'string',
+              description: 'Fee bearability status: Yes, No, Partial',
               required: false,
             },
           ],
