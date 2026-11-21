@@ -30,7 +30,13 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   DateTime _endDate = DateTime.now();
 
   // Report Category
-  String _reportType = 'all'; // 'all', 'new_students', 'visits'
+  String _reportType = 'all'; // 'all', 'new_students', 'visits', 'star_leads'
+
+  bool _isStarLead(dynamic s) {
+    if (s is! Map) return false;
+    final status = (s['leadStatus'] ?? '').toString().toLowerCase();
+    return status.contains('star') || status.contains('prime');
+  }
 
   // Location Filters
   String _filterMandal = '';
@@ -239,6 +245,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   String get _reportTypeDisplay {
     if (_reportType == 'new_students') return 'New Students Only';
     if (_reportType == 'visits') return 'Village Visits Only';
+    if (_reportType == 'star_leads') return 'Star Leads Only';
     return 'All (New Students + Village Visits)';
   }
 
@@ -308,11 +315,16 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
     // Collect report entries
     final List<_ReportPdfEntry> allEntries = [];
+    final Set<String> seenStudentIds = {};
     final bool hasDateRange = !_isAllTime;
     final String startDateStr = _formatApiDate(_startDate);
     final String endDateStr = _formatApiDate(_endDate);
 
     for (final s in _students) {
+      if (_reportType == 'star_leads' && !_isStarLead(s)) {
+        continue;
+      }
+
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
 
       // Sort all visits chronologically
@@ -380,6 +392,41 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             entryType: 'new_student',
           ));
         }
+      } else if (_reportType == 'star_leads') {
+        // Unique Star Lead Students only - strictly deduplicated, no duplicate rows
+        final sId = (s['id']?.toString() ?? '').isNotEmpty
+            ? s['id'].toString()
+            : ((s['phone']?.toString() ?? '').isNotEmpty ? s['phone'].toString() : (s['studentName']?.toString() ?? ''));
+        if (sId.isNotEmpty && seenStudentIds.contains(sId)) {
+          continue;
+        }
+
+        final bool studentActive = !hasDateRange || matchingVisits.isNotEmpty || isCreatedInRange;
+        if (studentActive) {
+          if (sId.isNotEmpty) seenStudentIds.add(sId);
+          final visitCount = matchingVisits.length;
+          final visitNumberStr = visitCount > 0 ? '$visitCount ${visitCount == 1 ? "Visit" : "Visits"}' : '-';
+
+          String rem = (s['remarks']?.toString().trim() ?? '');
+          if (matchingVisits.isNotEmpty) {
+            final lastV = matchingVisits.last;
+            final vRem = (lastV['remarks']?.toString().trim() ?? '');
+            if (vRem.isNotEmpty) {
+              rem = rem.isNotEmpty ? '$rem | Latest: $vRem' : vRem;
+            }
+          }
+
+          allEntries.add(_ReportPdfEntry(
+            dateKey: 'star_leads',
+            dateFormatted: '',
+            dayName: '',
+            student: s,
+            visit: null,
+            visitNumber: visitNumberStr,
+            remarks: rem.isNotEmpty ? rem : 'Star Lead Registered',
+            entryType: 'star_lead',
+          ));
+        }
       } else {
         // 'all': Both new students and visits
         for (final v in matchingVisits) {
@@ -422,22 +469,141 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       }
     }
 
-    // Group by dateKey
+    // Helper to format a table row
+    List<String> buildTableRow(int index, dynamic s, String visitNumber, String remarks) {
+      final row = <String>[];
+
+      // Full Hierarchical Address (Village, Mandal, District, Landmark)
+      final villageId = s['village']?.toString() ?? '';
+      final villageName = ApiService.resolveConfig(villageId);
+
+      String mandalId = s['mandal']?.toString() ?? '';
+      if (mandalId.isEmpty && villageId.isNotEmpty) {
+        mandalId = configParentMap[villageId] ?? '';
+      }
+      final mandalName = ApiService.resolveConfig(mandalId);
+
+      String districtId = s['district']?.toString() ?? '';
+      if (districtId.isEmpty && mandalId.isNotEmpty) {
+        districtId = configParentMap[mandalId] ?? '';
+      }
+      final districtName = ApiService.resolveConfig(districtId);
+
+      final addressParts = <String>[];
+      if (villageName.isNotEmpty) addressParts.add(villageName);
+      if (mandalName.isNotEmpty && mandalName.toLowerCase() != villageName.toLowerCase()) {
+        addressParts.add(mandalName.toLowerCase().contains('mandal') ? mandalName : '$mandalName Mdl');
+      }
+      if (districtName.isNotEmpty && districtName.toLowerCase() != mandalName.toLowerCase()) {
+        addressParts.add(districtName.toLowerCase().contains('dist') ? districtName : '$districtName Dt.');
+      }
+
+      String finalAddress = addressParts.join(', ');
+      final rawAddress = s['address']?.toString().trim() ?? '';
+      final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
+      if (cleanLandmark.isNotEmpty) {
+        finalAddress = finalAddress.isNotEmpty ? '$finalAddress\nLandmark: $cleanLandmark' : cleanLandmark;
+      }
+      if (finalAddress.isEmpty) finalAddress = '-';
+
+      // Group resolution (avoid blank empty cells)
+      final rawGroup = s['group']?.toString().trim() ?? '';
+      final resolvedGroup = ApiService.resolveConfig(rawGroup);
+      final groupDisplay = resolvedGroup.isNotEmpty
+          ? resolvedGroup
+          : (rawGroup.isNotEmpty ? rawGroup : '-');
+
+      // School Name
+      final sc = ApiService.resolveConfig(s['schoolName']?.toString() ?? '');
+      final schoolDisplay = sc.isNotEmpty ? sc : (s['schoolName']?.toString() ?? '-');
+
+      // Detailed Remarks
+      String extraRemarks = remarks.trim();
+      if (s['marks'] != null && s['marks'].toString().trim().isNotEmpty) {
+        final m = s['marks'].toString().trim();
+        extraRemarks += extraRemarks.isNotEmpty ? ' | Marks: $m' : 'Marks: $m';
+      }
+      if (s['studyInterestedAt'] != null && s['studyInterestedAt'].toString().isNotEmpty) {
+        final intAt = ApiService.resolveConfig(s['studyInterestedAt'].toString());
+        extraRemarks += extraRemarks.isNotEmpty ? ' | Int: $intAt' : 'Int: $intAt';
+      }
+      if (s['ableToBearFee'] != null && s['ableToBearFee'].toString().isNotEmpty) {
+        final fee = ApiService.resolveConfig(s['ableToBearFee'].toString());
+        extraRemarks += extraRemarks.isNotEmpty ? ' | Fee: $fee' : 'Fee: $fee';
+      }
+      if (s['leadStatus'] != null && s['leadStatus'].toString().isNotEmpty) {
+        extraRemarks += extraRemarks.isNotEmpty ? ' | Status: ${s['leadStatus']}' : 'Status: ${s['leadStatus']}';
+      }
+
+      for (final col in _availableColumns) {
+        final id = col['id']!;
+        if (_selectedColumns.contains(id)) {
+          if (id == 'sno') {
+            row.add('${index + 1}');
+          } else if (id == 'studentName') {
+            row.add(s['studentName']?.toString() ?? '-');
+          } else if (id == 'fatherName') {
+            row.add(s['fatherName']?.toString() ?? '-');
+          } else if (id == 'occupation') {
+            row.add(s['occupation']?.toString() ?? '-');
+          } else if (id == 'address') {
+            row.add(finalAddress);
+          } else if (id == 'gps') {
+            final coords = LocationService.extractGps(rawAddress);
+            if (coords != null) {
+              row.add('${coords['lat']!.toStringAsFixed(4)},\n${coords['lng']!.toStringAsFixed(4)}');
+            } else {
+              row.add('-');
+            }
+          } else if (id == 'phone') {
+            row.add(s['phone']?.toString() ?? '-');
+          } else if (id == 'whatsapp') {
+            row.add(s['whatsapp']?.toString() ?? '-');
+          } else if (id == 'group') {
+            row.add(groupDisplay);
+          } else if (id == 'visitNumber') {
+            row.add(visitNumber);
+          } else if (id == 'schoolName') {
+            row.add(schoolDisplay);
+          } else if (id == 'doorstep') {
+            row.add(s['doorstepCompleted'] == true ? 'Yes' : 'No');
+          } else if (id == 'remarks') {
+            row.add(extraRemarks.isNotEmpty ? extraRemarks : '-');
+          }
+        }
+      }
+      return row;
+    }
+
+    // Pre-build rows for Star Leads (flat continuous list without date groups)
+    final List<List<String>> starLeadTableData = [];
+    if (_reportType == 'star_leads') {
+      for (int i = 0; i < allEntries.length; i++) {
+        final entry = allEntries[i];
+        starLeadTableData.add(buildTableRow(i, entry.student, entry.visitNumber, entry.remarks));
+      }
+    }
+
+    // Group by dateKey for date-based reports
     final Map<String, List<_ReportPdfEntry>> dateGroups = {};
-    for (final entry in allEntries) {
-      dateGroups.putIfAbsent(entry.dateKey, () => []).add(entry);
+    if (_reportType != 'star_leads') {
+      for (final entry in allEntries) {
+        dateGroups.putIfAbsent(entry.dateKey, () => []).add(entry);
+      }
     }
 
     final Map<String, List<Map<String, dynamic>>> instVisitsByDate = {};
-    for (final iv in _institutionVisits) {
-      if (iv is Map<String, dynamic>) {
-        final dKey = _getDateKey(iv['visitDate']);
-        if (dKey.isEmpty) continue;
-        if (hasDateRange && (dKey.compareTo(startDateStr) < 0 || dKey.compareTo(endDateStr) > 0)) {
-          continue;
+    if (_reportType != 'star_leads' && _reportType != 'new_students') {
+      for (final iv in _institutionVisits) {
+        if (iv is Map<String, dynamic>) {
+          final dKey = _getDateKey(iv['visitDate']);
+          if (dKey.isEmpty) continue;
+          if (hasDateRange && (dKey.compareTo(startDateStr) < 0 || dKey.compareTo(endDateStr) > 0)) {
+            continue;
+          }
+          instVisitsByDate.putIfAbsent(dKey, () => []).add(iv);
+          dateGroups.putIfAbsent(dKey, () => []);
         }
-        instVisitsByDate.putIfAbsent(dKey, () => []).add(iv);
-        dateGroups.putIfAbsent(dKey, () => []);
       }
     }
 
@@ -451,109 +617,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
       for (int i = 0; i < dayItems.length; i++) {
         final entry = dayItems[i];
-        final s = entry.student;
-        final row = <String>[];
-
-        // Full Hierarchical Address (Village, Mandal, District, Landmark)
-        final villageId = s['village']?.toString() ?? '';
-        final villageName = ApiService.resolveConfig(villageId);
-
-        String mandalId = s['mandal']?.toString() ?? '';
-        if (mandalId.isEmpty && villageId.isNotEmpty) {
-          mandalId = configParentMap[villageId] ?? '';
-        }
-        final mandalName = ApiService.resolveConfig(mandalId);
-
-        String districtId = s['district']?.toString() ?? '';
-        if (districtId.isEmpty && mandalId.isNotEmpty) {
-          districtId = configParentMap[mandalId] ?? '';
-        }
-        final districtName = ApiService.resolveConfig(districtId);
-
-        final addressParts = <String>[];
-        if (villageName.isNotEmpty) addressParts.add(villageName);
-        if (mandalName.isNotEmpty && mandalName.toLowerCase() != villageName.toLowerCase()) {
-          addressParts.add(mandalName.toLowerCase().contains('mandal') ? mandalName : '$mandalName Mdl');
-        }
-        if (districtName.isNotEmpty && districtName.toLowerCase() != mandalName.toLowerCase()) {
-          addressParts.add(districtName.toLowerCase().contains('dist') ? districtName : '$districtName Dt.');
-        }
-
-        String finalAddress = addressParts.join(', ');
-        final rawAddress = s['address']?.toString().trim() ?? '';
-        final cleanLandmark = LocationService.getCleanLandmark(rawAddress);
-        if (cleanLandmark.isNotEmpty) {
-          finalAddress = finalAddress.isNotEmpty ? '$finalAddress\nLandmark: $cleanLandmark' : cleanLandmark;
-        }
-        if (finalAddress.isEmpty) finalAddress = '-';
-
-        // Group resolution (avoid blank empty cells)
-        final rawGroup = s['group']?.toString().trim() ?? '';
-        final resolvedGroup = ApiService.resolveConfig(rawGroup);
-        final groupDisplay = resolvedGroup.isNotEmpty
-            ? resolvedGroup
-            : (rawGroup.isNotEmpty ? rawGroup : '-');
-
-        // School Name
-        final sc = ApiService.resolveConfig(s['schoolName']?.toString() ?? '');
-        final schoolDisplay = sc.isNotEmpty ? sc : (s['schoolName']?.toString() ?? '-');
-
-        // Detailed Remarks
-        String extraRemarks = entry.remarks.trim();
-        if (s['marks'] != null && s['marks'].toString().trim().isNotEmpty) {
-          final m = s['marks'].toString().trim();
-          extraRemarks += extraRemarks.isNotEmpty ? ' | Marks: $m' : 'Marks: $m';
-        }
-        if (s['studyInterestedAt'] != null && s['studyInterestedAt'].toString().isNotEmpty) {
-          final intAt = ApiService.resolveConfig(s['studyInterestedAt'].toString());
-          extraRemarks += extraRemarks.isNotEmpty ? ' | Int: $intAt' : 'Int: $intAt';
-        }
-        if (s['ableToBearFee'] != null && s['ableToBearFee'].toString().isNotEmpty) {
-          final fee = ApiService.resolveConfig(s['ableToBearFee'].toString());
-          extraRemarks += extraRemarks.isNotEmpty ? ' | Fee: $fee' : 'Fee: $fee';
-        }
-        if (s['leadStatus'] != null && s['leadStatus'].toString().isNotEmpty) {
-          extraRemarks += extraRemarks.isNotEmpty ? ' | Status: ${s['leadStatus']}' : 'Status: ${s['leadStatus']}';
-        }
-
-        for (final col in _availableColumns) {
-          final id = col['id']!;
-          if (_selectedColumns.contains(id)) {
-            if (id == 'sno') {
-              row.add('${i + 1}');
-            } else if (id == 'studentName') {
-              row.add(s['studentName']?.toString() ?? '-');
-            } else if (id == 'fatherName') {
-              row.add(s['fatherName']?.toString() ?? '-');
-            } else if (id == 'occupation') {
-              row.add(s['occupation']?.toString() ?? '-');
-            } else if (id == 'address') {
-              row.add(finalAddress);
-            } else if (id == 'gps') {
-              final coords = LocationService.extractGps(rawAddress);
-              if (coords != null) {
-                row.add('${coords['lat']!.toStringAsFixed(4)},\n${coords['lng']!.toStringAsFixed(4)}');
-              } else {
-                row.add('-');
-              }
-            } else if (id == 'phone') {
-              row.add(s['phone']?.toString() ?? '-');
-            } else if (id == 'whatsapp') {
-              row.add(s['whatsapp']?.toString() ?? '-');
-            } else if (id == 'group') {
-              row.add(groupDisplay);
-            } else if (id == 'visitNumber') {
-              row.add(entry.visitNumber);
-            } else if (id == 'schoolName') {
-              row.add(schoolDisplay);
-            } else if (id == 'doorstep') {
-              row.add(s['doorstepCompleted'] == true ? 'Yes' : 'No');
-            } else if (id == 'remarks') {
-              row.add(extraRemarks.isNotEmpty ? extraRemarks : '-');
-            }
-          }
-        }
-        dayTableData.add(row);
+        dayTableData.add(buildTableRow(i, entry.student, entry.visitNumber, entry.remarks));
       }
       dayTables[dKey] = dayTableData;
     }
@@ -564,6 +628,8 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       reportTitle = 'DAY REPORT - NEW ADMISSION STUDENTS';
     } else if (_reportType == 'visits') {
       reportTitle = 'DAY REPORT - VILLAGE VISITS';
+    } else if (_reportType == 'star_leads') {
+      reportTitle = 'STAR LEADS LIST REPORT';
     }
 
     // Filter labels
@@ -572,6 +638,8 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       filterParts.add('Type: New Students Only');
     } else if (_reportType == 'visits') {
       filterParts.add('Type: Village Visits Only');
+    } else if (_reportType == 'star_leads') {
+      filterParts.add('Type: Star Leads List (Unique Students)');
     } else {
       filterParts.add('Type: All (New & Visits)');
     }
@@ -708,6 +776,85 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         build: (pw.Context context) {
           final contentWidgets = <pw.Widget>[];
 
+          if (_reportType == 'star_leads') {
+            if (allEntries.isEmpty) {
+              contentWidgets.add(
+                pw.Center(
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.all(30),
+                    child: pw.Text('No star leads found in the selected date range.', style: const pw.TextStyle(fontSize: 12)),
+                  ),
+                ),
+              );
+            } else {
+              contentWidgets.add(
+                pw.TableHelper.fromTextArray(
+                  headers: tableHeaders,
+                  data: starLeadTableData,
+                  columnWidths: columnWidths,
+                  border: pw.TableBorder.all(color: PdfColor.fromHex('#CBD5E1'), width: 0.5),
+                  headerStyle: pw.TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.white,
+                  ),
+                  headerDecoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#0F766E'),
+                  ),
+                  cellStyle: const pw.TextStyle(fontSize: 8.0),
+                  cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3.5),
+                  headerPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 4.5),
+                  cellAlignment: pw.Alignment.centerLeft,
+                  headerAlignment: pw.Alignment.centerLeft,
+                ),
+              );
+            }
+
+            contentWidgets.add(pw.SizedBox(height: 8));
+
+            // Summary for Star Leads:
+            contentWidgets.add(pw.NewPage(freeSpace: 65));
+            contentWidgets.add(pw.SizedBox(height: 6));
+            contentWidgets.add(
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Summary:',
+                        style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.SizedBox(height: 3),
+                      pw.Text(
+                        'Total Unique Star Leads: ${allEntries.length}',
+                        style: const pw.TextStyle(fontSize: 8.5),
+                      ),
+                      if (groupCountsSummary.isNotEmpty) ...[
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          groupCountsSummary,
+                          style: const pw.TextStyle(fontSize: 8.0),
+                        ),
+                      ],
+                    ],
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 8),
+                    child: pw.Text(
+                      'Employee Signature: _________________',
+                      style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+
+            return contentWidgets;
+          }
+
           if (sortedDateKeys.isEmpty) {
             contentWidgets.add(
               pw.Center(
@@ -740,6 +887,8 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               itemLabel = '${dayItems.length} ${dayItems.length == 1 ? "New Student" : "New Students"}';
             } else if (_reportType == 'visits') {
               itemLabel = '${dayItems.length} ${dayItems.length == 1 ? "Visit" : "Visits"}';
+            } else if (_reportType == 'star_leads') {
+              itemLabel = '${dayItems.length} ${dayItems.length == 1 ? "Star Lead" : "Star Leads"}';
             } else {
               final visitsCount = dayItems.where((i) => i.entryType == 'visit').length;
               final newCount = dayItems.where((i) => i.entryType == 'new_student').length;
@@ -999,6 +1148,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final String endDateStr = _formatApiDate(_endDate);
 
     final hasMatchingStudents = _students.any((s) {
+      if (_reportType == 'star_leads' && !_isStarLead(s)) {
+        return false;
+      }
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
       final hasMatchingVisit = rawVisits.any((v) {
         if (!hasDateRange) return true;
@@ -1014,17 +1166,21 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         return hasMatchingVisit;
       } else if (_reportType == 'new_students') {
         return isCreatedInRange;
+      } else if (_reportType == 'star_leads') {
+        return !hasDateRange || hasMatchingVisit || isCreatedInRange;
       } else {
         return hasMatchingVisit || isCreatedInRange;
       }
     });
 
-    final hasMatchingDuties = _institutionVisits.any((iv) {
-      if (iv is! Map<String, dynamic>) return false;
-      if (!hasDateRange) return true;
-      final dKey = _getDateKey(iv['visitDate']);
-      return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
-    });
+    final hasMatchingDuties = (_reportType == 'star_leads' || _reportType == 'new_students')
+        ? false
+        : _institutionVisits.any((iv) {
+            if (iv is! Map<String, dynamic>) return false;
+            if (!hasDateRange) return true;
+            final dKey = _getDateKey(iv['visitDate']);
+            return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
+          });
 
     if (!hasMatchingStudents && !hasMatchingDuties) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1046,7 +1202,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       final safeName = _employeeName.trim().isNotEmpty
           ? _employeeName.trim().replaceAll(RegExp(r'\s+'), '_')
           : 'Employee';
-      final filename = 'Report_$safeName.pdf';
+      final filename = _reportType == 'star_leads'
+          ? 'Star_Leads_Report_$safeName.pdf'
+          : 'Report_$safeName.pdf';
 
       await PdfDownloader.download(pdfBytes, filename);
 
@@ -1076,7 +1234,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       final safeName = _employeeName.trim().isNotEmpty
           ? _employeeName.trim().replaceAll(RegExp(r'\s+'), '_')
           : 'Employee';
-      final filename = 'Report_$safeName.pdf';
+      final filename = _reportType == 'star_leads'
+          ? 'Star_Leads_Report_$safeName.pdf'
+          : 'Report_$safeName.pdf';
 
       if (!kIsWeb) {
         // On Mobile (Android/iOS): share PDF directly via native share sheet (WhatsApp)
@@ -1138,7 +1298,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final String startDateStr = _formatApiDate(_startDate);
     final String endDateStr = _formatApiDate(_endDate);
 
-    final relevantStudents = _students.where((s) {
+    final rawStudents = _students.where((s) {
+      if (_reportType == 'star_leads' && !_isStarLead(s)) {
+        return false;
+      }
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
       final hasMatchingVisit = rawVisits.any((v) {
         if (!hasDateRange) return true;
@@ -1154,17 +1317,35 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         return hasMatchingVisit;
       } else if (_reportType == 'new_students') {
         return isCreatedInRange;
+      } else if (_reportType == 'star_leads') {
+        return !hasDateRange || hasMatchingVisit || isCreatedInRange;
       } else {
         return hasMatchingVisit || isCreatedInRange;
       }
     }).toList();
 
-    final relevantInstVisits = _institutionVisits.where((iv) {
-      if (iv is! Map<String, dynamic>) return false;
-      if (!hasDateRange) return true;
-      final dKey = _getDateKey(iv['visitDate']);
-      return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
-    }).toList();
+    // Deduplicate Star Leads so zero duplicate students are counted
+    List<dynamic> relevantStudents = rawStudents;
+    if (_reportType == 'star_leads') {
+      final seenShareIds = <String>{};
+      relevantStudents = rawStudents.where((s) {
+        final sId = (s['id']?.toString() ?? '').isNotEmpty
+            ? s['id'].toString()
+            : ((s['phone']?.toString() ?? '').isNotEmpty ? s['phone'].toString() : (s['studentName']?.toString() ?? ''));
+        if (sId.isNotEmpty && seenShareIds.contains(sId)) return false;
+        if (sId.isNotEmpty) seenShareIds.add(sId);
+        return true;
+      }).toList();
+    }
+
+    final relevantInstVisits = (_reportType == 'star_leads' || _reportType == 'new_students')
+        ? <dynamic>[]
+        : _institutionVisits.where((iv) {
+            if (iv is! Map<String, dynamic>) return false;
+            if (!hasDateRange) return true;
+            final dKey = _getDateKey(iv['visitDate']);
+            return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
+          }).toList();
 
     if (relevantStudents.isEmpty && relevantInstVisits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1190,6 +1371,27 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           '📝 *Official Duties Logged:* $otherDutiesCount\n'
           '🏛️ *School/Tuition Visits:* $instCount\n'
           '🏷 *Category:* $_reportTypeDisplay\n'
+          '━━━━━━━━━━━━━━━━━━━━';
+    } else if (_reportType == 'star_leads') {
+      final groupCounts = <String, int>{};
+      for (final s in relevantStudents) {
+        final rawG = s['group']?.toString().trim() ?? '';
+        final g = ApiService.resolveConfig(rawG);
+        final groupName = g.isNotEmpty ? g : (rawG.isNotEmpty ? rawG : 'Others');
+        groupCounts[groupName] = (groupCounts[groupName] ?? 0) + 1;
+      }
+      final groupSummary = groupCounts.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+
+      summary = '$collegeLine'
+          '⭐ *PRO STAR LEADS REPORT*\n'
+          '👤 *Employee:* $_employeeName\n'
+          '📅 *Date Range:* $_dateRangeDisplay\n'
+          '━━━━━━━━━━━━━━━━━━━━\n'
+          '⭐ *Total Star Leads:* ${relevantStudents.length}\n'
+          '✅ *Doorstep Done:* $doorstepDone\n'
+          '⏳ *Pending Leads:* $pending\n'
+          '🏷 *Category:* Star Leads Only\n'
+          '${groupSummary.isNotEmpty ? "📚 *Groups:* $groupSummary\n" : ""}'
           '━━━━━━━━━━━━━━━━━━━━';
     } else {
       // Group breakdown for the summary
@@ -1304,9 +1506,15 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
     int totalVisitsCount = 0;
     int newStudentsCount = 0;
+    int starLeadsCount = 0;
     final Set<String> activeDates = {};
 
     for (final s in _students) {
+      final isStar = _isStarLead(s);
+      if (_reportType == 'star_leads' && !isStar) {
+        continue;
+      }
+
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
       final matchingVisits = rawVisits.where((v) {
         if (!hasDateRange) return true;
@@ -1331,6 +1539,11 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           newStudentsCount++;
           if (createdDateKey.isNotEmpty) activeDates.add(createdDateKey);
         }
+      } else if (_reportType == 'star_leads') {
+        final bool studentActive = !hasDateRange || matchingVisits.isNotEmpty || isCreatedInRange;
+        if (studentActive) {
+          starLeadsCount++;
+        }
       } else {
         // 'all': Both new students and visits
         for (final v in matchingVisits) {
@@ -1348,16 +1561,18 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
     int otherDutiesCount = 0;
     int regularInstCount = 0;
-    for (final iv in _institutionVisits) {
-      if (iv is Map<String, dynamic>) {
-        final dKey = _getDateKey(iv['visitDate']);
-        if (dKey.isNotEmpty) {
-          if (!hasDateRange || (dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0)) {
-            activeDates.add(dKey);
-            if (iv['type'] == 'OTHER') {
-              otherDutiesCount++;
-            } else {
-              regularInstCount++;
+    if (_reportType != 'star_leads' && _reportType != 'new_students') {
+      for (final iv in _institutionVisits) {
+        if (iv is Map<String, dynamic>) {
+          final dKey = _getDateKey(iv['visitDate']);
+          if (dKey.isNotEmpty) {
+            if (!hasDateRange || (dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0)) {
+              activeDates.add(dKey);
+              if (iv['type'] == 'OTHER') {
+                otherDutiesCount++;
+              } else {
+                regularInstCount++;
+              }
             }
           }
         }
@@ -1365,6 +1580,9 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     }
 
     final doorstepDone = _students.where((s) {
+      if (_reportType == 'star_leads' && !_isStarLead(s)) {
+        return false;
+      }
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
       final hasMatchingVisit = rawVisits.any((v) {
         if (!hasDateRange) return true;
@@ -1377,12 +1595,19 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
       final matches = _reportType == 'visits'
           ? hasMatchingVisit
-          : (_reportType == 'new_students' ? isCreatedInRange : (hasMatchingVisit || isCreatedInRange));
+          : (_reportType == 'new_students'
+              ? isCreatedInRange
+              : (_reportType == 'star_leads'
+                  ? (!hasDateRange || hasMatchingVisit || isCreatedInRange)
+                  : (hasMatchingVisit || isCreatedInRange)));
 
       return matches && s['doorstepCompleted'] == true;
     }).length;
 
     final relevantStudentsTotal = _students.where((s) {
+      if (_reportType == 'star_leads' && !_isStarLead(s)) {
+        return false;
+      }
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
       final hasMatchingVisit = rawVisits.any((v) {
         if (!hasDateRange) return true;
@@ -1395,7 +1620,11 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
       return _reportType == 'visits'
           ? hasMatchingVisit
-          : (_reportType == 'new_students' ? isCreatedInRange : (hasMatchingVisit || isCreatedInRange));
+          : (_reportType == 'new_students'
+              ? isCreatedInRange
+              : (_reportType == 'star_leads'
+                  ? (!hasDateRange || hasMatchingVisit || isCreatedInRange)
+                  : (hasMatchingVisit || isCreatedInRange)));
     }).length;
 
     final int pendingCount = relevantStudentsTotal - doorstepDone;
@@ -1441,7 +1670,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             const SizedBox(height: 16),
 
             // CARD 3: Report Summary & Actions
-            _buildSummaryAndActionsCard(totalVisitsCount, newStudentsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount),
+            _buildSummaryAndActionsCard(totalVisitsCount, newStudentsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount, starLeadsCount: starLeadsCount),
             const SizedBox(height: 20),
 
             // CARD 4: Records Preview
@@ -1551,7 +1780,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: ['all', 'new_students', 'visits'].contains(_reportType) ? _reportType : 'all',
+                value: ['all', 'new_students', 'visits', 'star_leads'].contains(_reportType) ? _reportType : 'all',
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF0D9488)),
                 items: const [
@@ -1566,6 +1795,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                   DropdownMenuItem(
                     value: 'visits',
                     child: Text('🏡 Village Visits Only'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'star_leads',
+                    child: Text('⭐ Star Leads Only'),
                   ),
                 ],
                 onChanged: (val) {
@@ -1879,8 +2112,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   // ==================== CARD 3: SUMMARY & ACTIONS ====================
-  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int newStudentsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount) {
-    final totalEntries = totalVisitsCount + newStudentsCount + otherDutiesCount + regularInstCount;
+  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int newStudentsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount, {int starLeadsCount = 0}) {
+    final totalEntries = _reportType == 'star_leads'
+        ? starLeadsCount
+        : (totalVisitsCount + newStudentsCount + otherDutiesCount + regularInstCount);
     final hasRecords = totalEntries > 0;
     String subtitle;
     if (_reportType == 'visits') {
@@ -1893,6 +2128,8 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       }
     } else if (_reportType == 'new_students') {
       subtitle = 'Found $newStudentsCount New Admission Students on $activeDatesCount ${activeDatesCount == 1 ? "Date" : "Dates"}';
+    } else if (_reportType == 'star_leads') {
+      subtitle = 'Found $starLeadsCount Unique Star Leads (Zero Duplicates)';
     } else {
       if (otherDutiesCount > 0 || regularInstCount > 0) {
         subtitle = 'Found $totalEntries Entries ($totalVisitsCount Visits + $newStudentsCount New) & ${otherDutiesCount + regularInstCount} Duties/Institutions';
@@ -1950,6 +2187,12 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
                 const SizedBox(width: 24),
                 _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+              ] else if (_reportType == 'star_leads') ...[
+                _buildHeaderMetric('Star Leads', starLeadsCount.toString(), const Color(0xFFF59E0B)),
+                const SizedBox(width: 20),
+                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
+                const SizedBox(width: 20),
+                _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
               ] else ...[
                 _buildHeaderMetric('Total Entries', totalEntries.toString(), const Color(0xFF38BDF8)),
                 const SizedBox(width: 16),
@@ -2009,7 +2252,18 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final String startDateStr = _formatApiDate(_startDate);
     final String endDateStr = _formatApiDate(_endDate);
 
+    final Set<String> seenPreviewStudentIds = {};
     final filteredStudents = _students.where((s) {
+      if (_reportType == 'star_leads' && !_isStarLead(s)) {
+        return false;
+      }
+      final sId = (s['id']?.toString() ?? '').isNotEmpty
+          ? s['id'].toString()
+          : ((s['phone']?.toString() ?? '').isNotEmpty ? s['phone'].toString() : (s['studentName']?.toString() ?? ''));
+      if (_reportType == 'star_leads' && seenPreviewStudentIds.contains(sId)) {
+        return false;
+      }
+
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
       final hasMatchingVisit = rawVisits.any((v) {
         if (!hasDateRange) return true;
@@ -2021,21 +2275,31 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       final isCreatedInRange = !hasDateRange ||
           (createdDateKey.isNotEmpty && createdDateKey.compareTo(startDateStr) >= 0 && createdDateKey.compareTo(endDateStr) <= 0);
 
+      final bool matches;
       if (_reportType == 'visits') {
-        return hasMatchingVisit;
+        matches = hasMatchingVisit;
       } else if (_reportType == 'new_students') {
-        return isCreatedInRange;
+        matches = isCreatedInRange;
+      } else if (_reportType == 'star_leads') {
+        matches = !hasDateRange || hasMatchingVisit || isCreatedInRange;
       } else {
-        return hasMatchingVisit || isCreatedInRange;
+        matches = hasMatchingVisit || isCreatedInRange;
       }
+
+      if (matches && _reportType == 'star_leads' && sId.isNotEmpty) {
+        seenPreviewStudentIds.add(sId);
+      }
+      return matches;
     }).toList();
 
-    final filteredInstVisits = _institutionVisits.where((iv) {
-      if (iv is! Map<String, dynamic>) return false;
-      if (!hasDateRange) return true;
-      final dKey = _getDateKey(iv['visitDate']);
-      return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
-    }).toList();
+    final filteredInstVisits = (_reportType == 'star_leads' || _reportType == 'new_students')
+        ? <dynamic>[]
+        : _institutionVisits.where((iv) {
+            if (iv is! Map<String, dynamic>) return false;
+            if (!hasDateRange) return true;
+            final dKey = _getDateKey(iv['visitDate']);
+            return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
+          }).toList();
 
     String previewTitle = 'Report Records Preview (${filteredStudents.length + filteredInstVisits.length})';
     if (_reportType == 'visits') {
@@ -2046,6 +2310,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       } else {
         previewTitle = 'Report Records Preview ($totalVisitsCount Visits across ${filteredStudents.length} Students)';
       }
+    } else if (_reportType == 'star_leads') {
+      previewTitle = 'Unique Star Leads List (${filteredStudents.length} Students)';
+    } else if (_reportType == 'new_students') {
+      previewTitle = 'New Students Preview (${filteredStudents.length} Students)';
     }
 
     return Column(
@@ -2281,9 +2549,37 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              s['studentName'] ?? 'No Name',
-                              style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    s['studentName'] ?? 'No Name',
+                                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                if (_isStarLead(s)) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFFDE68A)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.star_rounded, size: 12, color: Color(0xFFD97706)),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          'STAR',
+                                          style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFFD97706)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(

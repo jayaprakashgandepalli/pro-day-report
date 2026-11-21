@@ -19,7 +19,7 @@ export default function GeneratePDFPage() {
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [isAllTime, setIsAllTime] = useState(false);
-  const [reportType, setReportType] = useState<'all' | 'new_students' | 'visits'>('all');
+  const [reportType, setReportType] = useState<'all' | 'new_students' | 'visits' | 'star_leads'>('all');
   
   // Location Filters
   const [filterMandal, setFilterMandal] = useState('');
@@ -226,6 +226,34 @@ export default function GeneratePDFPage() {
             entryType: 'new_student'
           });
         }
+      } else if (repType === 'star_leads') {
+        const leadStatus = (s.leadStatus || '').toString().toLowerCase();
+        const isStar = leadStatus.includes('star') || leadStatus.includes('prime');
+        if (isStar) {
+          const hasMatchingVisit = matchingVisits.length > 0;
+          if (!hasDateRange || hasMatchingVisit || isCreatedInRange) {
+            const visitCount = (s.visits || []).length;
+            const visitNumber = visitCount > 0 ? `${visitCount} Visits` : '-';
+            let remarks = s.remarks ? s.remarks.trim() : '';
+            if (s.visits && s.visits.length > 0) {
+              const lastV = s.visits[s.visits.length - 1];
+              if (lastV.remarks && lastV.remarks.trim()) {
+                remarks = remarks ? `${remarks} | Latest: ${lastV.remarks.trim()}` : lastV.remarks.trim();
+              }
+            }
+
+            entries.push({
+              dateKey: 'star_leads',
+              dateFormatted: '',
+              dayName: '',
+              student: s,
+              visit: null,
+              visitNumber,
+              remarks: remarks || 'Star Lead Registered',
+              entryType: 'star_lead'
+            });
+          }
+        }
       } else {
         // 'all': Both new students and visits
         matchingVisits.forEach((v: any) => {
@@ -326,6 +354,8 @@ export default function GeneratePDFPage() {
         reportTitle = 'DAY REPORT - NEW ADMISSION STUDENTS';
       } else if (data.reportType === 'visits') {
         reportTitle = 'DAY REPORT - VILLAGE VISITS';
+      } else if (data.reportType === 'star_leads') {
+        reportTitle = 'STAR LEADS LIST REPORT';
       }
       doc.text(reportTitle, doc.internal.pageSize.getWidth() / 2, currentY, { align: 'center' });
 
@@ -343,6 +373,7 @@ export default function GeneratePDFPage() {
       const filterParts = [];
       if (data.reportType === 'new_students') filterParts.push('Type: New Students Only');
       else if (data.reportType === 'visits') filterParts.push('Type: Village Visits Only');
+      else if (data.reportType === 'star_leads') filterParts.push('Type: Star Leads List (Unique Students)');
       else filterParts.push('Type: All (New & Visits)');
 
       if (data.filters.mandal) filterParts.push(`Mandal: ${getConfigName(data.filters.mandal)}`);
@@ -357,69 +388,14 @@ export default function GeneratePDFPage() {
 
       doc.text(rightText, doc.internal.pageSize.getWidth() - 14, currentY + 6, { align: 'right' });
 
-      // Group entries by dateKey:
-      const dateGroups: Record<string, any[]> = {};
-      allEntries.forEach(entry => {
-        if (!dateGroups[entry.dateKey]) dateGroups[entry.dateKey] = [];
-        dateGroups[entry.dateKey].push(entry);
-      });
-
-      // Sort dates chronologically ascending (oldest to newest):
-      const sortedDateKeys = Object.keys(dateGroups).sort(
-        (a, b) => new Date(a).getTime() - new Date(b).getTime()
-      );
-
       const tableHeader = availableColumns.filter(c => selectedColumns.includes(c.id)).map(c => c.label);
       let currentTableY = tableStartY;
       const pageHeight = doc.internal.pageSize.getHeight();
+      let sortedDateKeys: string[] = [];
 
-      sortedDateKeys.forEach((dKey) => {
-        const dayItems = dateGroups[dKey];
-        const dateFormatted = dayItems[0].dateFormatted;
-        const dayName = dayItems[0].dayName;
-
-        // Smart keep-together: Ensure banner + table header + rows have enough room
-        const neededMm = Math.min(18 + dayItems.length * 8, 65);
-        if (currentTableY + neededMm > pageHeight - 15) {
-          doc.addPage();
-          currentTableY = 15;
-        }
-
-        // Render stylish Date banner
-        doc.setFillColor(241, 245, 249); // #f1f5f9
-        doc.setDrawColor(203, 213, 225); // #cbd5e1
-        doc.roundedRect(14, currentTableY, doc.internal.pageSize.getWidth() - 28, 7, 2, 2, 'FD');
-
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(15, 118, 110); // #0f766e
-        let itemLabel = '';
-        if (data.reportType === 'new_students') {
-          itemLabel = `${dayItems.length} ${dayItems.length === 1 ? 'New Student' : 'New Students'}`;
-        } else if (data.reportType === 'visits') {
-          itemLabel = `${dayItems.length} ${dayItems.length === 1 ? 'Visit' : 'Visits'}`;
-        } else {
-          const visitsCount = dayItems.filter((i: any) => i.entryType === 'visit').length;
-          const newCount = dayItems.filter((i: any) => i.entryType === 'new_student').length;
-          if (visitsCount > 0 && newCount > 0) {
-            itemLabel = `${visitsCount} ${visitsCount === 1 ? 'Visit' : 'Visits'} + ${newCount} New`;
-          } else if (visitsCount > 0) {
-            itemLabel = `${visitsCount} ${visitsCount === 1 ? 'Visit' : 'Visits'}`;
-          } else {
-            itemLabel = `${newCount} ${newCount === 1 ? 'New Student' : 'New Students'}`;
-          }
-        }
-
-        doc.text(
-          `DATE: ${dateFormatted} (${dayName})   |   ${itemLabel}`,
-          18,
-          currentTableY + 5
-        );
-        doc.setTextColor(0, 0, 0);
-        currentTableY += 9;
-
-        // Build table data for this date
-        const dayTableData = dayItems.map((item: any, index: number) => {
+      if (data.reportType === 'star_leads') {
+        // Continuous unique list table without any date header banner
+        const starTableData = allEntries.map((item: any, index: number) => {
           const s = item.student;
           const addressParts = [getConfigName(s.village), getConfigName(s.mandal), getConfigName(s.district)].filter(Boolean).join(', ');
           const cleanLandmark = s.address ? s.address.replace(/\[?GPS:\s*-?\d+\.?\d*\s*,\s*-?\d+\.?\d*\]?/gi, '').trim() : '';
@@ -463,17 +439,10 @@ export default function GeneratePDFPage() {
           return rowData;
         });
 
-        // If it's a single day report with fewer than 5 rows, pad a little space for data collection
-        if (sortedDateKeys.length === 1) {
-          while (dayTableData.length < 5) {
-            dayTableData.push(Array(selectedColumns.length).fill(''));
-          }
-        }
-
         autoTable(doc, {
-          startY: currentTableY,
+          startY: tableStartY,
           head: [tableHeader],
-          body: dayTableData,
+          body: starTableData,
           theme: 'grid',
           styles: { fontSize: 8, cellPadding: 2 },
           headStyles: { fillColor: [15, 118, 110], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -481,7 +450,129 @@ export default function GeneratePDFPage() {
         });
 
         currentTableY = (doc as any).lastAutoTable.finalY + 8;
-      });
+      } else {
+        // Group entries by dateKey:
+        const dateGroups: Record<string, any[]> = {};
+        allEntries.forEach(entry => {
+          if (!dateGroups[entry.dateKey]) dateGroups[entry.dateKey] = [];
+          dateGroups[entry.dateKey].push(entry);
+        });
+
+        // Sort dates chronologically ascending (oldest to newest):
+        sortedDateKeys = Object.keys(dateGroups).sort(
+          (a, b) => new Date(a).getTime() - new Date(b).getTime()
+        );
+
+        sortedDateKeys.forEach((dKey) => {
+          const dayItems = dateGroups[dKey];
+          const dateFormatted = dayItems[0].dateFormatted;
+          const dayName = dayItems[0].dayName;
+
+          // Smart keep-together: Ensure banner + table header + rows have enough room
+          const neededMm = Math.min(18 + dayItems.length * 8, 65);
+          if (currentTableY + neededMm > pageHeight - 15) {
+            doc.addPage();
+            currentTableY = 15;
+          }
+
+          // Render stylish Date banner
+          doc.setFillColor(241, 245, 249); // #f1f5f9
+          doc.setDrawColor(203, 213, 225); // #cbd5e1
+          doc.roundedRect(14, currentTableY, doc.internal.pageSize.getWidth() - 28, 7, 2, 2, 'FD');
+
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(15, 118, 110); // #0f766e
+          let itemLabel = '';
+          if (data.reportType === 'new_students') {
+            itemLabel = `${dayItems.length} ${dayItems.length === 1 ? 'New Student' : 'New Students'}`;
+          } else if (data.reportType === 'visits') {
+            itemLabel = `${dayItems.length} ${dayItems.length === 1 ? 'Visit' : 'Visits'}`;
+          } else {
+            const visitsCount = dayItems.filter((i: any) => i.entryType === 'visit').length;
+            const newCount = dayItems.filter((i: any) => i.entryType === 'new_student').length;
+            if (visitsCount > 0 && newCount > 0) {
+              itemLabel = `${visitsCount} ${visitsCount === 1 ? 'Visit' : 'Visits'} + ${newCount} New`;
+            } else if (visitsCount > 0) {
+              itemLabel = `${visitsCount} ${visitsCount === 1 ? 'Visit' : 'Visits'}`;
+            } else {
+              itemLabel = `${newCount} ${newCount === 1 ? 'New Student' : 'New Students'}`;
+            }
+          }
+
+          doc.text(
+            `DATE: ${dateFormatted} (${dayName})   |   ${itemLabel}`,
+            18,
+            currentTableY + 5
+          );
+          doc.setTextColor(0, 0, 0);
+          currentTableY += 9;
+
+          // Build table data for this date
+          const dayTableData = dayItems.map((item: any, index: number) => {
+            const s = item.student;
+            const addressParts = [getConfigName(s.village), getConfigName(s.mandal), getConfigName(s.district)].filter(Boolean).join(', ');
+            const cleanLandmark = s.address ? s.address.replace(/\[?GPS:\s*-?\d+\.?\d*\s*,\s*-?\d+\.?\d*\]?/gi, '').trim() : '';
+            let finalAddress = addressParts;
+            if (cleanLandmark) {
+              finalAddress = finalAddress ? `${finalAddress}\nLandmark: ${cleanLandmark}` : cleanLandmark;
+            }
+            if (!finalAddress) finalAddress = '-';
+
+            let gpsDisplay = '-';
+            if (s.address) {
+              const match = s.address.match(/\[?GPS:\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)\]?/i);
+              if (match) {
+                gpsDisplay = `${parseFloat(match[1]).toFixed(4)}, ${parseFloat(match[2]).toFixed(4)}`;
+              }
+            }
+
+            let extraRemarks = item.remarks ? item.remarks.trim() : (s.remarks ? s.remarks.trim() : '');
+            if (s.studyInterestedAt) extraRemarks += (extraRemarks ? ' | ' : '') + `Int: ${getConfigName(s.studyInterestedAt)}`;
+            if (s.ableToBearFee) extraRemarks += (extraRemarks ? ' | ' : '') + `Fee: ${getConfigName(s.ableToBearFee)}`;
+            if (s.leadStatus) extraRemarks += (extraRemarks ? ' | ' : '') + `Status: ${s.leadStatus}`;
+
+            const rowData: any[] = [];
+            availableColumns.forEach(c => {
+              if (selectedColumns.includes(c.id)) {
+                if (c.id === 'sno') rowData.push(index + 1);
+                else if (c.id === 'studentName') rowData.push(s.studentName);
+                else if (c.id === 'fatherName') rowData.push(s.fatherName || '-');
+                else if (c.id === 'occupation') rowData.push(s.occupation || '-');
+                else if (c.id === 'address') rowData.push(finalAddress);
+                else if (c.id === 'gps') rowData.push(gpsDisplay);
+                else if (c.id === 'phone') rowData.push(s.phone);
+                else if (c.id === 'whatsapp') rowData.push(s.whatsapp || '-');
+                else if (c.id === 'group') rowData.push(s.group ? getConfigName(s.group) : '-');
+                else if (c.id === 'visitNumber') rowData.push(item.visitNumber || '-');
+                else if (c.id === 'schoolName') rowData.push(s.schoolName ? getConfigName(s.schoolName) : '-');
+                else if (c.id === 'doorstep') rowData.push(s.doorstepCompleted ? 'Yes' : 'No');
+                else if (c.id === 'remarks') rowData.push(extraRemarks || '-');
+              }
+            });
+            return rowData;
+          });
+
+          // If it's a single day report with fewer than 5 rows, pad a little space for data collection
+          if (sortedDateKeys.length === 1) {
+            while (dayTableData.length < 5) {
+              dayTableData.push(Array(selectedColumns.length).fill(''));
+            }
+          }
+
+          autoTable(doc, {
+            startY: currentTableY,
+            head: [tableHeader],
+            body: dayTableData,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [15, 118, 110], textColor: [255, 255, 255], fontStyle: 'bold' },
+            margin: { top: 15, left: 14, right: 14, bottom: 15 }
+          });
+
+          currentTableY = (doc as any).lastAutoTable.finalY + 8;
+        });
+      }
 
       // Overall Totals (dynamic based on config)
       const groupCounts: Record<string, number> = {};
@@ -507,11 +598,19 @@ export default function GeneratePDFPage() {
       doc.text('Summary:', 14, currentTableY);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      doc.text(
-        `Total Entries/Visits: ${allEntries.length}   |   Unique Students: ${uniqueStudentsMet}   |   Active Dates: ${sortedDateKeys.length}`,
-        14,
-        currentTableY + 5
-      );
+      if (data.reportType === 'star_leads') {
+        doc.text(
+          `Total Unique Star Leads: ${allEntries.length}`,
+          14,
+          currentTableY + 5
+        );
+      } else {
+        doc.text(
+          `Total Entries/Visits: ${allEntries.length}   |   Unique Students: ${uniqueStudentsMet}   |   Active Dates: ${sortedDateKeys.length}`,
+          14,
+          currentTableY + 5
+        );
+      }
       if (summaryParts) {
          doc.text(summaryParts, 14, currentTableY + 10);
       }
@@ -612,7 +711,7 @@ export default function GeneratePDFPage() {
             className="form-control" 
             value={reportType} 
             onChange={(e) => {
-              const val = e.target.value as 'all' | 'new_students' | 'visits';
+              const val = e.target.value as 'all' | 'new_students' | 'visits' | 'star_leads';
               setReportType(val);
               fetchReportData(isAllTime ? '' : startDate, isAllTime ? '' : endDate, filterMandal, filterVillage, filterSchool, val);
             }}
@@ -630,6 +729,7 @@ export default function GeneratePDFPage() {
             <option value="all">👥 All (New Students + Village Visits)</option>
             <option value="new_students">🆕 New Students Only</option>
             <option value="visits">🏡 Village Visits Only</option>
+            <option value="star_leads">⭐ Star Leads Only</option>
           </select>
         </div>
 
@@ -774,6 +874,12 @@ export default function GeneratePDFPage() {
                 return (
                   <span>
                     Found <strong style={{ color: 'var(--primary-color)', fontSize: '1.1rem' }}>{entries.length}</strong> New Students across <strong style={{ color: '#0f172a' }}>{dateCount}</strong> {dateCount === 1 ? 'Date' : 'Dates'}
+                  </span>
+                );
+              } else if (data.reportType === 'star_leads') {
+                return (
+                  <span>
+                    Found <strong style={{ color: 'var(--primary-color)', fontSize: '1.1rem' }}>{entries.length}</strong> Unique Star Leads (No Duplicates)
                   </span>
                 );
               } else {
