@@ -13,6 +13,7 @@ export const dynamic = 'force-dynamic';
  * Approved low-risk fields that SPX Voice AI is allowed to populate when empty.
  */
 const APPROVED_UPDATE_FIELDS = new Set([
+  'studentName',
   'fatherName',
   'whatsapp',
   'gender',
@@ -143,8 +144,8 @@ export async function POST(
     // 7. Extract Submitted Updates
     const rawUpdates = body.updates && typeof body.updates === 'object' ? body.updates : body;
     const submittedKeys = body.updates && typeof body.updates === 'object'
-      ? Object.keys(body.updates)
-      : Object.keys(body).filter((k) => k !== 'collegeId');
+      ? Object.keys(body.updates).filter((k) => k !== 'isConfirmed' && k !== 'nameConfirmed')
+      : Object.keys(body).filter((k) => k !== 'collegeId' && k !== 'isConfirmed' && k !== 'nameConfirmed');
 
     if (submittedKeys.length === 0) {
       return NextResponse.json(
@@ -178,10 +179,56 @@ export async function POST(
       }
     }
 
+    // 8b. Validate studentName if submitted (reject empty, whitespace-only, or unconfirmed names)
+    if (submittedKeys.includes('studentName')) {
+      const rawName = rawUpdates.studentName;
+      if (rawName === null || rawName === undefined || typeof rawName !== 'string' || rawName.trim().length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'INVALID_STUDENT_NAME',
+            message: 'Submitted studentName cannot be empty or whitespace only',
+          },
+          { status: 400 }
+        );
+      }
+
+      const trimmedCandidate = rawName.trim();
+      const UNCONFIRMED_PLACEHOLDERS = new Set([
+        'unknown',
+        'unconfirmed',
+        'n/a',
+        'na',
+        'null',
+        'none',
+        'not known',
+        'not sure',
+        'pending confirmation',
+      ]);
+
+      if (
+        UNCONFIRMED_PLACEHOLDERS.has(trimmedCandidate.toLowerCase()) ||
+        rawUpdates.isConfirmed === false ||
+        body.isConfirmed === false ||
+        rawUpdates.nameConfirmed === false ||
+        body.nameConfirmed === false
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'UNCONFIRMED_NAME_REJECTED',
+            message: 'Cannot save an unconfirmed or placeholder student name',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // 9. Query Current Student Values for Submitted Fields
     const currentStudent = await prisma.student.findUnique({
       where: { id: studentId },
       select: {
+        studentName: true,
         fatherName: true,
         whatsapp: true,
         gender: true,

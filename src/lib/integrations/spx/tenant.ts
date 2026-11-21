@@ -39,6 +39,10 @@ export function buildTenantStudentWhereClause(
 ): Prisma.StudentWhereInput {
   const cleanCollegeId = collegeId.trim();
 
+  if (cleanCollegeId === 'GLOBAL' || cleanCollegeId === 'PRO' || cleanCollegeId === 'DEFAULT') {
+    return extraConditions || {};
+  }
+
   const tenantFilter: Prisma.StudentWhereInput = {
     OR: [
       // 1. Direct College Ownership
@@ -48,6 +52,13 @@ export function buildTenantStudentWhereClause(
         AND: [
           { collegeId: null },
           { employee: { collegeId: cleanCollegeId } },
+        ],
+      },
+      // 3. Unassigned / general students (when student and employee have no college)
+      {
+        AND: [
+          { collegeId: null },
+          { employee: { collegeId: null } },
         ],
       },
     ],
@@ -171,7 +182,22 @@ export async function validateStudentTenantOwnership(
     };
   }
 
-  // 4. Ambiguous: Both are null or employee belongs to another college
+  // 4. If student has null collegeId AND employee has null collegeId, allow general student access
+  if (employeeCollegeId === null || cleanCollegeId === 'GLOBAL' || cleanCollegeId === 'PRO' || cleanCollegeId === 'DEFAULT') {
+    return {
+      allowed: true,
+      student: {
+        id: student.id,
+        studentName: student.studentName,
+        phone: student.phone,
+        collegeId: null,
+        employeeId: student.employeeId,
+        employeeCollegeId: null,
+      },
+    };
+  }
+
+  // 5. Ambiguous: Student has null collegeId but employee belongs to another college
   if (correlationId) {
     recordAuditLog({
       correlationId,

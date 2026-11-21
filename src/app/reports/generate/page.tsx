@@ -106,12 +106,18 @@ export default function GeneratePDFPage() {
         const json = await res.json();
         
         let dateString = '';
+        const formatIsoDate = (isoStr: string) => {
+          if (!isoStr) return '';
+          const parts = isoStr.split('-');
+          return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : isoStr;
+        };
+
         if (!start || !end) {
           dateString = 'All Time';
         } else if (start === end) {
-          dateString = new Date(start).toLocaleDateString('en-GB');
+          dateString = formatIsoDate(start);
         } else {
-          dateString = `${new Date(start).toLocaleDateString('en-GB')} to ${new Date(end).toLocaleDateString('en-GB')}`;
+          dateString = `${formatIsoDate(start)} to ${formatIsoDate(end)}`;
         }
 
         setData({
@@ -133,12 +139,19 @@ export default function GeneratePDFPage() {
     }
   };
 
-  const getLocalDateKey = (d: Date | string) => {
+  const getDateKey = (d: Date | string) => {
+    if (!d) return '';
+    if (typeof d === 'string') {
+      if (d.includes('T')) return d.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 10);
+    }
     const dateObj = new Date(d);
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    if (isNaN(dateObj.getTime())) return '';
+    return dateObj.toISOString().split('T')[0];
+  };
+
+  const getLocalDateKey = (d: Date | string) => {
+    return getDateKey(d);
   };
 
   const getReportEntries = (reportData: any) => {
@@ -162,82 +175,85 @@ export default function GeneratePDFPage() {
       // 3. Filter to visits falling within the selected date range
       const matchingVisits = allStudentVisits.filter((v: any) => {
         if (!hasDateRange) return true;
-        const vKey = getLocalDateKey(v.visitDate);
+        const vKey = getDateKey(v.visitDate);
         return vKey >= reportData.startDate && vKey <= reportData.endDate;
       });
 
+      const createdDateKey = getDateKey(s.createdAt);
+      const isCreatedInRange = hasDateRange
+        ? (createdDateKey >= reportData.startDate && createdDateKey <= reportData.endDate)
+        : true;
+
+      const formatEntryDate = (dateKey: string) => {
+        const [y, m, d] = dateKey.split('-').map(Number);
+        const displayDate = new Date(y, (m || 1) - 1, d || 1, 12, 0, 0);
+        return {
+          dateObj: displayDate,
+          dateFormatted: `${String(d || 1).padStart(2, '0')}/${String(m || 1).padStart(2, '0')}/${y}`,
+          dayName: displayDate.toLocaleDateString('en-GB', { weekday: 'long' })
+        };
+      };
+
       if (repType === 'visits') {
-        if (matchingVisits.length > 0) {
-          matchingVisits.forEach((v: any) => {
-            const vDate = new Date(v.visitDate);
-            const dateKey = getLocalDateKey(vDate);
-            entries.push({
-              dateKey,
-              dateObj: vDate,
-              dateFormatted: vDate.toLocaleDateString('en-GB'),
-              dayName: vDate.toLocaleDateString('en-GB', { weekday: 'long' }),
-              student: s,
-              visit: v,
-              visitNumber: v._seqNo, // EXACT CHRONOLOGICAL VISIT NUMBER: 1, 2, 3, 4...
-              remarks: v.remarks ? v.remarks.trim() : (s.remarks ? s.remarks.trim() : ''),
-              entryType: 'visit'
-            });
-          });
-        } else if (!hasDateRange) {
-          const fallbackDate = s.updatedAt ? new Date(s.updatedAt) : new Date(s.createdAt);
-          const dateKey = getLocalDateKey(fallbackDate);
+        matchingVisits.forEach((v: any) => {
+          const dateKey = getDateKey(v.visitDate);
+          const { dateObj, dateFormatted, dayName } = formatEntryDate(dateKey);
           entries.push({
             dateKey,
-            dateObj: fallbackDate,
-            dateFormatted: fallbackDate.toLocaleDateString('en-GB'),
-            dayName: fallbackDate.toLocaleDateString('en-GB', { weekday: 'long' }),
+            dateObj,
+            dateFormatted,
+            dayName,
             student: s,
-            visit: null,
-            visitNumber: '1',
-            remarks: s.remarks ? s.remarks.trim() : '',
+            visit: v,
+            visitNumber: v._seqNo, // EXACT CHRONOLOGICAL VISIT NUMBER: 1, 2, 3, 4...
+            remarks: v.remarks ? v.remarks.trim() : (s.remarks ? s.remarks.trim() : ''),
             entryType: 'visit'
           });
-        }
-      } else if (repType === 'new_students') {
-        const cDate = new Date(s.createdAt);
-        const dateKey = getLocalDateKey(cDate);
-        entries.push({
-          dateKey,
-          dateObj: cDate,
-          dateFormatted: cDate.toLocaleDateString('en-GB'),
-          dayName: cDate.toLocaleDateString('en-GB', { weekday: 'long' }),
-          student: s,
-          visit: null,
-          visitNumber: '-',
-          remarks: s.remarks ? s.remarks.trim() : '',
-          entryType: 'new_student'
         });
-      } else {
-        // 'all': Both new students and visits
-        if (matchingVisits.length > 0) {
-          matchingVisits.forEach((v: any) => {
-            const vDate = new Date(v.visitDate);
-            const dateKey = getLocalDateKey(vDate);
-            entries.push({
-              dateKey,
-              dateObj: vDate,
-              dateFormatted: vDate.toLocaleDateString('en-GB'),
-              dayName: vDate.toLocaleDateString('en-GB', { weekday: 'long' }),
-              student: s,
-              visit: v,
-              visitNumber: v._seqNo, // EXACT CHRONOLOGICAL VISIT NUMBER: 1, 2, 3, 4...
-              remarks: v.remarks ? `Visit ${v._seqNo}: ${v.remarks.trim()}` : (s.remarks ? s.remarks.trim() : ''),
-              entryType: 'visit'
-            });
-          });
-        } else {
-          const cDate = new Date(s.createdAt);
-          const dateKey = getLocalDateKey(cDate);
+      } else if (repType === 'new_students') {
+        if (isCreatedInRange) {
+          const dateKey = createdDateKey;
+          const { dateObj, dateFormatted, dayName } = formatEntryDate(dateKey);
           entries.push({
             dateKey,
-            dateObj: cDate,
-            dateFormatted: cDate.toLocaleDateString('en-GB'),
-            dayName: cDate.toLocaleDateString('en-GB', { weekday: 'long' }),
+            dateObj,
+            dateFormatted,
+            dayName,
+            student: s,
+            visit: null,
+            visitNumber: '-',
+            remarks: s.remarks ? s.remarks.trim() : 'New Student Added',
+            entryType: 'new_student'
+          });
+        }
+      } else {
+        // 'all': Both new students and visits
+        matchingVisits.forEach((v: any) => {
+          const dateKey = getDateKey(v.visitDate);
+          const { dateObj, dateFormatted, dayName } = formatEntryDate(dateKey);
+          entries.push({
+            dateKey,
+            dateObj,
+            dateFormatted,
+            dayName,
+            student: s,
+            visit: v,
+            visitNumber: v._seqNo, // EXACT CHRONOLOGICAL VISIT NUMBER: 1, 2, 3, 4...
+            remarks: v.remarks ? `Visit ${v._seqNo}: ${v.remarks.trim()}` : (s.remarks ? s.remarks.trim() : ''),
+            entryType: 'visit'
+          });
+        });
+
+        // Add newly registered student in date range if not already captured by a visit on that exact creation date
+        const hasVisitOnCreatedDate = matchingVisits.some((v: any) => getDateKey(v.visitDate) === createdDateKey);
+        if (isCreatedInRange && !hasVisitOnCreatedDate) {
+          const dateKey = createdDateKey;
+          const { dateObj, dateFormatted, dayName } = formatEntryDate(dateKey);
+          entries.push({
+            dateKey,
+            dateObj,
+            dateFormatted,
+            dayName,
             student: s,
             visit: null,
             visitNumber: '-',
@@ -377,12 +393,25 @@ export default function GeneratePDFPage() {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(15, 118, 110); // #0f766e
-        const itemLabel = data.reportType === 'new_students'
-          ? (dayItems.length === 1 ? 'New Student' : 'New Students')
-          : (dayItems.length === 1 ? 'Visit' : 'Visits');
+        let itemLabel = '';
+        if (data.reportType === 'new_students') {
+          itemLabel = `${dayItems.length} ${dayItems.length === 1 ? 'New Student' : 'New Students'}`;
+        } else if (data.reportType === 'visits') {
+          itemLabel = `${dayItems.length} ${dayItems.length === 1 ? 'Visit' : 'Visits'}`;
+        } else {
+          const visitsCount = dayItems.filter((i: any) => i.entryType === 'visit').length;
+          const newCount = dayItems.filter((i: any) => i.entryType === 'new_student').length;
+          if (visitsCount > 0 && newCount > 0) {
+            itemLabel = `${visitsCount} ${visitsCount === 1 ? 'Visit' : 'Visits'} + ${newCount} New`;
+          } else if (visitsCount > 0) {
+            itemLabel = `${visitsCount} ${visitsCount === 1 ? 'Visit' : 'Visits'}`;
+          } else {
+            itemLabel = `${newCount} ${newCount === 1 ? 'New Student' : 'New Students'}`;
+          }
+        }
 
         doc.text(
-          `DATE: ${dateFormatted} (${dayName})   |   ${dayItems.length} ${itemLabel}`,
+          `DATE: ${dateFormatted} (${dayName})   |   ${itemLabel}`,
           18,
           currentTableY + 5
         );

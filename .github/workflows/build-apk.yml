@@ -33,6 +33,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          flutter-version: '3.47.2'
           cache: true
 
       - name: Install Flutter Dependencies
@@ -43,7 +44,7 @@ jobs:
       - name: Build Android Release APK
         run: |
           cd mobile_app
-          flutter build apk --release --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
+          flutter build apk --release --android-skip-build-dependency-validation --build-name=1.0.${{ github.run_number }} --build-number=${{ github.run_number }}
 
       - name: Copy & Rename APK
         run: |

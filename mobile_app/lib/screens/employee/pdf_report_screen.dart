@@ -117,6 +117,40 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     return '';
   }
 
+  String _getDateKey(dynamic d) {
+    if (d == null) return '';
+    final s = d.toString().trim();
+    if (s.isEmpty) return '';
+    if (s.contains('T')) return s.split('T')[0];
+    final match = RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(s);
+    if (match != null) return match.group(0)!;
+    final dt = DateTime.tryParse(s);
+    if (dt == null) return '';
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  Map<String, String> _formatEntryDate(String dateKey) {
+    if (dateKey.isEmpty) {
+      return {'dateFormatted': '', 'dayName': ''};
+    }
+    final parts = dateKey.split('-');
+    if (parts.length == 3) {
+      final y = int.tryParse(parts[0]) ?? 2026;
+      final m = int.tryParse(parts[1]) ?? 1;
+      final d = int.tryParse(parts[2]) ?? 1;
+      final dt = DateTime(y, m, d);
+      return {
+        'dateFormatted': '${d.toString().padLeft(2, '0')}/${m.toString().padLeft(2, '0')}/$y',
+        'dayName': _getDayName(dt),
+      };
+    }
+    final dt = DateTime.tryParse(dateKey) ?? DateTime.now();
+    return {
+      'dateFormatted': _formatDisplayDate(dt),
+      'dayName': _getDayName(dt),
+    };
+  }
+
   Future<void> _fetchStats() async {
     try {
       await ApiService.getConfigMap();
@@ -275,17 +309,17 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     // Collect report entries
     final List<_ReportPdfEntry> allEntries = [];
     final bool hasDateRange = !_isAllTime;
-    final DateTime startDay = DateTime(_startDate.year, _startDate.month, _startDate.day);
-    final DateTime endDay = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59, 999);
+    final String startDateStr = _formatApiDate(_startDate);
+    final String endDateStr = _formatApiDate(_endDate);
 
     for (final s in _students) {
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
 
       // Sort all visits chronologically
       final sortedVisits = List<dynamic>.from(rawVisits)..sort((a, b) {
-        final aDate = DateTime.tryParse(a['visitDate']?.toString() ?? '') ?? DateTime(1970);
-        final bDate = DateTime.tryParse(b['visitDate']?.toString() ?? '') ?? DateTime(1970);
-        return aDate.compareTo(bDate);
+        final aKey = _getDateKey(a['visitDate']);
+        final bKey = _getDateKey(b['visitDate']);
+        return aKey.compareTo(bKey);
       });
 
       // Assign true lifetime sequence number: 1, 2, 3, 4...
@@ -299,97 +333,83 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       // Filter visits to selected date range
       final matchingVisits = visitsWithSeq.where((v) {
         if (!hasDateRange) return true;
-        final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '');
-        if (dt == null) return false;
-        return dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
-               dt.isBefore(endDay.add(const Duration(milliseconds: 1)));
+        final vKey = _getDateKey(v['visitDate']);
+        if (vKey.isEmpty) return false;
+        return vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
       }).toList();
 
-      if (_reportType == 'visits') {
-        if (matchingVisits.isNotEmpty) {
-          for (final v in matchingVisits) {
-            final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '') ?? DateTime.now();
-            final dKey = _formatApiDate(dt);
-            final dFormatted = _formatDisplayDate(dt);
-            final dName = _getDayName(dt);
-            final rem = (v['remarks']?.toString().trim() ?? '').isNotEmpty
-                ? v['remarks'].toString().trim()
-                : (s['remarks']?.toString().trim() ?? '');
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final bool isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty &&
+           createdDateKey.compareTo(startDateStr) >= 0 &&
+           createdDateKey.compareTo(endDateStr) <= 0);
 
-            allEntries.add(_ReportPdfEntry(
-              dateKey: dKey,
-              dateFormatted: dFormatted,
-              dayName: dName,
-              student: s,
-              visit: v,
-              visitNumber: v['_seqNo'] ?? '1',
-              remarks: rem,
-              entryType: 'visit',
-            ));
-          }
-        } else if (!hasDateRange) {
-          final dt = DateTime.tryParse(s['updatedAt']?.toString() ?? s['createdAt']?.toString() ?? '') ?? DateTime.now();
-          final dKey = _formatApiDate(dt);
-          final dFormatted = _formatDisplayDate(dt);
-          final dName = _getDayName(dt);
+      if (_reportType == 'visits') {
+        for (final v in matchingVisits) {
+          final dateKey = _getDateKey(v['visitDate']);
+          final dateInfo = _formatEntryDate(dateKey);
+          final rem = (v['remarks']?.toString().trim() ?? '').isNotEmpty
+              ? v['remarks'].toString().trim()
+              : (s['remarks']?.toString().trim() ?? '');
+
           allEntries.add(_ReportPdfEntry(
-            dateKey: dKey,
-            dateFormatted: dFormatted,
-            dayName: dName,
+            dateKey: dateKey,
+            dateFormatted: dateInfo['dateFormatted']!,
+            dayName: dateInfo['dayName']!,
             student: s,
-            visit: null,
-            visitNumber: '1',
-            remarks: s['remarks']?.toString().trim() ?? '',
+            visit: v,
+            visitNumber: v['_seqNo'] ?? '1',
+            remarks: rem,
             entryType: 'visit',
           ));
         }
       } else if (_reportType == 'new_students') {
-        final dt = DateTime.tryParse(s['createdAt']?.toString() ?? '') ?? DateTime.now();
-        final dKey = _formatApiDate(dt);
-        final dFormatted = _formatDisplayDate(dt);
-        final dName = _getDayName(dt);
-        allEntries.add(_ReportPdfEntry(
-          dateKey: dKey,
-          dateFormatted: dFormatted,
-          dayName: dName,
-          student: s,
-          visit: null,
-          visitNumber: '-',
-          remarks: s['remarks']?.toString().trim() ?? '',
-          entryType: 'new_student',
-        ));
+        if (isCreatedInRange) {
+          final dateKey = createdDateKey;
+          final dateInfo = _formatEntryDate(dateKey);
+          allEntries.add(_ReportPdfEntry(
+            dateKey: dateKey,
+            dateFormatted: dateInfo['dateFormatted']!,
+            dayName: dateInfo['dayName']!,
+            student: s,
+            visit: null,
+            visitNumber: '-',
+            remarks: (s['remarks']?.toString().trim() ?? '').isNotEmpty
+                ? s['remarks'].toString().trim()
+                : 'New Student Added',
+            entryType: 'new_student',
+          ));
+        }
       } else {
         // 'all': Both new students and visits
-        if (matchingVisits.isNotEmpty) {
-          for (final v in matchingVisits) {
-            final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '') ?? DateTime.now();
-            final dKey = _formatApiDate(dt);
-            final dFormatted = _formatDisplayDate(dt);
-            final dName = _getDayName(dt);
-            final rem = (v['remarks']?.toString().trim() ?? '').isNotEmpty
-                ? 'Visit ${v['_seqNo']}: ${v['remarks'].toString().trim()}'
-                : (s['remarks']?.toString().trim() ?? '');
+        for (final v in matchingVisits) {
+          final dateKey = _getDateKey(v['visitDate']);
+          final dateInfo = _formatEntryDate(dateKey);
+          final rem = (v['remarks']?.toString().trim() ?? '').isNotEmpty
+              ? 'Visit ${v['_seqNo']}: ${v['remarks'].toString().trim()}'
+              : (s['remarks']?.toString().trim() ?? '');
 
-            allEntries.add(_ReportPdfEntry(
-              dateKey: dKey,
-              dateFormatted: dFormatted,
-              dayName: dName,
-              student: s,
-              visit: v,
-              visitNumber: v['_seqNo'] ?? '1',
-              remarks: rem,
-              entryType: 'visit',
-            ));
-          }
-        } else {
-          final dt = DateTime.tryParse(s['createdAt']?.toString() ?? '') ?? DateTime.now();
-          final dKey = _formatApiDate(dt);
-          final dFormatted = _formatDisplayDate(dt);
-          final dName = _getDayName(dt);
           allEntries.add(_ReportPdfEntry(
-            dateKey: dKey,
-            dateFormatted: dFormatted,
-            dayName: dName,
+            dateKey: dateKey,
+            dateFormatted: dateInfo['dateFormatted']!,
+            dayName: dateInfo['dayName']!,
+            student: s,
+            visit: v,
+            visitNumber: v['_seqNo'] ?? '1',
+            remarks: rem,
+            entryType: 'visit',
+          ));
+        }
+
+        // Add newly registered student in date range if not already captured by a visit on that exact creation date
+        final hasVisitOnCreatedDate = matchingVisits.any((v) => _getDateKey(v['visitDate']) == createdDateKey);
+        if (isCreatedInRange && !hasVisitOnCreatedDate) {
+          final dateKey = createdDateKey;
+          final dateInfo = _formatEntryDate(dateKey);
+          allEntries.add(_ReportPdfEntry(
+            dateKey: dateKey,
+            dateFormatted: dateInfo['dateFormatted']!,
+            dayName: dateInfo['dayName']!,
             student: s,
             visit: null,
             visitNumber: '-',
@@ -411,8 +431,11 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     final Map<String, List<Map<String, dynamic>>> instVisitsByDate = {};
     for (final iv in _institutionVisits) {
       if (iv is Map<String, dynamic>) {
-        final dt = DateTime.tryParse(iv['visitDate']?.toString() ?? '') ?? DateTime.now();
-        final dKey = _formatApiDate(dt);
+        final dKey = _getDateKey(iv['visitDate']);
+        if (dKey.isEmpty) continue;
+        if (hasDateRange && (dKey.compareTo(startDateStr) < 0 || dKey.compareTo(endDateStr) > 0)) {
+          continue;
+        }
         instVisitsByDate.putIfAbsent(dKey, () => []).add(iv);
         dateGroups.putIfAbsent(dKey, () => []);
       }
@@ -707,19 +730,34 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               dFormatted = dayItems.first.dateFormatted;
               dName = dayItems.first.dayName;
             } else {
-              final parsedDt = DateTime.tryParse(dKey) ?? DateTime.now();
-              dFormatted = _formatDisplayDate(parsedDt);
-              dName = _getDayName(parsedDt);
+              final dateInfo = _formatEntryDate(dKey);
+              dFormatted = dateInfo['dateFormatted']!;
+              dName = dateInfo['dayName']!;
             }
 
-            final itemLabel = _reportType == 'new_students'
-                ? (dayItems.length == 1 ? 'New Student' : 'New Students')
-                : (dayItems.length == 1 ? 'Visit' : 'Visits');
+            String itemLabel = '';
+            if (_reportType == 'new_students') {
+              itemLabel = '${dayItems.length} ${dayItems.length == 1 ? "New Student" : "New Students"}';
+            } else if (_reportType == 'visits') {
+              itemLabel = '${dayItems.length} ${dayItems.length == 1 ? "Visit" : "Visits"}';
+            } else {
+              final visitsCount = dayItems.where((i) => i.entryType == 'visit').length;
+              final newCount = dayItems.where((i) => i.entryType == 'new_student').length;
+              if (visitsCount > 0 && newCount > 0) {
+                itemLabel = '$visitsCount ${visitsCount == 1 ? "Visit" : "Visits"} + $newCount New';
+              } else if (visitsCount > 0) {
+                itemLabel = '$visitsCount ${visitsCount == 1 ? "Visit" : "Visits"}';
+              } else if (newCount > 0) {
+                itemLabel = '$newCount ${newCount == 1 ? "New Student" : "New Students"}';
+              } else {
+                itemLabel = '${dayItems.length} Visits';
+              }
+            }
 
             final regularInstVisits = dayInstVisits.where((iv) => iv['type'] != 'OTHER').toList();
             final otherDuties = dayInstVisits.where((iv) => iv['type'] == 'OTHER').toList();
 
-            String bannerSubtext = '${dayItems.length} $itemLabel';
+            String bannerSubtext = itemLabel;
             if (regularInstVisits.isNotEmpty) {
               bannerSubtext += '   |   ${regularInstVisits.length} School/Tuition ${regularInstVisits.length == 1 ? "Visit" : "Visits"}';
             }
@@ -956,13 +994,45 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   Future<void> _handleDownloadPdf() async {
-    if (_students.isEmpty && _institutionVisits.isEmpty) {
+    final bool hasDateRange = !_isAllTime;
+    final String startDateStr = _formatApiDate(_startDate);
+    final String endDateStr = _formatApiDate(_endDate);
+
+    final hasMatchingStudents = _students.any((s) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      final hasMatchingVisit = rawVisits.any((v) {
+        if (!hasDateRange) return true;
+        final vKey = _getDateKey(v['visitDate']);
+        return vKey.isNotEmpty && vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
+      });
+
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty && createdDateKey.compareTo(startDateStr) >= 0 && createdDateKey.compareTo(endDateStr) <= 0);
+
+      if (_reportType == 'visits') {
+        return hasMatchingVisit;
+      } else if (_reportType == 'new_students') {
+        return isCreatedInRange;
+      } else {
+        return hasMatchingVisit || isCreatedInRange;
+      }
+    });
+
+    final hasMatchingDuties = _institutionVisits.any((iv) {
+      if (iv is! Map<String, dynamic>) return false;
+      if (!hasDateRange) return true;
+      final dKey = _getDateKey(iv['visitDate']);
+      return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
+    });
+
+    if (!hasMatchingStudents && !hasMatchingDuties) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No records or duties found in the selected date range.')),
       );
       return;
     }
-    if (_students.isNotEmpty && _selectedColumns.isEmpty) {
+    if (hasMatchingStudents && _selectedColumns.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least one column to download.')),
       );
@@ -1064,22 +1134,54 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   Future<void> _handleShareReport() async {
-    if (_students.isEmpty && _institutionVisits.isEmpty) {
+    final bool hasDateRange = !_isAllTime;
+    final String startDateStr = _formatApiDate(_startDate);
+    final String endDateStr = _formatApiDate(_endDate);
+
+    final relevantStudents = _students.where((s) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      final hasMatchingVisit = rawVisits.any((v) {
+        if (!hasDateRange) return true;
+        final vKey = _getDateKey(v['visitDate']);
+        return vKey.isNotEmpty && vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
+      });
+
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty && createdDateKey.compareTo(startDateStr) >= 0 && createdDateKey.compareTo(endDateStr) <= 0);
+
+      if (_reportType == 'visits') {
+        return hasMatchingVisit;
+      } else if (_reportType == 'new_students') {
+        return isCreatedInRange;
+      } else {
+        return hasMatchingVisit || isCreatedInRange;
+      }
+    }).toList();
+
+    final relevantInstVisits = _institutionVisits.where((iv) {
+      if (iv is! Map<String, dynamic>) return false;
+      if (!hasDateRange) return true;
+      final dKey = _getDateKey(iv['visitDate']);
+      return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
+    }).toList();
+
+    if (relevantStudents.isEmpty && relevantInstVisits.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No records or duties found to share.')),
+        const SnackBar(content: Text('No records or duties found to share in the selected date range.')),
       );
       return;
     }
 
-    final int doorstepDone = _students.where((s) => s['doorstepCompleted'] == true).length;
-    final int pending = _students.length - doorstepDone;
+    final int doorstepDone = relevantStudents.where((s) => s['doorstepCompleted'] == true).length;
+    final int pending = relevantStudents.length - doorstepDone;
 
     final collegeLine = _collegeName.isNotEmpty ? '🏫 *$_collegeName*\n' : '';
     String summary;
 
-    if (_students.isEmpty && _institutionVisits.isNotEmpty) {
-      final otherDutiesCount = _institutionVisits.where((iv) => iv['type'] == 'OTHER').length;
-      final instCount = _institutionVisits.length - otherDutiesCount;
+    if (relevantStudents.isEmpty && relevantInstVisits.isNotEmpty) {
+      final otherDutiesCount = relevantInstVisits.where((iv) => iv['type'] == 'OTHER').length;
+      final instCount = relevantInstVisits.length - otherDutiesCount;
       summary = '$collegeLine'
           '💼 *PRO DAY WORK & DUTY REPORT*\n'
           '👤 *Employee:* $_employeeName\n'
@@ -1092,7 +1194,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     } else {
       // Group breakdown for the summary
       final groupCounts = <String, int>{};
-      for (final s in _students) {
+      for (final s in relevantStudents) {
         final rawG = s['group']?.toString().trim() ?? '';
         final g = ApiService.resolveConfig(rawG);
         final groupName = g.isNotEmpty ? g : (rawG.isNotEmpty ? rawG : 'Others');
@@ -1105,7 +1207,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
           '👤 *Employee:* $_employeeName\n'
           '📅 *Date Range:* $_dateRangeDisplay\n'
           '━━━━━━━━━━━━━━━━━━━━\n'
-          '📋 *Total Leads:* ${_students.length}\n'
+          '📋 *Total Leads/Visits:* ${relevantStudents.length}\n'
           '✅ *Doorstep Done:* $doorstepDone\n'
           '⏳ *Pending Leads:* $pending\n'
           '🏷 *Category:* $_reportTypeDisplay\n'
@@ -1197,32 +1299,49 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   @override
   Widget build(BuildContext context) {
     final bool hasDateRange = !_isAllTime;
-    final DateTime startDay = DateTime(_startDate.year, _startDate.month, _startDate.day);
-    final DateTime endDay = DateTime(_endDate.year, _endDate.month, _endDate.day, 23, 59, 59, 999);
+    final String startDateStr = _formatApiDate(_startDate);
+    final String endDateStr = _formatApiDate(_endDate);
 
     int totalVisitsCount = 0;
-    int newStudentsWithoutVisitsCount = 0;
+    int newStudentsCount = 0;
     final Set<String> activeDates = {};
+
     for (final s in _students) {
       final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
-      int matchingVisitsForStudent = 0;
-      for (final v in rawVisits) {
-        final dt = DateTime.tryParse(v['visitDate']?.toString() ?? '');
-        if (dt != null) {
-          if (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
-                                dt.isBefore(endDay.add(const Duration(milliseconds: 1))))) {
-            totalVisitsCount++;
-            matchingVisitsForStudent++;
-            activeDates.add(_formatApiDate(dt));
-          }
+      final matchingVisits = rawVisits.where((v) {
+        if (!hasDateRange) return true;
+        final vKey = _getDateKey(v['visitDate']);
+        return vKey.isNotEmpty && vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
+      }).toList();
+
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final bool isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty &&
+           createdDateKey.compareTo(startDateStr) >= 0 &&
+           createdDateKey.compareTo(endDateStr) <= 0);
+
+      if (_reportType == 'visits') {
+        for (final v in matchingVisits) {
+          totalVisitsCount++;
+          final vKey = _getDateKey(v['visitDate']);
+          if (vKey.isNotEmpty) activeDates.add(vKey);
         }
-      }
-      if (matchingVisitsForStudent == 0) {
-        newStudentsWithoutVisitsCount++;
-        final dt = DateTime.tryParse(s['createdAt']?.toString() ?? '');
-        if (dt != null && (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
-                                             dt.isBefore(endDay.add(const Duration(milliseconds: 1)))))) {
-          activeDates.add(_formatApiDate(dt));
+      } else if (_reportType == 'new_students') {
+        if (isCreatedInRange) {
+          newStudentsCount++;
+          if (createdDateKey.isNotEmpty) activeDates.add(createdDateKey);
+        }
+      } else {
+        // 'all': Both new students and visits
+        for (final v in matchingVisits) {
+          totalVisitsCount++;
+          final vKey = _getDateKey(v['visitDate']);
+          if (vKey.isNotEmpty) activeDates.add(vKey);
+        }
+        final hasVisitOnCreatedDate = matchingVisits.any((v) => _getDateKey(v['visitDate']) == createdDateKey);
+        if (isCreatedInRange && !hasVisitOnCreatedDate) {
+          newStudentsCount++;
+          if (createdDateKey.isNotEmpty) activeDates.add(createdDateKey);
         }
       }
     }
@@ -1231,11 +1350,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
     int regularInstCount = 0;
     for (final iv in _institutionVisits) {
       if (iv is Map<String, dynamic>) {
-        final dt = DateTime.tryParse(iv['visitDate']?.toString() ?? '');
-        if (dt != null) {
-          if (!hasDateRange || (dt.isAfter(startDay.subtract(const Duration(milliseconds: 1))) &&
-                                dt.isBefore(endDay.add(const Duration(milliseconds: 1))))) {
-            activeDates.add(_formatApiDate(dt));
+        final dKey = _getDateKey(iv['visitDate']);
+        if (dKey.isNotEmpty) {
+          if (!hasDateRange || (dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0)) {
+            activeDates.add(dKey);
             if (iv['type'] == 'OTHER') {
               otherDutiesCount++;
             } else {
@@ -1246,8 +1364,41 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
       }
     }
 
-    final int doorstepDone = _students.where((s) => s['doorstepCompleted'] == true).length;
-    final int pendingCount = _students.length - doorstepDone;
+    final doorstepDone = _students.where((s) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      final hasMatchingVisit = rawVisits.any((v) {
+        if (!hasDateRange) return true;
+        final vKey = _getDateKey(v['visitDate']);
+        return vKey.isNotEmpty && vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
+      });
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty && createdDateKey.compareTo(startDateStr) >= 0 && createdDateKey.compareTo(endDateStr) <= 0);
+
+      final matches = _reportType == 'visits'
+          ? hasMatchingVisit
+          : (_reportType == 'new_students' ? isCreatedInRange : (hasMatchingVisit || isCreatedInRange));
+
+      return matches && s['doorstepCompleted'] == true;
+    }).length;
+
+    final relevantStudentsTotal = _students.where((s) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      final hasMatchingVisit = rawVisits.any((v) {
+        if (!hasDateRange) return true;
+        final vKey = _getDateKey(v['visitDate']);
+        return vKey.isNotEmpty && vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
+      });
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty && createdDateKey.compareTo(startDateStr) >= 0 && createdDateKey.compareTo(endDateStr) <= 0);
+
+      return _reportType == 'visits'
+          ? hasMatchingVisit
+          : (_reportType == 'new_students' ? isCreatedInRange : (hasMatchingVisit || isCreatedInRange));
+    }).length;
+
+    final int pendingCount = relevantStudentsTotal - doorstepDone;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -1290,7 +1441,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             const SizedBox(height: 16),
 
             // CARD 3: Report Summary & Actions
-            _buildSummaryAndActionsCard(totalVisitsCount, newStudentsWithoutVisitsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount),
+            _buildSummaryAndActionsCard(totalVisitsCount, newStudentsCount, activeDates.length, doorstepDone, pendingCount, otherDutiesCount, regularInstCount),
             const SizedBox(height: 20),
 
             // CARD 4: Records Preview
@@ -1728,25 +1879,25 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
   }
 
   // ==================== CARD 3: SUMMARY & ACTIONS ====================
-  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int newStudentsWithoutVisitsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount) {
-    final hasRecords = _students.isNotEmpty || _institutionVisits.isNotEmpty;
+  Widget _buildSummaryAndActionsCard(int totalVisitsCount, int newStudentsCount, int activeDatesCount, int doorstepDone, int pendingCount, int otherDutiesCount, int regularInstCount) {
+    final totalEntries = totalVisitsCount + newStudentsCount + otherDutiesCount + regularInstCount;
+    final hasRecords = totalEntries > 0;
     String subtitle;
     if (_reportType == 'visits') {
-      if (_students.isEmpty && otherDutiesCount > 0) {
+      if (totalVisitsCount == 0 && otherDutiesCount > 0) {
         subtitle = 'Found $otherDutiesCount Official Duties on $activeDatesCount Active ${activeDatesCount == 1 ? "Date" : "Dates"}';
       } else if (otherDutiesCount > 0 || regularInstCount > 0) {
-        subtitle = 'Found $totalVisitsCount Visits & ${otherDutiesCount + regularInstCount} Duties/Institutions across ${_students.length} Students on $activeDatesCount Dates';
+        subtitle = 'Found $totalVisitsCount Visits & ${otherDutiesCount + regularInstCount} Duties/Institutions on $activeDatesCount Dates';
       } else {
-        subtitle = 'Found $totalVisitsCount Visits across ${_students.length} Students on $activeDatesCount Dates';
+        subtitle = 'Found $totalVisitsCount Visits on $activeDatesCount ${activeDatesCount == 1 ? "Date" : "Dates"}';
       }
     } else if (_reportType == 'new_students') {
-      subtitle = 'Found ${_students.length} New Admission Students';
+      subtitle = 'Found $newStudentsCount New Admission Students on $activeDatesCount ${activeDatesCount == 1 ? "Date" : "Dates"}';
     } else {
-      final totalEntries = totalVisitsCount + newStudentsWithoutVisitsCount + otherDutiesCount + regularInstCount;
       if (otherDutiesCount > 0 || regularInstCount > 0) {
-        subtitle = 'Found $totalEntries Entries across ${_students.length} Students & ${otherDutiesCount + regularInstCount} Duties/Institutions';
+        subtitle = 'Found $totalEntries Entries ($totalVisitsCount Visits + $newStudentsCount New) & ${otherDutiesCount + regularInstCount} Duties/Institutions';
       } else {
-        subtitle = 'Found $totalEntries Entries across ${_students.length} Students';
+        subtitle = 'Found $totalEntries Entries ($totalVisitsCount Visits + $newStudentsCount New Leads) on $activeDatesCount ${activeDatesCount == 1 ? "Date" : "Dates"}';
       }
     }
 
@@ -1778,7 +1929,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (_reportType == 'visits') ...[
-                if (_students.isEmpty && otherDutiesCount > 0) ...[
+                if (totalVisitsCount == 0 && otherDutiesCount > 0) ...[
                   _buildHeaderMetric('Total Visits', totalVisitsCount.toString(), const Color(0xFF38BDF8)),
                   const SizedBox(width: 16),
                   _buildHeaderMetric('Official Duties', otherDutiesCount.toString(), const Color(0xFFA855F7)),
@@ -1789,26 +1940,24 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 ] else ...[
                   _buildHeaderMetric('Total Visits', (totalVisitsCount + otherDutiesCount + regularInstCount).toString(), const Color(0xFF38BDF8)),
                   const SizedBox(width: 16),
-                  _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
-                  const SizedBox(width: 16),
                   _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
                   const SizedBox(width: 16),
                   _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
                 ],
               ] else if (_reportType == 'new_students') ...[
-                _buildHeaderMetric('New Students', _students.length.toString(), const Color(0xFF38BDF8)),
+                _buildHeaderMetric('New Students', newStudentsCount.toString(), const Color(0xFF38BDF8)),
+                const SizedBox(width: 24),
+                _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
                 const SizedBox(width: 24),
                 _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
-                const SizedBox(width: 24),
-                _buildHeaderMetric('Pending', pendingCount.toString(), const Color(0xFFF87171)),
               ] else ...[
-                _buildHeaderMetric('Total Entries', (totalVisitsCount + newStudentsWithoutVisitsCount + otherDutiesCount + regularInstCount).toString(), const Color(0xFF38BDF8)),
+                _buildHeaderMetric('Total Entries', totalEntries.toString(), const Color(0xFF38BDF8)),
                 const SizedBox(width: 16),
-                _buildHeaderMetric('Students', _students.length.toString(), const Color(0xFFA78BFA)),
+                _buildHeaderMetric('Visits', totalVisitsCount.toString(), const Color(0xFFA78BFA)),
+                const SizedBox(width: 16),
+                _buildHeaderMetric('New Leads', newStudentsCount.toString(), const Color(0xFF34D399)),
                 const SizedBox(width: 16),
                 _buildHeaderMetric('Active Dates', activeDatesCount.toString(), const Color(0xFFFBBF24)),
-                const SizedBox(width: 16),
-                _buildHeaderMetric('Doorstep Done', doorstepDone.toString(), const Color(0xFF34D399)),
               ],
             ],
           ),
@@ -1856,14 +2005,46 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
 
   // ==================== CARD 4: RECORDS PREVIEW ====================
   Widget _buildRecordsPreview(int totalVisitsCount) {
-    String previewTitle = 'Report Records Preview (${_students.length + _institutionVisits.length})';
-    if (_reportType == 'visits') {
-      if (_students.isEmpty && _institutionVisits.isNotEmpty) {
-        previewTitle = 'Report Records Preview (${_institutionVisits.length} Duty/Institution Logs)';
-      } else if (_institutionVisits.isNotEmpty) {
-        previewTitle = 'Report Records Preview ($totalVisitsCount Visits & ${_institutionVisits.length} Duties/Institutions)';
+    final bool hasDateRange = !_isAllTime;
+    final String startDateStr = _formatApiDate(_startDate);
+    final String endDateStr = _formatApiDate(_endDate);
+
+    final filteredStudents = _students.where((s) {
+      final rawVisits = (s['visits'] as List<dynamic>?) ?? [];
+      final hasMatchingVisit = rawVisits.any((v) {
+        if (!hasDateRange) return true;
+        final vKey = _getDateKey(v['visitDate']);
+        return vKey.isNotEmpty && vKey.compareTo(startDateStr) >= 0 && vKey.compareTo(endDateStr) <= 0;
+      });
+
+      final createdDateKey = _getDateKey(s['createdAt']);
+      final isCreatedInRange = !hasDateRange ||
+          (createdDateKey.isNotEmpty && createdDateKey.compareTo(startDateStr) >= 0 && createdDateKey.compareTo(endDateStr) <= 0);
+
+      if (_reportType == 'visits') {
+        return hasMatchingVisit;
+      } else if (_reportType == 'new_students') {
+        return isCreatedInRange;
       } else {
-        previewTitle = 'Report Records Preview ($totalVisitsCount Visits across ${_students.length} Students)';
+        return hasMatchingVisit || isCreatedInRange;
+      }
+    }).toList();
+
+    final filteredInstVisits = _institutionVisits.where((iv) {
+      if (iv is! Map<String, dynamic>) return false;
+      if (!hasDateRange) return true;
+      final dKey = _getDateKey(iv['visitDate']);
+      return dKey.isNotEmpty && dKey.compareTo(startDateStr) >= 0 && dKey.compareTo(endDateStr) <= 0;
+    }).toList();
+
+    String previewTitle = 'Report Records Preview (${filteredStudents.length + filteredInstVisits.length})';
+    if (_reportType == 'visits') {
+      if (filteredStudents.isEmpty && filteredInstVisits.isNotEmpty) {
+        previewTitle = 'Report Records Preview (${filteredInstVisits.length} Duty/Institution Logs)';
+      } else if (filteredInstVisits.isNotEmpty) {
+        previewTitle = 'Report Records Preview ($totalVisitsCount Visits & ${filteredInstVisits.length} Duties/Institutions)';
+      } else {
+        previewTitle = 'Report Records Preview ($totalVisitsCount Visits across ${filteredStudents.length} Students)';
       }
     }
 
@@ -1890,7 +2071,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         const SizedBox(height: 10),
 
         // 1. Institution Visits & Duties Preview Section
-        if (_institutionVisits.isNotEmpty) ...[
+        if (filteredInstVisits.isNotEmpty) ...[
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             margin: const EdgeInsets.only(bottom: 8),
@@ -1904,7 +2085,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
                 const Icon(Icons.assignment_rounded, size: 18, color: Color(0xFF9333EA)),
                 const SizedBox(width: 8),
                 Text(
-                  'Official Duties & Institution Visits (${_institutionVisits.length})',
+                  'Official Duties & Institution Visits (${filteredInstVisits.length})',
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: const Color(0xFF7E22CE)),
                 ),
               ],
@@ -1920,10 +2101,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _institutionVisits.length,
+              itemCount: filteredInstVisits.length,
               separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF3E8FF)),
               itemBuilder: (context, idx) {
-                final iv = _institutionVisits[idx];
+                final iv = filteredInstVisits[idx];
                 final type = iv['type']?.toString() ?? 'OTHER';
                 final isOther = type == 'OTHER';
                 final isSchool = type == 'SCHOOL';
@@ -2030,7 +2211,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
         ],
 
         // 2. Students Doorstep List Section
-        if (_students.isEmpty && _institutionVisits.isEmpty)
+        if (filteredStudents.isEmpty && filteredInstVisits.isEmpty)
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
@@ -2059,7 +2240,7 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
               ),
             ),
           )
-        else if (_students.isNotEmpty)
+        else if (filteredStudents.isNotEmpty)
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -2069,10 +2250,10 @@ class _PdfReportScreenState extends State<PdfReportScreen> {
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _students.length,
+              itemCount: filteredStudents.length,
               separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
               itemBuilder: (context, idx) {
-                final s = _students[idx];
+                final s = filteredStudents[idx];
                 final grp = (s['group'] ?? '').toString().trim();
                 final isDone = s['doorstepCompleted'] == true;
 

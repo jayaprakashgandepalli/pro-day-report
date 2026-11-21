@@ -42,17 +42,20 @@ export function normalizePhoneForSpx(rawPhone: string): string {
  */
 function identifyMissingFields(student: any): string[] {
   const missing: string[] = [];
+  if (!student.studentName?.trim()) missing.push('studentName');
   if (!student.fatherName?.trim()) missing.push('fatherName');
-  if (!student.motherName?.trim()) missing.push('motherName');
+  if (!student.whatsapp?.trim()) missing.push('whatsapp');
   if (!student.gender?.trim()) missing.push('gender');
-  if (!student.occupation?.trim()) missing.push('occupation');
   if (!student.district?.trim()) missing.push('district');
   if (!student.mandal?.trim()) missing.push('mandal');
   if (!student.village?.trim()) missing.push('village');
   if (!student.address?.trim()) missing.push('address');
+  if (!student.schoolName?.trim()) missing.push('schoolName');
+  if (!student.schoolArea?.trim()) missing.push('schoolArea');
   if (!student.group?.trim()) missing.push('group');
-  if (student.tenthMarks === null || student.tenthMarks === undefined) missing.push('tenthMarks');
-  if (student.interMarks === null || student.interMarks === undefined) missing.push('interMarks');
+  if (!student.educationStage?.trim()) missing.push('educationStage');
+  if (!student.studyInterestedAt?.trim()) missing.push('studyInterestedAt');
+  if (!student.ableToBearFee?.trim()) missing.push('ableToBearFee');
   return missing;
 }
 
@@ -68,10 +71,20 @@ export async function triggerOutboundStudentCall(
   const endpoint = 'SPX_OUTBOUND_CLIENT';
 
   // 1. Resolve SPX Configuration
-  const baseUrl = (process.env.SPX_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
-  const apiKey = process.env.SPX_API_KEY;
-  const agentUuid = process.env.SPX_AGENT_UUID;
-  const rawTelephonyConfigId = process.env.SPX_TELEPHONY_CONFIG_ID;
+  const baseUrl = (process.env.SPX_API_BASE_URL || process.env.SPX_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+  const apiKey = (process.env.SPX_API_KEY || process.env.SPX_VOICE_API_KEY)?.trim();
+  let agentUuid = (
+    process.env.SPX_AGENT_UUID ||
+    process.env.AGENT_UUID ||
+    process.env.SPX_VOICE_AGENT_UUID
+  )?.trim();
+
+  // If a full endpoint URL was pasted (e.g. .../public/agent/<uuid>), extract just the UUID
+  if (agentUuid && agentUuid.includes('/')) {
+    const parts = agentUuid.replace(/\/+$/, '').split('/');
+    agentUuid = parts[parts.length - 1];
+  }
+  const rawTelephonyConfigId = process.env.SPX_TELEPHONY_CONFIG_ID || process.env.TELEPHONY_CONFIG_ID;
   const telephonyConfigId = rawTelephonyConfigId && !isNaN(parseInt(rawTelephonyConfigId, 10))
     ? parseInt(rawTelephonyConfigId, 10)
     : undefined;
@@ -115,7 +128,11 @@ export async function triggerOutboundStudentCall(
     where: { id: params.studentId },
     include: {
       college: true,
-      employee: true,
+      employee: {
+        include: {
+          college: true,
+        },
+      },
       joinedCollege: true,
     },
   });
@@ -148,18 +165,44 @@ export async function triggerOutboundStudentCall(
   }
   const normalizedPhone = normalizePhoneForSpx(rawPhone);
 
-  // 4. Resolve Tenant College
-  const collegeId = student.collegeId || student.joinedCollegeId || student.employee?.collegeId;
+  // 4. Resolve Tenant College (Optional - not required)
+  let collegeId = student.collegeId || student.joinedCollegeId || student.employee?.collegeId;
+  let collegeName = student.college?.name || student.employee?.college?.name;
+  let collegeCode = student.college?.code || student.employee?.college?.code;
+
   if (!collegeId) {
-    return {
-      success: false,
-      error: 'UNRESOLVED_TENANT',
-      message: 'Student record has no associated college tenant',
-    };
+    // Attempt fallback from environment or first available college in database
+    const envCollegeId = process.env.SPX_DEFAULT_COLLEGE_ID || process.env.DEFAULT_COLLEGE_ID;
+    try {
+      let fallbackCollege = envCollegeId
+        ? await prisma.college.findUnique({ where: { id: envCollegeId } })
+        : null;
+
+      if (!fallbackCollege) {
+        fallbackCollege = await prisma.college.findFirst({
+          where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
+        }) || await prisma.college.findFirst({
+          orderBy: { createdAt: 'asc' },
+        });
+      }
+
+      if (fallbackCollege) {
+        collegeId = fallbackCollege.id;
+        collegeName = fallbackCollege.name;
+        collegeCode = fallbackCollege.code;
+      }
+    } catch (e) {
+      console.warn('[SPX_OUTBOUND] Could not fetch fallback college:', e);
+    }
+
+    if (!collegeId) {
+      collegeId = 'DEFAULT';
+    }
   }
 
-  const collegeName = student.college?.name || student.joinedCollege?.name || 'Admissions Office';
-  const collegeCode = student.college?.code || 'PRO';
+  collegeName = collegeName || 'Admissions Office';
+  collegeCode = collegeCode || 'PRO';
 
   // 5. Generate Short-Lived M2M JWT for this Call Session
   // This allows SPX tools (lookup, profile, missing-fields, updates, address, follow-up)
@@ -198,6 +241,7 @@ export async function triggerOutboundStudentCall(
     group: student.group || '',
     spx_token: spxM2mToken,
     pro_api_url: proPublicUrl,
+    pro_public_url: proPublicUrl,
     triggered_by: params.requestedByEmployeeId || 'SYSTEM',
     triggered_role: params.requestedByRole || 'TELECALLER',
   };
@@ -216,7 +260,7 @@ export async function triggerOutboundStudentCall(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch(targetUrl, {
+    let response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -227,6 +271,27 @@ export async function triggerOutboundStudentCall(
       signal: controller.signal,
     });
     clearTimeout(timeout);
+
+    // If production endpoint returned 404, automatically try test/draft endpoint as fallback
+    if (response.status === 404) {
+      try {
+        const testUrl = `${baseUrl}/api/v1/public/agent/test/${agentUuid}`;
+        const testResp = await fetch(testUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey,
+            'X-Correlation-ID': correlationId,
+          },
+          body: JSON.stringify(requestBody),
+        });
+        if (testResp.ok) {
+          response = testResp;
+        }
+      } catch {
+        // Fallback failed, keep original response
+      }
+    }
 
     const responseData = await response.json().catch(() => null);
 

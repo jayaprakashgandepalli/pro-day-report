@@ -14,6 +14,7 @@ interface FieldSpec {
 }
 
 const TRACKED_ADMISSIONS_FIELDS: FieldSpec[] = [
+  { field: 'studentName', label: 'Student Name', category: 'personal' },
   { field: 'fatherName', label: "Father's Name", category: 'personal' },
   { field: 'gender', label: 'Gender', category: 'personal' },
   { field: 'whatsapp', label: 'WhatsApp Number', category: 'personal' },
@@ -93,6 +94,7 @@ export async function GET(
     const student = await prisma.student.findUnique({
       where: { id: studentId },
       select: {
+        studentName: true,
         fatherName: true,
         gender: true,
         whatsapp: true,
