@@ -5,6 +5,7 @@
  */
 
 import net from 'net';
+import tls from 'tls';
 import {
   NativeSocketRedisClient,
   RedisUnavailableError,
@@ -30,6 +31,7 @@ function assert(condition: any, testName: string, detail?: string) {
  */
 function createMockRedisServer(options?: {
   delayCommandMs?: number;
+  expectedUsername?: string;
   expectedPassword?: string;
   chunkedResponse?: boolean;
 }) {
@@ -91,10 +93,14 @@ function createMockRedisServer(options?: {
           await new Promise((r) => setTimeout(r, options.delayCommandMs));
         }
 
-        // 2. Handle AUTH
+        // 2. Handle AUTH (supports both AUTH pass and AUTH username pass)
         if (cmd === 'AUTH') {
-          const pass = args[1];
-          if (options?.expectedPassword && pass !== options.expectedPassword) {
+          const user = args.length === 3 ? args[1] : undefined;
+          const pass = args.length === 3 ? args[2] : args[1];
+
+          if (options?.expectedUsername && user !== options.expectedUsername) {
+            socket.write('-WRONGPASS invalid username-password pair or user is disabled.\r\n');
+          } else if (options?.expectedPassword && pass !== options.expectedPassword) {
             socket.write('-ERR invalid password\r\n');
           } else {
             socket.write('+OK\r\n');
@@ -341,33 +347,59 @@ async function runReliabilityTests() {
   }
 
   // ----------------------------------------------------
-  // TEST 5: Password Authentication on Reconnect
+  // TEST 5: Upstash-style ACL & Classic Password Authentication
   // ----------------------------------------------------
-  console.log('\n--- 5. Password Authentication & Validation ---');
-  const mock5 = createMockRedisServer({ expectedPassword: 'super_secret_redis_pass' });
-  const port5 = await mock5.listen();
+  console.log('\n--- 5. Upstash ACL & Classic Authentication Validation ---');
+  const mock5Acl = createMockRedisServer({
+    expectedUsername: 'default',
+    expectedPassword: 'upstash_secret_pass',
+  });
+  const port5Acl = await mock5Acl.listen();
 
-  // 5.1 Valid password
-  const client5Valid = new NativeSocketRedisClient(
-    `redis://default:super_secret_redis_pass@127.0.0.1:${port5}`
+  // 5.1 Upstash-style ACL: rediss://default:password@host
+  const client5Acl = new NativeSocketRedisClient(
+    `redis://default:upstash_secret_pass@127.0.0.1:${port5Acl}`
   );
   try {
-    const authPing = await client5Valid.ping();
-    assert(authPing === true, 'Successfully authenticated using URL password');
+    const authPing = await client5Acl.ping();
+    assert(authPing === true, 'Successfully authenticated using Upstash-style ACL (AUTH default password)');
 
-    // Destroy socket to test AUTH on reconnect
-    mock5.destroyActiveConnections();
+    // Destroy socket to test ACL re-authentication on reconnect
+    mock5Acl.destroyActiveConnections();
     await new Promise((r) => setTimeout(r, 50));
 
-    const pingAfterReconnect = await client5Valid.ping();
-    assert(pingAfterReconnect === true, 'Successfully re-authenticated on automatic reconnection');
+    const pingAfterReconnect = await client5Acl.ping();
+    assert(pingAfterReconnect === true, 'Successfully re-authenticated with ACL on automatic reconnection');
   } finally {
-    await client5Valid.disconnect();
+    await client5Acl.disconnect();
+    await mock5Acl.close();
   }
 
-  // 5.2 Invalid password
+  // 5.2 Classic Redis Authentication: redis://:password@host (no username)
+  const mock5Classic = createMockRedisServer({
+    expectedPassword: 'classic_secret_pass',
+  });
+  const port5Classic = await mock5Classic.listen();
+
+  const client5Classic = new NativeSocketRedisClient(
+    `redis://:classic_secret_pass@127.0.0.1:${port5Classic}`
+  );
+  try {
+    const classicPing = await client5Classic.ping();
+    assert(classicPing === true, 'Successfully authenticated using classic AUTH password when username is absent');
+  } finally {
+    await client5Classic.disconnect();
+    await mock5Classic.close();
+  }
+
+  // 5.3 Invalid password rejection
+  const mock5Reject = createMockRedisServer({
+    expectedUsername: 'default',
+    expectedPassword: 'correct_pass',
+  });
+  const port5Reject = await mock5Reject.listen();
   const client5Invalid = new NativeSocketRedisClient(
-    `redis://default:wrong_pass@127.0.0.1:${port5}`
+    `redis://default:wrong_pass@127.0.0.1:${port5Reject}`
   );
   try {
     const pingFailed = (await client5Invalid.ping()) === false;
@@ -384,13 +416,60 @@ async function runReliabilityTests() {
     assert(commandThrew, 'Data commands reject with RedisUnavailableError when password is incorrect');
   } finally {
     await client5Invalid.disconnect();
-    await mock5.close();
+    await mock5Reject.close();
   }
 
   // ----------------------------------------------------
-  // TEST 6: Production Fail-Closed Behavior
+  // TEST 6: TLS SNI and Strict Certificate Verification
   // ----------------------------------------------------
-  console.log('\n--- 6. Strict Production Fail-Closed Enforcement ---');
+  console.log('\n--- 6. TLS SNI & Strict Certificate Enforcement ---');
+  let capturedTlsOptions: any = null;
+  const originalTlsConnect = tls.connect;
+  (tls as any).connect = function (...args: any[]) {
+    capturedTlsOptions = args[0];
+    return originalTlsConnect.apply(this, args as any);
+  };
+
+  const client6Tls = new NativeSocketRedisClient(
+    'rediss://my-upstash-mumbai.upstash.io:6379',
+    { connectTimeoutMs: 300, commandTimeoutMs: 300 }
+  );
+
+  try {
+    await client6Tls.ping().catch(() => {});
+    assert(capturedTlsOptions !== null, 'tls.connect was invoked for rediss:// URL');
+    assert(
+      capturedTlsOptions?.servername === 'my-upstash-mumbai.upstash.io',
+      `Explicit TLS SNI servername passed: ${capturedTlsOptions?.servername}`
+    );
+    assert(
+      capturedTlsOptions?.rejectUnauthorized === true,
+      'Strict certificate verification enforced (rejectUnauthorized: true)'
+    );
+  } finally {
+    (tls as any).connect = originalTlsConnect;
+    await client6Tls.disconnect().catch(() => {});
+  }
+
+  // 6.2 Test connecting rediss:// to plain TCP (untrusted handshake failure)
+  const mock6Plain = createMockRedisServer();
+  const port6Plain = await mock6Plain.listen();
+  const client6BadCert = new NativeSocketRedisClient(
+    `rediss://127.0.0.1:${port6Plain}`,
+    { connectTimeoutMs: 400, commandTimeoutMs: 400 }
+  );
+  try {
+    const pingFails = (await client6BadCert.ping()) === false;
+    assert(pingFails, 'TLS client rejects unencrypted or invalid TLS server handshake');
+  } finally {
+    await client6BadCert.disconnect().catch(() => {});
+    await mock6Plain.close();
+  }
+
+  // ----------------------------------------------------
+  // TEST 7: Production Fail-Closed Behavior
+  // ----------------------------------------------------
+  console.log('\n--- 7. Strict Production Fail-Closed Enforcement ---');
   setSpxRedisClientForTesting(null);
   const oldEnv = process.env.NODE_ENV;
   const oldUrl = process.env.SPX_REDIS_URL;

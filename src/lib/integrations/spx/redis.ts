@@ -125,6 +125,8 @@ interface ParseResult {
  */
 export class NativeSocketRedisClient implements SpxRedisClient {
   private url: URL;
+  private username?: string;
+  private password?: string;
   private prefix: string;
   private commandTimeoutMs: number;
   private connectTimeoutMs: number;
@@ -140,6 +142,22 @@ export class NativeSocketRedisClient implements SpxRedisClient {
   constructor(connectionUrl: string, options?: NativeRedisOptions) {
     this.url = new URL(connectionUrl);
     this.prefix = options?.prefix ?? 'spx:';
+
+    // Parse username and password independently
+    if (this.url.username) {
+      try {
+        this.username = decodeURIComponent(this.url.username);
+      } catch {
+        this.username = this.url.username;
+      }
+    }
+    if (this.url.password) {
+      try {
+        this.password = decodeURIComponent(this.url.password);
+      } catch {
+        this.password = this.url.password;
+      }
+    }
 
     const envCmdTimeout = process.env.SPX_REDIS_COMMAND_TIMEOUT_MS
       ? parseInt(process.env.SPX_REDIS_COMMAND_TIMEOUT_MS, 10)
@@ -196,7 +214,16 @@ export class NativeSocketRedisClient implements SpxRedisClient {
           };
 
           if (isTls) {
-            client = tls.connect({ host, port, rejectUnauthorized: false }, onConnect);
+            const isIp = net.isIP(host) !== 0;
+            client = tls.connect(
+              {
+                host,
+                port,
+                servername: !isIp ? host : undefined, // RFC 6066: TLS SNI for domain names (Upstash / AWS)
+                rejectUnauthorized: true, // Strict certificate verification in production
+              },
+              onConnect
+            );
           } else {
             client = net.createConnection({ host, port }, onConnect);
           }
@@ -211,8 +238,8 @@ export class NativeSocketRedisClient implements SpxRedisClient {
         });
 
         // If password is present in URL, authenticate before handling user commands
-        if (this.url.password) {
-          await this.executeAuthDirect(socket, this.url.password);
+        if (this.password) {
+          await this.executeAuthDirect(socket, this.username, this.password);
         }
 
         // Attach permanent lifecycle event listeners
@@ -233,26 +260,41 @@ export class NativeSocketRedisClient implements SpxRedisClient {
 
   /**
    * Directly authenticates a new socket before exposing it to the command pipeline.
+   * Supports:
+   * - Redis ACL authentication: AUTH <username> <password> (when username is present)
+   * - Classic Redis authentication: AUTH <password> (when no username is supplied)
    */
-  private async executeAuthDirect(socket: net.Socket | tls.TLSSocket, password: string): Promise<void> {
-    const authCmd = this.encodeCommand(['AUTH', password]);
+  private async executeAuthDirect(
+    socket: net.Socket | tls.TLSSocket,
+    username: string | undefined,
+    password: string
+  ): Promise<void> {
+    const authArgs = username ? ['AUTH', username, password] : ['AUTH', password];
+    const authCmd = this.encodeCommand(authArgs);
 
     return new Promise((resolve, reject) => {
       let settled = false;
       const timeout = setTimeout(() => {
         if (!settled) {
           settled = true;
+          cleanup();
           socket.destroy();
           reject(new RedisUnavailableError('Redis AUTH command timed out'));
         }
       }, this.commandTimeoutMs);
 
+      const cleanup = () => {
+        clearTimeout(timeout);
+        socket.removeListener('data', onAuthData);
+        socket.removeListener('error', onAuthErr);
+        socket.removeListener('close', onAuthClose);
+        socket.removeListener('end', onAuthClose);
+      };
+
       const onAuthData = (data: Buffer) => {
         if (!settled) {
           settled = true;
-          clearTimeout(timeout);
-          socket.removeListener('data', onAuthData);
-          socket.removeListener('error', onAuthErr);
+          cleanup();
 
           const str = data.toString('utf-8');
           if (str.startsWith('+OK') || str.startsWith('+')) {
@@ -267,16 +309,24 @@ export class NativeSocketRedisClient implements SpxRedisClient {
       const onAuthErr = (err: Error) => {
         if (!settled) {
           settled = true;
-          clearTimeout(timeout);
-          socket.removeListener('data', onAuthData);
-          socket.removeListener('error', onAuthErr);
+          cleanup();
           socket.destroy();
           reject(new RedisUnavailableError(`Redis AUTH error: ${err.message}`));
         }
       };
 
+      const onAuthClose = () => {
+        if (!settled) {
+          settled = true;
+          cleanup();
+          reject(new RedisUnavailableError('Redis connection closed during authentication'));
+        }
+      };
+
       socket.once('data', onAuthData);
       socket.once('error', onAuthErr);
+      socket.once('close', onAuthClose);
+      socket.once('end', onAuthClose);
       socket.write(authCmd);
     });
   }

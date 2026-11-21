@@ -51,3 +51,6 @@ scratch/
 **/mobile_app/.flutter-plugins-dependencies
 **/mobile_app/.pub-cache/
 **/mobile_app/.pub/
+
+.vercel
+.env*
